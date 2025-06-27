@@ -90,4 +90,7 @@ interface ISwap {
     /// @param _swapFeeBps Swap fee in basis points.
     /// @param dstChainId The related chain id. To incentivise solvers on a specific chain.
     function setSwapFeeBps(uint256 _swapFeeBps, uint32 dstChainId) external;
+
+    /// @notice Returns the current chain ID.
+    function getChainID() external view returns (uint256);
 }
