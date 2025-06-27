@@ -3,7 +3,7 @@ pragma solidity ^0.8;
 
 /// @notice Struct used to map tokens across chains for multi-chain swap support
 /// e.g., tokenIn = USDC (Ethereum) ⟶ tokenOut = DAI (Arbitrum).
-struct SupportedSwaps {
+struct SupportedSwap {
     uint32 srdChainId;
     address tokenIn;
     uint32 dstChainId;
@@ -58,4 +58,36 @@ interface ISwap {
 
     /// @notice View receipt for a completed transfer
     function getReceipt(bytes32 intentId) external view returns (TransferReceipt memory);
+
+    /// @notice Returns a list of all fulfilled requests ids on the dst chain.
+    /// Request id is a hash of the bridge request message.
+    function getAllFulfilledRequestIds() external view returns (bytes32[] memory);
+
+    /// @notice Returns a list of all unfulfilled requests ids on the src chain.
+    /// Request id is a hash of the bridge request message.
+    function getAllUnfulfilledRequestIds() external view returns (bytes32[] memory);
+
+    /// @notice Rescue ERC20 tokens not tracked in internal mappings.
+    /// @param token Address of ERC20 token to rescue.
+    /// @param to Recipient address.
+    /// @param amount Amount to rescue.
+    function rescueERC20(address token, address to, uint256 amount) external;
+
+    /// @notice Sets the BLS signature validator contract.
+    /// @param _blsValidator Address of new BLS validator.
+    function setBlsValidator(address _blsValidator) external;
+
+    /// @notice Sets token mapping between chain pairs.
+    /// @param supportedSwap Struct composed of the srcChainId, tokenIn, dstChainId, tokenOut.
+    function setTokenMapping(SupportedSwap memory supportedSwap) external;
+
+    /// @notice Sets Solver fee in basis points.
+    /// @param _solverFeeBps Solver fee in basis points.
+    /// @param dstChainId The related chain id. To incentivise solvers on a specific chain.
+    function setSolverFeeBps(uint256 _solverFeeBps, uint32 dstChainId) external;
+
+    /// @notice Sets swap fee in basis points for a specific destination chain id.
+    /// @param _swapFeeBps Swap fee in basis points.
+    /// @param dstChainId The related chain id. To incentivise solvers on a specific chain.
+    function setSwapFeeBps(uint256 _swapFeeBps, uint32 dstChainId) external;
 }
