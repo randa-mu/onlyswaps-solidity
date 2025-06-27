@@ -15,22 +15,17 @@ contract ERC20FaucetToken is ERC20, ERC20Permit, ERC20Votes {
 
     mapping(address => uint256) public lastMint;
 
-    constructor(
-        string memory name,
-        string memory symbol,
-        uint8 decimals_,
-        uint256 faucetAmount_
-    ) ERC20(name, symbol) ERC20Permit(name) {
+    constructor(string memory name, string memory symbol, uint8 decimals_, uint256 faucetAmount_)
+        ERC20(name, symbol)
+        ERC20Permit(name)
+    {
         _decimals = decimals_;
         faucetAmount = faucetAmount_;
     }
 
     /// @notice Allows users to mint tokens once every 24 hours.
     function mint() external {
-        require(
-            block.timestamp >= lastMint[msg.sender] + FAUCET_INTERVAL,
-            "Faucet: Wait 24h between mints"
-        );
+        require(block.timestamp >= lastMint[msg.sender] + FAUCET_INTERVAL, "Faucet: Wait 24h between mints");
 
         lastMint[msg.sender] = block.timestamp;
         _mint(msg.sender, faucetAmount);
@@ -45,20 +40,11 @@ contract ERC20FaucetToken is ERC20, ERC20Permit, ERC20Votes {
     }
 
     // The functions below are overrides required by Solidity.
-    function _update(address from, address to, uint256 amount)
-        internal
-        override(ERC20, ERC20Votes)
-    {
+    function _update(address from, address to, uint256 amount) internal override (ERC20, ERC20Votes) {
         super._update(from, to, amount);
     }
 
-    function nonces(address owner)
-        public
-        view
-        virtual
-        override(ERC20Permit, Nonces)
-        returns (uint256)
-    {
+    function nonces(address owner) public view virtual override (ERC20Permit, Nonces) returns (uint256) {
         return super.nonces(owner);
     }
 }
