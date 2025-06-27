@@ -3,7 +3,6 @@ pragma solidity ^0.8;
 
 /// @notice Parameters used to estimate fees required to send tokens to a destination chain.
 struct FeeParams {
-    address sender;
     uint32 dstChainId;
     uint64 amountIn;
 }
