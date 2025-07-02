@@ -10,26 +10,14 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {BLS} from "./libraries/BLS.sol";
 import {ISignatureScheme} from "./interfaces/ISignatureScheme.sol";
 
+import {IRouter} from "./interfaces/IRouter.sol";
+
 /// @title Cross-Chain Token Router
 /// @notice Handles token bridging logic, fee distribution, and transfer request verification using BLS signatures
 /// @dev Integrates with off-chain solvers and a destination Bridge contract
-contract Router is Ownable {
+contract Router is Ownable, IRouter {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
-
-    /// @notice Transfer parameters for each bridge request
-    struct TransferParams {
-        address sender;
-        address recipient;
-        address token;
-        uint256 amount; // user receives amount minus bridgeFee
-        uint256 srcChainId;
-        uint256 dstChainId;
-        uint256 bridgeFee; // deducted from amount
-        uint256 solverFee; // deducted from bridge fee
-        uint256 nonce;
-        bool executed;
-    }
 
     /// @notice Basis points divisor
     uint256 public constant BPS_DIVISOR = 10_000;
@@ -69,19 +57,6 @@ contract Router is Ownable {
 
     /// @notice Accumulated fees per token
     mapping(address => uint256) public totalBridgeFeesBalance;
-
-    /// @notice Emitted when a new message (request) is created
-    /// @param requestId Hash of transfer parameters
-    /// @param message Encoded payload for off-chain solver
-    event MessageEmitted(bytes32 indexed requestId, bytes message);
-
-    /// @notice Emitted when a message is successfully fulfilled by a solver
-    /// @param requestId Hash of the transfer parameters
-    /// @param message Encoded fulfilled payload
-    event MessageExecuted(bytes32 requestId, bytes message);
-
-    /// @notice Emitted when tokens are recovered from contract
-    event ERC20Rescued(address indexed token, address indexed to, uint256 amount);
 
     /// @param _owner Initial contract owner
     /// @param _blsValidator BLS validator address
@@ -253,6 +228,77 @@ contract Router is Ownable {
     /// @notice Returns list of all unfulfilled request IDs
     function getAllUnfulfilledRequestIds() external view returns (bytes32[] memory) {
         return unfulfilledRequestIds.values();
+    }
+
+    function getBridgeFeeBps() external view returns (uint256) {
+        return bridgeFeeBps;
+    }
+
+    function getSolverFeeBps() external view returns (uint256) {
+        return solverFeeBps;
+    }
+
+    function getThisChainId() external view returns (uint256) {
+        return thisChainId;
+    }
+
+    function getBlsValidator() external view returns (address) {
+        return address(blsValidator);
+    }
+
+    function getTransferParameters(bytes32 requestId)
+        external
+        view
+        returns (
+            address sender,
+            address recipient,
+            address token,
+            uint256 amount,
+            uint256 srcChainId,
+            uint256 dstChainId,
+            uint256 bridgeFee,
+            uint256 solverFee,
+            uint256 nonce,
+            bool executed
+        )
+    {
+        TransferParams memory params = transferParameters[requestId];
+        return (
+            params.sender,
+            params.recipient,
+            params.token,
+            params.amount,
+            params.srcChainId,
+            params.dstChainId,
+            params.bridgeFee,
+            params.solverFee,
+            params.nonce,
+            params.executed
+        );
+    }
+
+    function getAllowedDstChainId(uint256 chainId) external view returns (bool) {
+        return allowedDstChainIds[chainId];
+    }
+
+    function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address) {
+        return tokenMappings[srcToken][dstChainId];
+    }
+
+    function getTotalBridgeFeesBalance(address token) external view returns (uint256) {
+        return totalBridgeFeesBalance[token];
+    }
+
+    function getExecutedMessageStatus(bytes calldata message) external view returns (bool) {
+        return executedMessages[message];
+    }
+
+    function getUnfulfilledRequestIds() external view returns (bytes32[] memory) {
+        return unfulfilledRequestIds.values();
+    }
+
+    function getFulfilledRequestIds() external view returns (bytes32[] memory) {
+        return fulfilledRequestIds.values();
     }
 
     // ---------------------- Admin Functions ----------------------

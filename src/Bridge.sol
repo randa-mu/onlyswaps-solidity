@@ -5,37 +5,13 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Bridge is Ownable {
-    using SafeERC20 for IERC20;
+import {IBridge} from "./interfaces/IBridge.sol";
 
-    /// @notice Structure to store details of a fulfilled transfer request
-    struct TransferReceipt {
-        bytes32 requestId; // Reference to the original request on the source chain
-        uint256 srcChainId; // Source chain ID from which the request originated
-        bool fulfilled; // Whether the transfer has been delivered
-        address solver; // Address that fulfilled the request
-        uint256 amountOut; // Amount delivered to the recipient (after fees)
-        uint256 fulfilledAt; // Timestamp when the request was fulfilled
-    }
+contract Bridge is Ownable, IBridge {
+    using SafeERC20 for IERC20;
 
     /// @dev Mapping of requestId to transfer receipt
     mapping(bytes32 => TransferReceipt) public receipts;
-
-    /// @notice Emitted when a bridge receipt is recorded
-    /// @param requestId The unique ID of the bridge transfer request
-    /// @param srcChainId The source chain ID
-    /// @param fulfilled Whether the request was fulfilled
-    /// @param solver The address that fulfilled the transfer
-    /// @param amountOut The amount transferred to the recipient
-    /// @param fulfilledAt The timestamp of fulfillment
-    event BridgeReceipt(
-        bytes32 indexed requestId,
-        uint256 indexed srcChainId,
-        bool fulfilled,
-        address indexed solver,
-        uint256 amountOut,
-        uint256 fulfilledAt
-    );
 
     constructor(address owner) Ownable(owner) {}
 
