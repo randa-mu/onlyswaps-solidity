@@ -34,6 +34,9 @@ describe("Bridge", function () {
     const requestId = keccak256(toUtf8Bytes("test"));
     const srcChainId = 1;
 
+    // Check recipient balance before transfer
+    expect(await token.balanceOf(recipientAddr)).to.equal(0);
+
     // Mint tokens for user
     await token.mint(userAddr, amount);
 
@@ -45,7 +48,7 @@ describe("Bridge", function () {
       bridge.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId),
     ).to.emit(bridge, "BridgeReceipt");
 
-    // Check recipient balance
+    // Check recipient balance after transfer
     expect(await token.balanceOf(recipientAddr)).to.equal(amount);
 
     // Check receipt
