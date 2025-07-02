@@ -113,7 +113,7 @@ contract Router is Ownable, IRouter {
         params.solverFee = newSolverFee;
 
         // Emit event if needed for tracking fee updates (optional)
-        emit FeesUpdated(requestId, params.token, newBridgeFeeAmount, newSolverFee);
+        emit BridgeRequestFeeUpdated(requestId, params.token, newBridgeFeeAmount, newSolverFee);
     }
 
     /// @notice Called by owner to approve a solver’s fulfillment of a bridge request
@@ -298,12 +298,14 @@ contract Router is Ownable, IRouter {
     function setBridgeFeeBps(uint256 _bridgeFeeBps) external onlyOwner {
         require(_bridgeFeeBps <= MAX_FEE_BPS, "Too high");
         bridgeFeeBps = _bridgeFeeBps;
+        emit BridgeFeeBpsUpdated(bridgeFeeBps);
     }
 
     /// @notice Updates the BLS signature validator
     /// @param _blsValidator New validator address
     function setBlsValidator(address _blsValidator) external onlyOwner {
         blsValidator = ISignatureScheme(_blsValidator);
+        emit BLSValidatorUpdated(address(blsValidator));
     }
 
     /// @notice Allows or disallows a destination chain ID

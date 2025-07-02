@@ -33,7 +33,13 @@ interface IRouter {
     event ERC20Rescued(address indexed token, address indexed to, uint256 amount);
 
     /// @notice Emitted when the fee is updated for a request by the sender
-    event FeesUpdated(bytes32 indexed requestId, address token, uint256 newBridgeFee, uint256 newSolverFee);
+    event BridgeRequestFeeUpdated(bytes32 indexed requestId, address token, uint256 newBridgeFee, uint256 newSolverFee);
+
+    /// @notice Emitted when the bridge fee Bps is updated
+    event BridgeFeeBpsUpdated(uint256 newFeeBps);
+
+    /// @notice Emitted when the bls validator contract is updated 
+    event BLSValidatorUpdated(address indexed blsValidator);
 
     // -------- Core Transfer Logic --------
 
