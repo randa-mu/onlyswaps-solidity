@@ -50,6 +50,7 @@ contract Bridge is Ownable, IBridge {
     }
 
     /// @notice Allows owner to recover tokens mistakenly sent to the contract
+    /// @dev The contract should not hold any tokens as it's only used to relay tokens to the recipient address.
     /// @param token The ERC20 token to rescue
     /// @param to The address to send rescued tokens to
     /// @param amount The amount of tokens to rescue
