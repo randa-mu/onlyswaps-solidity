@@ -1,7 +1,6 @@
 import { Bridge, Bridge__factory, ERC20Token, ERC20Token__factory } from "../../typechain-types";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import dotenv from "dotenv";
 import { parseEther, keccak256, toUtf8Bytes } from "ethers";
 import { ethers } from "hardhat";
 

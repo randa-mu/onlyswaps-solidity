@@ -98,6 +98,9 @@ contract Router is Ownable, IRouter {
         TransferParams storage params = transferParameters[requestId];
         require(!params.executed, "Request already fulfilled");
         require(params.sender == msg.sender, "Unauthorised caller");
+        require(newFee > params.bridgeFee + params.solverFee, "New fee is less than current fee");
+
+        IERC20(params.token).safeTransferFrom(msg.sender, address(this), newFee - (params.bridgeFee + params.solverFee));
 
         // Calculate new bridge fee and solver fee from newFee
         uint256 newBridgeFeeAmount = getBridgeFeeAmount(newFee);

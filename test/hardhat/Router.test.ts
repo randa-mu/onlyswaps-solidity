@@ -12,7 +12,7 @@ import { keccak_256 } from "@noble/hashes/sha3";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import dotenv from "dotenv";
-import { AbiCoder, MaxUint256, getBytes, hexlify, keccak256, parseEther, sha256, toUtf8Bytes } from "ethers";
+import { AbiCoder, MaxUint256, getBytes, hexlify, keccak256, parseEther, sha256, toUtf8Bytes, TransactionReceipt, Interface, EventFragment, Result } from "ethers";
 import { ethers } from "hardhat";
 import crypto from "node:crypto";
 
@@ -73,7 +73,7 @@ describe("Router", function () {
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
 
-  it.only("should initiate a bridge request and emit message", async () => {
+  it("should initiate a bridge request and emit message", async () => {
     const amount = parseEther("10");
     const fee = parseEther("1");
     const nonce = 1;
@@ -85,4 +85,71 @@ describe("Router", function () {
     await expect(router.connect(user).bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr, nonce))
       .to.emit(router, "MessageEmitted");
   });
+
+  it("should update bridge fees for unfulfilled request", async () => {
+    const amount = parseEther("5");
+    const fee = parseEther("1");
+    const nonce = 2;
+    const amountToMint = amount + fee;
+
+    await srcToken.mint(userAddr, amountToMint);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+    const tx = await router
+      .connect(user)
+      .bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address, nonce);
+
+    let receipt = await tx.wait(1);
+    if (!receipt) {
+      throw new Error("transaction has not been mined");
+    }
+
+    const routerInterface = Router__factory.createInterface();
+    const [requestId, message] = extractSingleLog(
+      routerInterface,
+      receipt,
+      await router.getAddress(),
+      routerInterface.getEvent("MessageEmitted"),
+    );
+
+    const newFee = parseEther("1.5");
+    await srcToken.mint(user.address, newFee - fee);
+    await srcToken.connect(user).approve(await router.getAddress(), newFee - fee);
+
+    expect(await srcToken.balanceOf(userAddr)).to.equal(newFee - fee);
+
+    await expect(
+      router.connect(user).updateFeesIfUnfulfilled(requestId, newFee)
+    ).to.emit(router, "BridgeRequestFeeUpdated");
+
+    expect(await srcToken.balanceOf(userAddr)).to.equal(0);
+
+    const transferParams = await router.getTransferParameters(requestId);
+    expect(transferParams.bridgeFee + transferParams.solverFee).to.equal(newFee);
+  });
 });
+
+// returns the first instance of an event log from a transaction receipt that matches the address provided
+function extractSingleLog<T extends Interface, E extends EventFragment>(
+  iface: T,
+  receipt: TransactionReceipt,
+  contractAddress: string,
+  event: E,
+): Result {
+  const events = extractLogs(iface, receipt, contractAddress, event);
+  if (events.length === 0) {
+    throw Error(`contract at ${contractAddress} didn't emit the ${event.name} event`);
+  }
+  return events[0];
+}
+
+function extractLogs<T extends Interface, E extends EventFragment>(
+  iface: T,
+  receipt: TransactionReceipt,
+  contractAddress: string,
+  event: E,
+): Array<Result> {
+  return receipt.logs
+    .filter((log) => log.address.toLowerCase() === contractAddress.toLowerCase())
+    .map((log) => iface.decodeEventLog(event, log.data, log.topics));
+}
