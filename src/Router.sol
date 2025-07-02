@@ -263,35 +263,8 @@ contract Router is Ownable, IRouter {
         return address(blsValidator);
     }
 
-    function getTransferParameters(bytes32 requestId)
-        external
-        view
-        returns (
-            address sender,
-            address recipient,
-            address token,
-            uint256 amount,
-            uint256 srcChainId,
-            uint256 dstChainId,
-            uint256 bridgeFee,
-            uint256 solverFee,
-            uint256 nonce,
-            bool executed
-        )
-    {
-        TransferParams memory params = transferParameters[requestId];
-        return (
-            params.sender,
-            params.recipient,
-            params.token,
-            params.amount,
-            params.srcChainId,
-            params.dstChainId,
-            params.bridgeFee,
-            params.solverFee,
-            params.nonce,
-            params.executed
-        );
+    function getTransferParameters(bytes32 requestId) external view returns (TransferParams memory transferParams) {
+        transferParams = transferParameters[requestId];
     }
 
     function getAllowedDstChainId(uint256 chainId) external view returns (bool) {

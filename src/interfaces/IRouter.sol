@@ -62,18 +62,7 @@ interface IRouter {
     function getTransferParameters(bytes32 requestId)
         external
         view
-        returns (
-            address sender,
-            address recipient,
-            address token,
-            uint256 amount,
-            uint256 srcChainId,
-            uint256 dstChainId,
-            uint256 bridgeFee,
-            uint256 solverFee,
-            uint256 nonce,
-            bool executed
-        );
+        returns (TransferParams memory transferParams);
     function getExecutedMessageStatus(bytes calldata message) external view returns (bool);
     function getUnfulfilledRequestIds() external view returns (bytes32[] memory);
     function getFulfilledRequestIds() external view returns (bytes32[] memory);
