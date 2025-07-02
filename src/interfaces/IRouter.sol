@@ -71,5 +71,4 @@ interface IRouter {
     function allowDstChainId(uint256 chainId, bool allowed) external;
     function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external;
     function withdrawBridgeFees(address token, address to) external;
-    function rescueERC20(address token, address to, uint256 amount) external;
 }

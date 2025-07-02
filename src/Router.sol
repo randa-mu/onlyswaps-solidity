@@ -330,16 +330,4 @@ contract Router is Ownable, IRouter {
         totalBridgeFeesBalance[token] = 0;
         IERC20(token).safeTransfer(to, amount);
     }
-
-    /// @notice Rescues tokens sent to the contract by mistake
-    /// @param token Token to rescue
-    /// @param to Recipient of the rescued tokens
-    /// @param amount Amount to rescue
-    function rescueERC20(address token, address to, uint256 amount) external onlyOwner {
-        require(token != address(0), "Invalid token");
-        require(to != address(0), "Invalid recipient");
-
-        // todo: ensure token is not supported
-        IERC20(token).safeTransfer(to, amount);
-    }
 }
