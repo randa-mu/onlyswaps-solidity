@@ -33,10 +33,6 @@ contract BridgeScript is Script {
         deployBridge(wallet);
         // Deploy Router contract
         deployRouter(wallet, address(bn254SignatureScheme));
-
-        // mint some test tokens
-        vm.broadcast(privateKey);
-        token.mint(wallet, 1000e18);
     }
 
     function deployBN254SignatureScheme() internal returns (BN254SignatureScheme bn254SignatureScheme) {
