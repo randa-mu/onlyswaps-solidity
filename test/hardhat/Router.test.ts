@@ -6,28 +6,19 @@ import {
   BN254SignatureScheme,
   BN254SignatureScheme__factory,
 } from "../../typechain-types";
-import { BlsBn254, kyberG1ToEvm, kyberG2ToEvm, toHex, kyberMarshalG1, kyberMarshalG2 } from "./crypto";
-import { expand_message_xmd } from "@noble/curves/abstract/hash-to-curve";
-import { keccak_256 } from "@noble/hashes/sha3";
+import { BlsBn254 } from "./crypto";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import dotenv from "dotenv";
 import {
   AbiCoder,
-  MaxUint256,
-  getBytes,
-  hexlify,
-  keccak256,
   parseEther,
-  sha256,
-  toUtf8Bytes,
   TransactionReceipt,
   Interface,
   EventFragment,
   Result,
 } from "ethers";
 import { ethers } from "hardhat";
-import crypto from "node:crypto";
 
 dotenv.config();
 
