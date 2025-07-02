@@ -27,14 +27,21 @@ interface IRouter {
     /// @notice Emitted when a message is successfully fulfilled by a solver
     /// @param requestId Hash of the transfer parameters
     /// @param message Encoded fulfilled payload
-    event MessageExecuted(bytes32 requestId, bytes message);
+    event MessageExecuted(bytes32 indexed requestId, bytes message);
 
     /// @notice Emitted when tokens are recovered from contract
     event ERC20Rescued(address indexed token, address indexed to, uint256 amount);
 
+    /// @notice Emitted when the fee is updated for a request by the sender
+    event FeesUpdated(bytes32 indexed requestId, address token, uint256 newBridgeFee, uint256 newSolverFee);
+
     // -------- Core Transfer Logic --------
 
-    function bridge(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient, uint256 nonce) external returns (bytes32 requestId);
+    function bridge(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient, uint256 nonce)
+        external
+        returns (bytes32 requestId);
+
+    function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external;
 
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata message, bytes calldata signature)
         external;

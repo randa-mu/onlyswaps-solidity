@@ -94,6 +94,28 @@ contract Router is Ownable, IRouter {
         emit MessageEmitted(requestId, message);
     }
 
+    function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external {
+        TransferParams storage params = transferParameters[requestId];
+        require(!params.executed, "Request already fulfilled");
+        require(params.sender == msg.sender, "Unauthorised caller");
+
+        // Calculate new bridge fee and solver fee from newFee
+        uint256 newBridgeFeeAmount = getBridgeFeeAmount(newFee);
+        uint256 newSolverFee = newFee - newBridgeFeeAmount;
+
+        // Adjust the totalBridgeFeesBalance for the token
+        // Subtract old bridge fee, add new bridge fee
+        totalBridgeFeesBalance[params.token] =
+            totalBridgeFeesBalance[params.token] - params.bridgeFee + newBridgeFeeAmount;
+
+        // Update the fees in the stored params
+        params.bridgeFee = newBridgeFeeAmount;
+        params.solverFee = newSolverFee;
+
+        // Emit event if needed for tracking fee updates (optional)
+        emit FeesUpdated(requestId, params.token, newBridgeFeeAmount, newSolverFee);
+    }
+
     /// @notice Called by owner to approve a solver’s fulfillment of a bridge request
     /// @param solver Address of the solver being paid
     /// @param requestId Unique ID of the request
