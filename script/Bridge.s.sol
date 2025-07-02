@@ -28,7 +28,7 @@ contract BridgeScript is Script {
         // Deploy BN254 signature scheme and verifier contract
         BN254SignatureScheme bn254SignatureScheme = deployBN254SignatureScheme();
         // Deploy source token
-        ERC20Token token = deployMockToken();
+        deployMockToken();
         // Deploy Bridge contract
         deployBridge(wallet);
         // Deploy Router contract
