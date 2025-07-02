@@ -12,7 +12,20 @@ import { keccak_256 } from "@noble/hashes/sha3";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import dotenv from "dotenv";
-import { AbiCoder, MaxUint256, getBytes, hexlify, keccak256, parseEther, sha256, toUtf8Bytes, TransactionReceipt, Interface, EventFragment, Result } from "ethers";
+import {
+  AbiCoder,
+  MaxUint256,
+  getBytes,
+  hexlify,
+  keccak256,
+  parseEther,
+  sha256,
+  toUtf8Bytes,
+  TransactionReceipt,
+  Interface,
+  EventFragment,
+  Result,
+} from "ethers";
 import { ethers } from "hardhat";
 import crypto from "node:crypto";
 
@@ -82,8 +95,9 @@ describe("Router", function () {
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
 
-    await expect(router.connect(user).bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr, nonce))
-      .to.emit(router, "MessageEmitted");
+    await expect(
+      router.connect(user).bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr, nonce),
+    ).to.emit(router, "MessageEmitted");
   });
 
   it("should update bridge fees for unfulfilled request", async () => {
@@ -118,14 +132,21 @@ describe("Router", function () {
 
     expect(await srcToken.balanceOf(userAddr)).to.equal(newFee - fee);
 
-    await expect(
-      router.connect(user).updateFeesIfUnfulfilled(requestId, newFee)
-    ).to.emit(router, "BridgeRequestFeeUpdated");
+    await expect(router.connect(user).updateFeesIfUnfulfilled(requestId, newFee)).to.emit(
+      router,
+      "BridgeRequestFeeUpdated",
+    );
 
     expect(await srcToken.balanceOf(userAddr)).to.equal(0);
 
     const transferParams = await router.getTransferParameters(requestId);
     expect(transferParams.bridgeFee + transferParams.solverFee).to.equal(newFee);
+  });
+
+  it("should block non-owner from withdrawing fees", async () => {
+    await expect(router.connect(user).withdrawBridgeFees(await srcToken.getAddress(), user.address))
+      .to.be.revertedWithCustomError(router, "OwnableUnauthorizedAccount")
+      .withArgs(await user.getAddress());
   });
 });
 
