@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8;
+pragma solidity ^0.8.0;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -8,73 +8,156 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import {BLS} from "./libraries/BLS.sol";
-
 import {ISignatureScheme} from "./interfaces/ISignatureScheme.sol";
-import {ISettlement} from "./interfaces/ISettlement.sol";
 
+/// @title Cross-Chain Token Router
+/// @notice Handles token bridging logic, fee distribution, and transfer request verification using BLS signatures
+/// @dev Integrates with off-chain solvers and a destination Bridge contract
 contract Router is Ownable {
+    using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.Bytes32Set;
+
+    /// @notice Transfer parameters for each bridge request
     struct TransferParams {
         address sender;
         address recipient;
         address token;
-        uint256 amount;
+        uint256 amount; // user receives amount minus bridgeFee
         uint256 srcChainId;
         uint256 dstChainId;
+        uint256 bridgeFee; // deducted from amount
+        uint256 solverFee; // deducted from bridge fee
         uint256 nonce;
+        bool executed;
     }
 
-    using SafeERC20 for IERC20;
-    using EnumerableSet for EnumerableSet.Bytes32Set;
-
-    enum TransferStatus {
-        None,
-        Requested,
-        Executed
-    }
-
+    /// @notice Basis points divisor
     uint256 public constant BPS_DIVISOR = 10_000;
 
-    uint256 public bridgeFeeBps = 500;
-    uint256 public solverFeeBps = 500;
-    uint256 public constant MAX_FEE_BPS = 5000;
+    /// @notice Max total fee in BPS (50%)
+    uint256 public constant MAX_FEE_BPS = 5_000;
 
+    /// @notice Bridge fee in BPS (applied to total amount)
+    uint256 public bridgeFeeBps = 500;
+
+    /// @notice Solver fee in BPS (applied to bridge fee)
+    uint256 public solverFeeBps = 500;
+
+    /// @notice Current chain ID (immutable)
     uint256 public immutable thisChainId;
 
-    /// @dev Set for storing unique unfulfilled transfer request Ids
+    /// @notice BLS validator used for signature verification
+    ISignatureScheme public blsValidator;
+
+    /// @dev Stores all unfulfilled transfer request IDs
     EnumerableSet.Bytes32Set private unfulfilledRequestIds;
 
-    /// @dev Set for storing unique fulfilled transfer request Ids
+    /// @dev Stores all fulfilled transfer request IDs
     EnumerableSet.Bytes32Set private fulfilledRequestIds;
 
-    ISignatureScheme public blsValidator;
-    ISettlement public settlement;
+    /// @notice Mapping of requestId => transfer parameters
+    mapping(bytes32 => TransferParams) public transferParameters;
 
-    /// @notice Emitted when a message is emitted for cross-chain bridging.
-    event MessageEmitted(
-        address indexed token,
-        address indexed sender,
-        address indexed recipient,
-        uint256 amount,
-        uint256 srcChainId,
-        uint256 dstChainId,
-        uint256 nonce,
-        bytes message
-    );
+    /// @notice Tracks executed BLS messages to prevent replay
+    mapping(bytes => bool) public executedMessages;
 
-    /// @notice Emitted when a cross-chain message is executed.
-    event MessageExecuted(address indexed to, address token, uint256 amount, bytes message);
+    /// @notice Whitelisted destination chain IDs
+    mapping(uint256 => bool) public allowedDstChainIds;
 
-    /// @notice Emitted when ERC20 tokens are rescued.
+    /// @notice Mapping of srcToken => dstChainId => dstToken
+    mapping(address => mapping(uint256 => address)) public tokenMappings;
+
+    /// @notice Accumulated fees per token
+    mapping(address => uint256) public totalBridgeFeesBalance;
+
+    /// @notice Emitted when a new message (request) is created
+    /// @param requestId Hash of transfer parameters
+    /// @param message Encoded payload for off-chain solver
+    event MessageEmitted(bytes32 indexed requestId, bytes message);
+
+    /// @notice Emitted when a message is successfully fulfilled by a solver
+    /// @param requestId Hash of the transfer parameters
+    /// @param message Encoded fulfilled payload
+    event MessageExecuted(bytes32 requestId, bytes message);
+
+    /// @notice Emitted when tokens are recovered from contract
     event ERC20Rescued(address indexed token, address indexed to, uint256 amount);
 
-    constructor(address _owner, address _settlement, address _blsValidator) Ownable(_owner) {
-        settlement = ISettlement(_settlement);
+    /// @param _owner Initial contract owner
+    /// @param _blsValidator BLS validator address
+    constructor(address _owner, address _blsValidator) Ownable(_owner) {
         blsValidator = ISignatureScheme(_blsValidator);
         thisChainId = getChainID();
     }
 
-    // INTERNAL
+    // ---------------------- Core Transfer Logic ----------------------
 
+    /// @notice Initiates a bridge request
+    /// @param token Address of the ERC20 token to bridge
+    /// @param amount Amount of tokens to bridge
+    /// @param dstChainId Target chain ID
+    /// @param recipient Address to receive bridged tokens on target chain
+    /// @param nonce Unique user-provided nonce
+    function bridge(address token, uint256 amount, uint256 dstChainId, address recipient, uint256 nonce) external {
+        require(amount > 0, "Zero amount");
+        require(tokenMappings[token][dstChainId] != address(0), "Token not supported");
+
+        uint256 bridgeFeeAmount = getBridgeFeeAmountInUnderlying(amount);
+        uint256 solverFee = (bridgeFeeAmount * solverFeeBps) / BPS_DIVISOR;
+        uint256 remainingFee = bridgeFeeAmount - solverFee;
+
+        totalBridgeFeesBalance[token] += remainingFee;
+
+        TransferParams memory params =
+            buildTransferParams(token, amount, bridgeFeeAmount, solverFee, dstChainId, recipient, nonce);
+
+        (bytes memory message,,) = transferParamsToBytes(params);
+        bytes32 requestId = getRequestId(params);
+
+        storeTransferRequest(requestId, params);
+
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+
+        emit MessageEmitted(requestId, message);
+    }
+
+    /// @notice Called by owner to approve a solver’s fulfillment of a bridge request
+    /// @param solver Address of the solver being paid
+    /// @param requestId Unique ID of the request
+    /// @param message Original message data
+    /// @param signature BLS signature of the message
+    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata message, bytes calldata signature)
+        external
+        onlyOwner
+    {
+        TransferParams storage params = transferParameters[requestId];
+        require(!params.executed, "Message already executed");
+        require(params.dstChainId == thisChainId, "Invalid dstChainId");
+
+        TransferParams memory decoded = abi.decode(message, (TransferParams));
+        require(isEqual(params, decoded), "Non-equal transfer parameters");
+
+        (, bytes memory messageAsG1Bytes,) = transferParamsToBytes(params);
+        require(
+            blsValidator.verifySignature(messageAsG1Bytes, signature, blsValidator.getPublicKeyBytes()),
+            "Invalid BLS signature"
+        );
+
+        fulfilledRequestIds.add(requestId);
+        unfulfilledRequestIds.remove(requestId);
+        params.executed = true;
+
+        uint256 bridgedAmount = params.amount - params.bridgeFee;
+        uint256 solverRefund = bridgedAmount + params.solverFee;
+
+        IERC20(params.token).safeTransfer(solver, solverRefund);
+
+        emit MessageExecuted(requestId, message);
+    }
+
+    // ---------------------- Utility & View ----------------------
+
+    /// @notice Converts transfer params to message and BLS format
     function transferParamsToBytes(TransferParams memory params)
         public
         view
@@ -87,61 +170,22 @@ contract Router is Ownable {
             params.amount,
             params.srcChainId,
             params.dstChainId,
-            params.nonce
+            params.bridgeFee,
+            params.solverFee,
+            params.nonce,
+            params.executed
         );
         (uint256 x, uint256 y) = blsValidator.hashToPoint(message);
         messageAsG1Point = BLS.PointG1({x: x, y: y});
         messageAsG1Bytes = blsValidator.hashToBytes(message);
     }
 
-    function storeTransferRequest(bytes32 requestId, TransferParams memory params) internal {
-        require(transferStatus[requestId] == TransferStatus.None, "Duplicate");
-        transferParameters[requestId] = params;
-        unfulfilledRequestIds.add(requestId);
-        transferStatus[requestId] = TransferStatus.Requested;
-    }
-
-    // SETTERS
-
-    /// @notice Initiates a cross-chain asset transfer.
-    function bridge(address token, uint256 amount, uint256 dstChainId, address recipient, uint256 nonce) external {
-        //     function bridge(address token, uint256 amount) external {
-        //     IERC20(token).approve(omnibridge, amount);
-        //     IOmnibridge(omnibridge).relayTokens(token, user, amount);
-        // }
-
-        // todo internal function to calculate fee based on transfer amount and dst chain id??
-        // or external fee calculation
-
-        require(amount > 0, "Zero amount");
-
-        uint256 bridgeFeeAmount = getBridgeFeeAmountInUnderlying(amount);
-        uint256 solverFee = (bridgeFeeAmount * solverFeeBps) / BPS_DIVISOR;
-        uint256 remainingFee = bridgeFeeAmount - solverFee;
-        uint256 amountAfterFee = amount - bridgeFeeAmount;
-
-        // todo validate supported token and dst chain id
-
-        // Update accounting
-        solverFeesCollected[token] += solverFee;
-        bridgeFeesCollected[token] += remainingFee;
-        totalAmountBridged[token] += amountAfterFee;
-
-        TransferParams memory params = buildTransferParams(token, amountAfterFee, dstChainId, recipient, nonce);
-        (bytes memory message,,) = transferParamsToBytes(params);
-        // todo map transfer id to bytes message and bool executed meaning its been paid out to solver
-        // based on proof from dst chain where funds were paid out
-        /// @notice Store transfer request in source chain router
-        storeTransferRequest(getRequestId(params), params);
-
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-
-        emit MessageEmitted(token, msg.sender, recipient, amountAfterFee, thisChainId, dstChainId, nonce, message);
-    }
-
+    /// @notice Builds a new transfer parameter object
     function buildTransferParams(
         address token,
-        uint256 amountAfterFee,
+        uint256 amount,
+        uint256 bridgeFeeAmount,
+        uint256 solverFeeAmount,
         uint256 dstChainId,
         address recipient,
         uint256 nonce
@@ -150,135 +194,123 @@ contract Router is Ownable {
             sender: msg.sender,
             recipient: recipient,
             token: token,
-            amount: amountAfterFee,
+            amount: amount,
             srcChainId: thisChainId,
             dstChainId: dstChainId,
-            nonce: nonce
+            bridgeFee: bridgeFeeAmount,
+            solverFee: solverFeeAmount,
+            nonce: nonce,
+            executed: false
         });
     }
 
-    function updateWithdrawableSolverFees(address token, bytes32 requestId) external onlyOwner {
-        // todo mapping of solver fee balance
-        // solver gets amount from request id and solver fee portion of the request
-        // use BLS signature
-        /**
-         * TransferParams memory params = abi.decode(message, (TransferParams));
-         *
-         *     require(params.dstChainId == thisChainId, "Invalid dstChainId");
-         *     require(allowedSrcChainIds[params.srcChainId], "srcChainId not allowed");
-         *     require(!executedMessages[message], "Message already executed");
-         *
-         *     (, bytes memory messageAsG1Bytes,) = transferParamsToBytes(params);
-         *
-         *     require(
-         *         blsValidator.verifySignature(messageAsG1Bytes, signature, blsValidator.getPublicKeyBytes()),
-         *         "Invalid BLS signature"
-         *     );
-         *
-         *     address pool = poolProvider.getPool(params.token, thisChainId);
-         *     require(pool != address(0), "No destination pool");
-         *
-         *     uint256 poolBalance = ILiquidityPool(pool).poolBalance();
-         *     require(poolBalance >= params.amount, "Pool insufficient balance");
-         *
-         *     executedMessages[message] = true;
-         *
-         *     // --- Release tokens to user ---
-         *     ILiquidityPool(pool).releaseTo(params.recipient, params.amount);
-         *
-         *     bytes32 requestId = getRequestId(params);
-         *     fulfilledRequestIds.add(requestId);
-         *     require(transferStatus[requestId] == TransferStatus.None, "Already executed");
-         *     transferStatus[requestId] = TransferStatus.Executed;
-         *
-         *     emit MessageExecuted(params.recipient, params.token, params.amount, message);
-         */
+    /// @notice Stores a transfer request and marks as unfulfilled
+    function storeTransferRequest(bytes32 requestId, TransferParams memory params) internal {
+        transferParameters[requestId] = params;
+        unfulfilledRequestIds.add(requestId);
     }
 
-    function withdrawSolverFees(address token, address to) external {
-        // todo update / deduct mapping of solver fee balance
-        // msg.sender should be solver
-        // reset to zero
+    /// @notice Compares two transfer parameter structs
+    function isEqual(TransferParams memory a, TransferParams memory b) internal pure returns (bool) {
+        return a.sender == b.sender && a.recipient == b.recipient && a.token == b.token && a.amount == b.amount
+            && a.srcChainId == b.srcChainId && a.dstChainId == b.dstChainId && a.bridgeFee == b.bridgeFee
+            && a.solverFee == b.solverFee && a.nonce == b.nonce && a.executed == b.executed;
     }
 
-    /// @notice Withdraws accumulated bridge fees to owner.
-    function withdrawBridgeFees(address token, address to) external onlyOwner {
-        // todo
-        // validate token, update router balance for token, etc.
-        uint256 amount = 0;
-        IERC20(token).safeTransfer(to, amount);
+    /// @notice Computes the bridge fee in underlying token units
+    function getBridgeFeeAmountInUnderlying(uint256 amount) public view returns (uint256) {
+        return (amount * bridgeFeeBps) / BPS_DIVISOR;
     }
 
-    /// @notice Sets solver fee in basis points.
+    /// @notice Computes the unique request ID (hash of transfer parameters)
+    function getRequestId(TransferParams memory p) public view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                p.sender,
+                p.recipient,
+                p.token,
+                p.amount,
+                getChainID(),
+                p.dstChainId,
+                p.bridgeFee,
+                p.solverFee,
+                p.nonce,
+                p.executed
+            )
+        );
+    }
+
+    /// @notice Returns the current EVM chain ID
+    function getChainID() public view returns (uint256) {
+        return block.chainid;
+    }
+
+    /// @notice Returns list of all fulfilled request IDs
+    function getAllFulfilledRequestIds() external view returns (bytes32[] memory) {
+        return fulfilledRequestIds.values();
+    }
+
+    /// @notice Returns list of all unfulfilled request IDs
+    function getAllUnfulfilledRequestIds() external view returns (bytes32[] memory) {
+        return unfulfilledRequestIds.values();
+    }
+
+    // ---------------------- Admin Functions ----------------------
+
+    /// @notice Sets the solver fee in BPS
+    /// @param _solverFeeBps New solver fee
     function setSolverFeeBps(uint256 _solverFeeBps) external onlyOwner {
         require(_solverFeeBps <= MAX_FEE_BPS, "Too high");
         solverFeeBps = _solverFeeBps;
     }
 
-    /// @notice Sets bridge fee in basis points.
+    /// @notice Sets the bridge fee in BPS
+    /// @param _bridgeFeeBps New bridge fee
     function setBridgeFeeBps(uint256 _bridgeFeeBps) external onlyOwner {
         require(_bridgeFeeBps <= MAX_FEE_BPS, "Too high");
         bridgeFeeBps = _bridgeFeeBps;
     }
 
-    /// @notice Sets the BLS signature validator contract.
+    /// @notice Updates the BLS signature validator
+    /// @param _blsValidator New validator address
     function setBlsValidator(address _blsValidator) external onlyOwner {
         blsValidator = ISignatureScheme(_blsValidator);
     }
 
-    /// @notice Allows or disallows a destination chain ID for incoming messages on the src chain id.
+    /// @notice Allows or disallows a destination chain ID
+    /// @param chainId Chain ID to toggle
+    /// @param allowed Whether it is allowed
     function allowDstChainId(uint256 chainId, bool allowed) external onlyOwner {
         allowedDstChainIds[chainId] = allowed;
     }
 
-    /// @notice Sets token mapping between chain pairs.
+    /// @notice Sets a token mapping for a cross-chain pair
+    /// @param dstChainId Destination chain ID
+    /// @param dstToken Token address on the destination chain
+    /// @param srcToken Token address on the source chain
     function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external onlyOwner {
-        require(allowedDstChainIds[chainId], "Destination chain id not supported");
+        require(allowedDstChainIds[dstChainId], "Destination chain id not supported");
         tokenMappings[srcToken][dstChainId] = dstToken;
     }
 
-    // GETTERS
-
-    /// @notice Returns the current chain ID.
-    function getChainID() public view returns (uint256) {
-        return block.chainid;
+    /// @notice Withdraws accumulated bridge fees
+    /// @param token Token address to withdraw
+    /// @param to Recipient address
+    function withdrawBridgeFees(address token, address to) external onlyOwner {
+        uint256 amount = totalBridgeFeesBalance[token];
+        totalBridgeFeesBalance[token] = 0;
+        IERC20(token).safeTransfer(to, amount);
     }
 
-    /// @notice Returns a list of all fulfilled requests ids on the dst chain.
-    /// Request id is a hash of the bridge request message.
-    function getAllFulfilledRequestIds() external view returns (bytes32[] memory) {
-        return fulfilledRequestIds.values();
-    }
-
-    /// @notice Returns a list of all unfulfilled requests ids on the src chain.
-    /// Request id is a hash of the bridge request message.
-    function getAllUnfulfilledRequestIds() external view returns (bytes32[] memory) {
-        return unfulfilledRequestIds.values();
-    }
-
-    /// @notice Returns the amount that will be charged for the cross-chain transfer by the router contract.
-    /// @param amount The amount to transfer cross-chain.
-    function getBridgeFeeAmountInUnderlying(uint256 amount) public view returns (uint256) {
-        return (amount * bridgeFeeBps) / BPS_DIVISOR;
-    }
-
-    function getRequestId(TransferParams memory p) public pure returns (bytes32) {
-        return keccak256(abi.encode(p.sender, p.recipient, p.token, p.amount, thisChainId(), p.dstChainId, p.nonce));
-    }
-
-    /// @notice Rescue ERC20 tokens not tracked in internal mappings.
-    /// @dev Only use this for tokens that are NOT actively used by the Router or Pools.
+    /// @notice Rescues tokens sent to the contract by mistake
+    /// @param token Token to rescue
+    /// @param to Recipient of the rescued tokens
+    /// @param amount Amount to rescue
     function rescueERC20(address token, address to, uint256 amount) external onlyOwner {
         require(token != address(0), "Invalid token");
         require(to != address(0), "Invalid recipient");
 
-        // Check that this token is not one that we are currently tracking with fees/bridges
-        // Check that `token` is not one of:
-        // - any srcToken in tokenMappings
-        // - any dstToken in tokenMappings
-        // - a pool token managed by the PoolAddressProvider
-
-        // Perform transfer
+        // todo: ensure token is not supported
         IERC20(token).safeTransfer(to, amount);
     }
 }
