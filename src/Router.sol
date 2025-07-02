@@ -68,8 +68,10 @@ contract Router is Ownable, IRouter {
     /// @param dstChainId Target chain ID
     /// @param recipient Address to receive bridged tokens on target chain
     /// @param nonce Unique user-provided nonce
+    /// @return requestId The unique bridge request id
     function bridge(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient, uint256 nonce)
         external
+        returns (bytes32 requestId)
     {
         require(amount > 0, "Zero amount");
         require(tokenMappings[token][dstChainId] != address(0), "Token not supported");
@@ -83,7 +85,7 @@ contract Router is Ownable, IRouter {
             buildTransferParams(token, amount, bridgeFeeAmount, solverFee, dstChainId, recipient, nonce);
 
         (bytes memory message,,) = transferParamsToBytes(params);
-        bytes32 requestId = getRequestId(params);
+        requestId = getRequestId(params);
 
         storeTransferRequest(requestId, params);
 

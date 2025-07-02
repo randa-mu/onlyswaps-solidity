@@ -34,7 +34,7 @@ interface IRouter {
 
     // -------- Core Transfer Logic --------
 
-    function bridge(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient, uint256 nonce) external;
+    function bridge(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient, uint256 nonce) external returns (bytes32 requestId);
 
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata message, bytes calldata signature)
         external;
