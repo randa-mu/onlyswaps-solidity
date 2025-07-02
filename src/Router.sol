@@ -313,6 +313,7 @@ contract Router is Ownable, IRouter {
     /// @param allowed Whether it is allowed
     function allowDstChainId(uint256 chainId, bool allowed) external onlyOwner {
         allowedDstChainIds[chainId] = allowed;
+        emit WhitelistUpdatedForDSTChainId(chainId, allowed);
     }
 
     /// @notice Sets a token mapping for a cross-chain pair
@@ -322,6 +323,7 @@ contract Router is Ownable, IRouter {
     function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external onlyOwner {
         require(allowedDstChainIds[dstChainId], "Destination chain id not supported");
         tokenMappings[srcToken][dstChainId] = dstToken;
+        emit TokenMappingUpdated(dstChainId, dstToken, srcToken);
     }
 
     /// @notice Withdraws accumulated bridge fees
@@ -331,5 +333,6 @@ contract Router is Ownable, IRouter {
         uint256 amount = totalBridgeFeesBalance[token];
         totalBridgeFeesBalance[token] = 0;
         IERC20(token).safeTransfer(to, amount);
+        emit BridgeFeesWithdrawn(token, to, amount)
     }
 }

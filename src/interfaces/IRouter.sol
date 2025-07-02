@@ -40,6 +40,15 @@ interface IRouter {
 
     /// @notice Emitted when the bls validator contract is updated 
     event BLSValidatorUpdated(address indexed blsValidator);
+    
+    /// @notice Emitted when the chain id whitelisting is updated
+    event WhitelistUpdatedForDSTChainId(uint256 chainId, bool allowed);
+
+    /// @notice Emitted when a pair of source and destination chain tokens are mapped
+    event TokenMappingUpdated(uint256 dstChainId, address dstToken, address srcToken);
+
+    /// @notice Emitted when bridge fees have been withdrawn to a recipient address
+    event BridgeFeesWithdrawn(address indexed token, address indexed recipient, uint256 amount);
 
     // -------- Core Transfer Logic --------
 
