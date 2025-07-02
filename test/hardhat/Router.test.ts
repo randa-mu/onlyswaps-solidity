@@ -158,9 +158,22 @@ describe("Router", function () {
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
 
-    await expect(
-      router.connect(user).bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr, nonce),
-    ).to.emit(router, "MessageEmitted");
+    const tx = await router
+      .connect(user)
+      .bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address, nonce);
+
+    let receipt = await tx.wait(1);
+    if (!receipt) {
+      throw new Error("transaction has not been mined");
+    }
+
+    const routerInterface = Router__factory.createInterface();
+    const [requestId, message] = extractSingleLog(
+      routerInterface,
+      receipt,
+      await router.getAddress(),
+      routerInterface.getEvent("MessageEmitted"),
+    );
 
     const before = await srcToken.balanceOf(owner.address);
 
@@ -172,6 +185,9 @@ describe("Router", function () {
     expect(after).to.be.gt(before);
 
     expect(await router.getTotalBridgeFeesBalance(await srcToken.getAddress())).to.equal(0);
+    
+    const transferParams = await router.getTransferParameters(requestId);
+    expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + transferParams.solverFee);
   });
 });
 
