@@ -177,17 +177,81 @@ describe("Router", function () {
 
     const before = await srcToken.balanceOf(owner.address);
 
-    await expect(
-      router.connect(owner).withdrawBridgeFees(await srcToken.getAddress(), ownerAddr)
-    ).to.emit(router, "BridgeFeesWithdrawn");
+    await expect(router.connect(owner).withdrawBridgeFees(await srcToken.getAddress(), ownerAddr)).to.emit(
+      router,
+      "BridgeFeesWithdrawn",
+    );
 
     const after = await srcToken.balanceOf(ownerAddr);
     expect(after).to.be.gt(before);
 
     expect(await router.getTotalBridgeFeesBalance(await srcToken.getAddress())).to.equal(0);
-    
+
     const transferParams = await router.getTransferParameters(requestId);
     expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + transferParams.solverFee);
+  });
+
+  it("should rebalance solver and transfer correct amount", async () => {
+    const amount = parseEther("10");
+    const fee = parseEther("1");
+    const nonce = 1;
+    const amountToMint = amount + fee;
+
+    await srcToken.mint(userAddr, amountToMint);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+    const tx = await router
+      .connect(user)
+      .bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address, nonce);
+
+    let receipt = await tx.wait(1);
+    if (!receipt) {
+      throw new Error("transaction has not been mined");
+    }
+
+    const routerInterface = Router__factory.createInterface();
+    const [requestId] = extractSingleLog(
+      routerInterface,
+      receipt,
+      await router.getAddress(),
+      routerInterface.getEvent("MessageEmitted"),
+    );
+
+    const transferParams = await router.getTransferParameters(requestId);
+
+    // const [message, messageAsG1Bytes, messageAsG1Point] = await router.transferParamsToBytes(transferParams);
+
+    const [message, messageAsG1Bytes, messageAsG1Point] = await router.transferParamsToBytes({
+      sender: transferParams.sender,
+      recipient: transferParams.recipient,
+      token: await srcToken.getAddress(),
+      amount: transferParams.amount,
+      srcChainId: transferParams.srcChainId,
+      dstChainId: transferParams.dstChainId,
+      bridgeFee: transferParams.bridgeFee,
+      solverFee: transferParams.solverFee,
+      nonce: 1,
+      executed: false,
+    });
+    const M = mcl.g1FromEvm(messageAsG1Point[0], messageAsG1Point[1]);
+    const { secretKey, pubKey } = mcl.createKeyPair(blsKey as `0x${string}`);
+    const { signature } = mcl.sign(M, secretKey);
+
+    const sig = mcl.serialiseG1Point(signature);
+    const sigBytes = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sig[0], sig[1]]);
+
+    // ensure router has enough liquidity to pay solver
+    expect(await srcToken.balanceOf(await router.getAddress())).to.be.greaterThanOrEqual(
+      transferParams.amount + transferParams.solverFee,
+    );
+
+    const before = await srcToken.balanceOf(solverAddr);
+
+    await router.connect(owner).rebalanceSolver(solver.address, requestId, message, sigBytes);
+
+    const after = await srcToken.balanceOf(solverAddr);
+    expect(after - before).to.equal(amount + transferParams.solverFee);
+    expect(await srcToken.balanceOf(await router.getAddress())).to.be.equal(transferParams.bridgeFee);
   });
 });
 

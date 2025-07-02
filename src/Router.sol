@@ -130,7 +130,8 @@ contract Router is Ownable, IRouter {
     {
         TransferParams storage params = transferParameters[requestId];
         require(!params.executed, "Message already executed");
-        require(params.dstChainId == thisChainId, "Invalid dstChainId");
+        /// @dev rebalancing of solvers happens on the source chain router
+        require(params.srcChainId == thisChainId, "Invalid source chain id");
 
         TransferParams memory decoded = abi.decode(message, (TransferParams));
         require(isEqual(params, decoded), "Non-equal transfer parameters");
@@ -145,8 +146,7 @@ contract Router is Ownable, IRouter {
         unfulfilledRequestIds.remove(requestId);
         params.executed = true;
 
-        uint256 bridgedAmount = params.amount - params.bridgeFee;
-        uint256 solverRefund = bridgedAmount + params.solverFee;
+        uint256 solverRefund = params.amount + params.solverFee;
 
         IERC20(params.token).safeTransfer(solver, solverRefund);
 
