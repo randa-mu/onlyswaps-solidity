@@ -38,9 +38,9 @@ interface IRouter {
     /// @notice Emitted when the bridge fee Bps is updated
     event BridgeFeeBpsUpdated(uint256 newFeeBps);
 
-    /// @notice Emitted when the bls validator contract is updated 
+    /// @notice Emitted when the bls validator contract is updated
     event BLSValidatorUpdated(address indexed blsValidator);
-    
+
     /// @notice Emitted when the chain id whitelisting is updated
     event WhitelistUpdatedForDSTChainId(uint256 chainId, bool allowed);
 

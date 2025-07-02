@@ -333,6 +333,6 @@ contract Router is Ownable, IRouter {
         uint256 amount = totalBridgeFeesBalance[token];
         totalBridgeFeesBalance[token] = 0;
         IERC20(token).safeTransfer(to, amount);
-        emit BridgeFeesWithdrawn(token, to, amount)
+        emit BridgeFeesWithdrawn(token, to, amount);
     }
 }
