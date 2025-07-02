@@ -148,6 +148,31 @@ describe("Router", function () {
       .to.be.revertedWithCustomError(router, "OwnableUnauthorizedAccount")
       .withArgs(await user.getAddress());
   });
+
+  it("should allow owner to withdraw bridge fees", async () => {
+    const amount = parseEther("10");
+    const fee = parseEther("1");
+    const nonce = 1;
+    const amountToMint = amount + fee;
+
+    await srcToken.mint(userAddr, amountToMint);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+    await expect(
+      router.connect(user).bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr, nonce),
+    ).to.emit(router, "MessageEmitted");
+
+    const before = await srcToken.balanceOf(owner.address);
+
+    await expect(
+      router.connect(owner).withdrawBridgeFees(await srcToken.getAddress(), ownerAddr)
+    ).to.emit(router, "BridgeFeesWithdrawn");
+
+    const after = await srcToken.balanceOf(ownerAddr);
+    expect(after).to.be.gt(before);
+
+    expect(await router.getTotalBridgeFeesBalance(await srcToken.getAddress())).to.equal(0);
+  });
 });
 
 // returns the first instance of an event log from a transaction receipt that matches the address provided
