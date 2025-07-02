@@ -24,12 +24,7 @@ contract Router is Ownable, IRouter {
 
     /// @notice Max total fee in BPS (50%)
     uint256 public constant MAX_FEE_BPS = 5_000;
-
-    /// @notice Bridge fee in BPS (applied to total amount)
     uint256 public bridgeFeeBps = 500;
-
-    /// @notice Solver fee in BPS (applied to bridge fee)
-    uint256 public solverFeeBps = 500;
 
     /// @notice Current chain ID (immutable)
     uint256 public immutable thisChainId;
@@ -73,15 +68,16 @@ contract Router is Ownable, IRouter {
     /// @param dstChainId Target chain ID
     /// @param recipient Address to receive bridged tokens on target chain
     /// @param nonce Unique user-provided nonce
-    function bridge(address token, uint256 amount, uint256 dstChainId, address recipient, uint256 nonce) external {
+    function bridge(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient, uint256 nonce)
+        external
+    {
         require(amount > 0, "Zero amount");
         require(tokenMappings[token][dstChainId] != address(0), "Token not supported");
 
-        uint256 bridgeFeeAmount = getBridgeFeeAmountInUnderlying(amount);
-        uint256 solverFee = (bridgeFeeAmount * solverFeeBps) / BPS_DIVISOR;
-        uint256 remainingFee = bridgeFeeAmount - solverFee;
+        uint256 bridgeFeeAmount = getBridgeFeeAmount(fee);
+        uint256 solverFee = fee - bridgeFeeAmount;
 
-        totalBridgeFeesBalance[token] += remainingFee;
+        totalBridgeFeesBalance[token] += bridgeFeeAmount;
 
         TransferParams memory params =
             buildTransferParams(token, amount, bridgeFeeAmount, solverFee, dstChainId, recipient, nonce);
@@ -91,7 +87,7 @@ contract Router is Ownable, IRouter {
 
         storeTransferRequest(requestId, params);
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount + fee);
 
         emit MessageEmitted(requestId, message);
     }
@@ -193,7 +189,8 @@ contract Router is Ownable, IRouter {
     }
 
     /// @notice Computes the bridge fee in underlying token units
-    function getBridgeFeeAmountInUnderlying(uint256 amount) public view returns (uint256) {
+    function getBridgeFeeAmount(uint256 amount) public view returns (uint256) {
+        if (bridgeFeeBps == 0) return 0;
         return (amount * bridgeFeeBps) / BPS_DIVISOR;
     }
 
@@ -232,10 +229,6 @@ contract Router is Ownable, IRouter {
 
     function getBridgeFeeBps() external view returns (uint256) {
         return bridgeFeeBps;
-    }
-
-    function getSolverFeeBps() external view returns (uint256) {
-        return solverFeeBps;
     }
 
     function getThisChainId() external view returns (uint256) {
@@ -302,13 +295,6 @@ contract Router is Ownable, IRouter {
     }
 
     // ---------------------- Admin Functions ----------------------
-
-    /// @notice Sets the solver fee in BPS
-    /// @param _solverFeeBps New solver fee
-    function setSolverFeeBps(uint256 _solverFeeBps) external onlyOwner {
-        require(_solverFeeBps <= MAX_FEE_BPS, "Too high");
-        solverFeeBps = _solverFeeBps;
-    }
 
     /// @notice Sets the bridge fee in BPS
     /// @param _bridgeFeeBps New bridge fee

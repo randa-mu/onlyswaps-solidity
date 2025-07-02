@@ -34,7 +34,7 @@ interface IRouter {
 
     // -------- Core Transfer Logic --------
 
-    function bridge(address token, uint256 amount, uint256 dstChainId, address recipient, uint256 nonce) external;
+    function bridge(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient, uint256 nonce) external;
 
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata message, bytes calldata signature)
         external;
@@ -43,12 +43,11 @@ interface IRouter {
 
     function getAllFulfilledRequestIds() external view returns (bytes32[] memory);
     function getAllUnfulfilledRequestIds() external view returns (bytes32[] memory);
-    function getBridgeFeeAmountInUnderlying(uint256 amount) external view returns (uint256);
+    function getBridgeFeeAmount(uint256 amount) external view returns (uint256);
     function getRequestId(TransferParams memory p) external view returns (bytes32);
     function getChainID() external view returns (uint256);
     function getBlsValidator() external view returns (address);
     function getBridgeFeeBps() external view returns (uint256);
-    function getSolverFeeBps() external view returns (uint256);
     function getThisChainId() external view returns (uint256);
     function getTotalBridgeFeesBalance(address token) external view returns (uint256);
     function getAllowedDstChainId(uint256 chainId) external view returns (bool);
@@ -74,7 +73,6 @@ interface IRouter {
 
     // -------- Admin Functions --------
 
-    function setSolverFeeBps(uint256 _solverFeeBps) external;
     function setBridgeFeeBps(uint256 _bridgeFeeBps) external;
     function setBlsValidator(address _blsValidator) external;
     function allowDstChainId(uint256 chainId, bool allowed) external;
