@@ -66,4 +66,13 @@ contract DeploymentTest is Test {
         assertEq(srcRouter.getAllowedDstChainId(dstChainId), true);
         assertEq(dstRouter.getAllowedDstChainId(srcChainId), true);
     }
+
+    function test_ConstructorArguments() public view {
+        assertEq(srcRouter.getBlsValidator(), address(srcBLSSigVerifier));
+        assertEq(dstRouter.getBlsValidator(), address(dstBLSSigVerifier));
+        assertEq(srcRouter.owner(), owner);
+        assertEq(dstRouter.owner(), owner);
+        assertEq(srcBridge.owner(), owner);
+        assertEq(dstBridge.owner(), owner);
+    }
 }
