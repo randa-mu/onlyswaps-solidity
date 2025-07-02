@@ -62,7 +62,7 @@ contract DeploymentTest is Test {
         dstRouter.setTokenMapping(srcChainId, address(srcToken), address(dstToken));
     }
 
-    function test_AllowedSrcChainIds() public view {
+    function test_GetAllowedSrcChainIds() public view {
         assertEq(srcRouter.getAllowedDstChainId(dstChainId), true);
         assertEq(dstRouter.getAllowedDstChainId(srcChainId), true);
     }
