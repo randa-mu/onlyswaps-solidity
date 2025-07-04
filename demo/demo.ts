@@ -1,12 +1,10 @@
 import { JsonRpcProvider, Wallet, Contract, TransactionReceipt, Interface, EventFragment, Result, AbiCoder, MaxUint256, getBytes, hexlify, keccak256, parseEther, sha256, toUtf8Bytes } from "ethers";
 import { ethers } from "ethers";
-import { BlsBn254, kyberG1ToEvm, kyberG2ToEvm, toHex, kyberMarshalG1, kyberMarshalG2 } from "../test/hardhat/crypto";
-import dotenv from "dotenv";
+import { BlsBn254 } from "../test/hardhat/crypto";
 
 import {
   Router__factory,
   Bridge__factory,
-  BN254SignatureScheme__factory,
   ERC20Token__factory,
 } from "../typechain-types";
 
@@ -17,8 +15,6 @@ config();
 
 const routerAbi = Router__factory.abi;
 const bridgeAbi = Bridge__factory.abi;
-const blsValidatorAbi = BN254SignatureScheme__factory.abi;
-
 
 interface ChainConfig {
   chainId: number;
@@ -28,14 +24,14 @@ interface ChainConfig {
   bridge_contractAddress: string;
 }
 
-// Load chain configurations from env variables CHAIN_ID_i, RPC_URL_i, CONTRACT_ADDR_i
+// Load chain configurations from env variables CHAIN_ID_i, RPC_URL_i, ROUTER_CONTRACT_ADDR_i, BRIDGE_CONTRACT_ADDR_i
 const supportedChains: ChainConfig[] = [];
 
 for (let i = 1; ; i++) {
   const chainIdStr = process.env[`CHAIN_ID_${i}`];
   const rpcUrl = process.env[`RPC_URL_${i}`];
-  const routerContractAddress = process.env[`CONTRACT_ADDR_${i}`];
-  const bridgeContractAddress = process.env[`ROUTER_CONTRACT_ADDR_${i}`];
+  const routerContractAddress = process.env[`ROUTER_CONTRACT_ADDR_${i}`];
+  const bridgeContractAddress = process.env[`BRIDGE_CONTRACT_ADDR_${i}`];
   if (!chainIdStr || !rpcUrl || !routerContractAddress || !bridgeContractAddress) break;
 
   supportedChains.push({
@@ -92,7 +88,7 @@ function getBridgeContract(chain: ChainConfig, withSigner = false) {
 }
 
 // Function to create ethers Contract for ERC-20 Token connected to signer or provider
-function getTokenContract(tokenAddress, chain: ChainConfig, withSigner = false) {
+function getTokenContract(tokenAddress: string, chain: ChainConfig, withSigner = false) {
   const provider = new JsonRpcProvider(chain.rpcUrl);
   const erc20Abi = ERC20Token__factory.abi;
   return new Contract(
@@ -103,6 +99,7 @@ function getTokenContract(tokenAddress, chain: ChainConfig, withSigner = false) 
 }
 
 // Poll interval in ms
+// seconds = ms / 1000
 const POLL_INTERVAL = 10_000;
 
 async function pollAndExecute() {
