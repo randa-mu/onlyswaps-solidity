@@ -55,31 +55,32 @@ cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "setTokenMapping(uint256,ad
 
 4. make a cross chain transfer request from polygon to base
 
-// mint 50 to sender on source chain
-cast send 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "mint(address,uint256)" 0xDC21c5F25E196b0C7E13F2C6f3184368059047FF 50e18 \
+// mint 11 to sender on source chain
+cast send 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "mint(address,uint256)" 0xDC21c5F25E196b0C7E13F2C6f3184368059047FF 11e18 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
 // approve tokens for router contract on the source chain
-cast send 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "approve(address,uint256)" 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd 50e18 \
+cast send 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "approve(address,uint256)" 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd 11e18 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
 // make a bridge request from polygon pos to base sepolia 
-// for 10e18 (send to a random recipient from anvil)
+// for 11e18 (send to a random recipient from anvil)
 // with a fee of 1e18.
-// router will extract the fee from the transfer amount
-// and allocate portion of the fee for the solver 
+// router collect the fee plus amount to transfer
+// and allocate a portion of the fee for the solver
 // that fulfills the request on the destination chain id
-// So recipient will get 9e18 on destination chain
+// and the rest of it for the dcipher threshold network 
+// So recipient will get 9e18 on destination chain.
 cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "bridge(address,uint256,uint256,uint256,address,uint256)" \
-    0x73E04901b3fA84b5bd6782d446751E91c4e2616C 10e18 1e18 84532 0x976EA74026E726554dB657fA54763abd0C3a0aa9 2 \
+    0x73E04901b3fA84b5bd6782d446751E91c4e2616C 10e18 1e18 84532 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 104 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
 // recipient token balances on both chain
-cast call 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "balanceOf(address)(uint256)" 0x976EA74026E726554dB657fA54763abd0C3a0aa9 \
+cast call 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "balanceOf(address)(uint256)" 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 \
     --rpc-url $POLYGON_POS_RPC_URL
 
-cast call 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "balanceOf(address)(uint256)" 0x976EA74026E726554dB657fA54763abd0C3a0aa9 \
+cast call 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "balanceOf(address)(uint256)" 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 \
     --rpc-url $BASE_SEPOLIA_RPC_URL

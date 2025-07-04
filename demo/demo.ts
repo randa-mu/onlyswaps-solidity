@@ -146,7 +146,7 @@ async function pollAndExecute() {
         }
 
         try {
-          const amountOut = params.amount - params.bridgeFee - params.solverFee;
+          const amountOut = params.amount;
           const tokenAddress = await srcContract.getTokenMapping(params.token, params.dstChainId);
           const tokenContract = getTokenContract(tokenAddress, dstChain, true);
 
