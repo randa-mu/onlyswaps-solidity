@@ -31,12 +31,12 @@ Router contract deployed at:  0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd
 2. configure contracts on base 
 
 // map src and dst token addresses and chain ids
-cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "setTokenMapping(uint256,address,address)" 137 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 \
+cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "setTokenMapping(uint256,address,address)" 137 0x73E04901b3fA84b5bd6782d446751E91c4e2616C 0x73E04901b3fA84b5bd6782d446751E91c4e2616C \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
 // permit messages from other src chain ids
-cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "allowSrcChainId(uint256,bool)" 137 true \
+cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "allowSrcChainId(uint256,bool)" 137 true \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
@@ -44,24 +44,24 @@ cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "allowSrcChainId(uint256,bo
 3. configure contracts on polygon
 
 // map src and dst token addresses and chain ids
-cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "setTokenMapping(uint256,address,address)" 84532 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 \
+cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "setTokenMapping(uint256,address,address)" 84532 0x73E04901b3fA84b5bd6782d446751E91c4e2616C 0x73E04901b3fA84b5bd6782d446751E91c4e2616C \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY
 
 // permit messages from other src chain ids
-cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "allowSrcChainId(uint256,bool)" 84532 true \
+cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "allowSrcChainId(uint256,bool)" 84532 true \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY
 
 4. make a cross chain transfer request from polygon to base
 
 // mint 50 to sender
-cast send 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 "mint(address,uint256)" 0xDC21c5F25E196b0C7E13F2C6f3184368059047FF 50e18 \
+cast send 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "mint(address,uint256)" 0xDC21c5F25E196b0C7E13F2C6f3184368059047FF 50e18 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
 // approve tokens for router contract
-cast send 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 "approve(address,uint256)" 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B 50e18 \
+cast send 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "approve(address,uint256)" 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd 50e18 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
@@ -70,14 +70,14 @@ cast send 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 "approve(address,uint256)" 
 // router will extract the fee from the transfer amount
 // and allocate portion of the fee for the solver 
 // that fulfills the request on the destination chain id
-cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "bridge(address,uint256,uint256,uint256,address,uint256)" \
-    0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 10e18 1e18 84532 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f 2 \
+cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "bridge(address,uint256,uint256,uint256,address,uint256)" \
+    0x73E04901b3fA84b5bd6782d446751E91c4e2616C 10e18 1e18 84532 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f 2 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
 // recipient token balances on both chain
-cast call 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 "balanceOf(address)(uint256)" 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f \
+cast call 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "balanceOf(address)(uint256)" 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f \
     --rpc-url $POLYGON_POS_RPC_URL
 
-cast call 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 "balanceOf(address)(uint256)" 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f \
+cast call 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "balanceOf(address)(uint256)" 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f \
     --rpc-url $BASE_SEPOLIA_RPC_URL
