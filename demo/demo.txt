@@ -6,40 +6,32 @@ base sepolia ChainId = 84532;
 source .env 
 
 // deploy on base 
-forge script script/BridgeScript.s.sol \
+forge script script/DeployAllContracts.s.sol \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast
 
-Bn254SignatureScheme contract deployed at:  0x1665D1aCf52f44c505aa6fcaD4901674d1bd4fCe
-Mock Polygon USDC contract deployed at:  0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3
-LiquidityPool contract deployed at:  0x33ab89901b8d4532E4269EE1Ce7b7A2867B8D6fB
-PoolAddressProvider contract deployed at:  0x1F0F3b7051C2a8803E78B585d7DbE57cceA61b81
-Router contract deployed at:  0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B
+Bn254SignatureScheme contract deployed at:  0x3ECCcF672a2Eb282Dd2B7589EA6bD65B474a96C7
+RUSD contract deployed at:  0x73E04901b3fA84b5bd6782d446751E91c4e2616C
+Bridge contract deployed at:  0xc9A956345D9D6E5729Ddd934D7b9cfd8cdcE353E
+Router contract deployed at:  0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd
 
 // deploy on polygon
-forge script script/DeployContracts.s.sol \
+forge script script/DeployAllContracts.s.sol \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast
 
-Bn254SignatureScheme contract deployed at:  0x1665D1aCf52f44c505aa6fcaD4901674d1bd4fCe
-Mock Polygon USDC contract deployed at:  0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3
-LiquidityPool contract deployed at:  0x33ab89901b8d4532E4269EE1Ce7b7A2867B8D6fB
-PoolAddressProvider contract deployed at:  0x1F0F3b7051C2a8803E78B585d7DbE57cceA61b81
-Router contract deployed at:  0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B
-
+Bn254SignatureScheme contract deployed at:  0x3ECCcF672a2Eb282Dd2B7589EA6bD65B474a96C7
+RUSD contract deployed at:  0x73E04901b3fA84b5bd6782d446751E91c4e2616C
+Bridge contract deployed at:  0xc9A956345D9D6E5729Ddd934D7b9cfd8cdcE353E
+Router contract deployed at:  0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd
 
 
 2. configure contracts on base 
 
 // map src and dst token addresses and chain ids
-cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "setTokenMapping(address,uint256,uint256,address)" 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 84532 137 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 \
-  --rpc-url $BASE_SEPOLIA_RPC_URL \
-  --private-key $PRIVATE_KEY
-
-// transfer pool ownership to router
-cast send 0x33ab89901b8d4532E4269EE1Ce7b7A2867B8D6fB "transferOwnership(address)" 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B \
+cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "setTokenMapping(uint256,address,address)" 137 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
@@ -48,20 +40,11 @@ cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "allowSrcChainId(uint256,bo
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
-// register src liquidity pool in pool provider contract
-cast send 0x1F0F3b7051C2a8803E78B585d7DbE57cceA61b81 "registerPool(address,uint256,address)" 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 84532 0x33ab89901b8d4532E4269EE1Ce7b7A2867B8D6fB \
-    --rpc-url $BASE_SEPOLIA_RPC_URL \
-    --private-key $PRIVATE_KEY
 
 3. configure contracts on polygon
 
 // map src and dst token addresses and chain ids
-cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "setTokenMapping(address,uint256,uint256,address)" 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 137 84532 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 \
-  --rpc-url $POLYGON_POS_RPC_URL \
-  --private-key $PRIVATE_KEY
-
-// transfer pool ownership to router
-cast send 0x33ab89901b8d4532E4269EE1Ce7b7A2867B8D6fB "transferOwnership(address)" 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B \
+cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "setTokenMapping(uint256,address,address)" 84532 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY
 
@@ -69,12 +52,6 @@ cast send 0x33ab89901b8d4532E4269EE1Ce7b7A2867B8D6fB "transferOwnership(address)
 cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "allowSrcChainId(uint256,bool)" 84532 true \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY
-
-// register src liquidity pool in pool provider contract
-cast send 0x1F0F3b7051C2a8803E78B585d7DbE57cceA61b81 "registerPool(address,uint256,address)" 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 137 0x33ab89901b8d4532E4269EE1Ce7b7A2867B8D6fB \
-    --rpc-url $POLYGON_POS_RPC_URL \
-    --private-key $PRIVATE_KEY
-
 
 4. make a cross chain transfer request from polygon to base
 
@@ -88,18 +65,17 @@ cast send 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 "approve(address,uint256)" 
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
-// make a bridge request for 6e18 (send to a random recipient from anvil)
-// router will extract fees from that amount for liquidity providers
-// rebalancing logic (TBC) is to batch all collected amounts and fees and send to destination chain
-// currently router is set to take 5% of the transfer amount
-// e.g., > 5700000000000000000 / 1e18 = // 5.7
-// > 0.05 * 6 = // 0.30000000000000004
-cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "bridge(address,uint256,uint256,address,uint256)" \
-    0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 6e18 84532 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f 2 \
+// make a bridge request from polygon pos to base sepolia 
+// for 10e18 (send to a random recipient from anvil)
+// router will extract the fee from the transfer amount
+// and allocate portion of the fee for the solver 
+// that fulfills the request on the destination chain id
+cast send 0x7B5E94a1C77c344c1904E21efdAf9138d7a09f9B "bridge(address,uint256,uint256,uint256,address,uint256)" \
+    0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 10e18 1e18 84532 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f 2 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
-// recipient balances 
+// recipient token balances on both chain
 cast call 0xF5A8Be871b75E6fA37E7ff1ED689b49B4Bf28ed3 "balanceOf(address)(uint256)" 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f \
     --rpc-url $POLYGON_POS_RPC_URL
 

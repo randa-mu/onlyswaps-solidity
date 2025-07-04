@@ -11,7 +11,7 @@ import {ERC20Token} from "../src/mocks/ERC20Token.sol";
 import {Router} from "../src/Router.sol";
 import {Bridge} from "../src/Bridge.sol";
 
-contract BridgeScript is Script {
+contract DeployAllContracts is Script {
     bytes32 constant SALT = bytes32(uint256(1));
 
     BLS.PointG2 blsPublicKey = BLS.PointG2({
