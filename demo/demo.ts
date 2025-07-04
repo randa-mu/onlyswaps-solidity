@@ -7,6 +7,7 @@ import {
   Router__factory,
   Bridge__factory,
   BN254SignatureScheme__factory,
+  ERC20Token__factory,
 } from "../typechain-types";
 
 import { config } from "dotenv";
@@ -23,7 +24,8 @@ interface ChainConfig {
   chainId: number;
   name: string;
   rpcUrl: string;
-  contractAddress: string;
+  router_contractAddress: string;
+  bridge_contractAddress: string;
 }
 
 // Load chain configurations from env variables CHAIN_ID_i, RPC_URL_i, CONTRACT_ADDR_i
@@ -32,14 +34,16 @@ const supportedChains: ChainConfig[] = [];
 for (let i = 1; ; i++) {
   const chainIdStr = process.env[`CHAIN_ID_${i}`];
   const rpcUrl = process.env[`RPC_URL_${i}`];
-  const contractAddress = process.env[`CONTRACT_ADDR_${i}`];
-  if (!chainIdStr || !rpcUrl || !contractAddress) break;
+  const routerContractAddress = process.env[`CONTRACT_ADDR_${i}`];
+  const bridgeContractAddress = process.env[`ROUTER_CONTRACT_ADDR_${i}`];
+  if (!chainIdStr || !rpcUrl || !routerContractAddress || !bridgeContractAddress) break;
 
   supportedChains.push({
     chainId: Number(chainIdStr),
     name: `Chain${i}`,
     rpcUrl,
-    contractAddress,
+    router_contractAddress: routerContractAddress,
+    bridge_contractAddress: bridgeContractAddress
   });
 }
 
@@ -54,6 +58,7 @@ if (!signerPrivateKey) {
   throw new Error("SIGNER_PRIVATE_KEY env var required");
 }
 const signerWallet = new Wallet(signerPrivateKey);
+const signerAddress = signerWallet.address;
 
 // BLS secret key for signing transfer messages
 const blsSecretKeyHex = process.env.BLS_PRIVATE_KEY!;
@@ -66,12 +71,33 @@ function getChainById(chainId: number) {
   return supportedChains.find((c) => c.chainId === chainId);
 }
 
-// Function to create ethers Contract connected to signer or provider
-function getContract(chain: ChainConfig, withSigner = false) {
+// Function to create ethers Contract for Router connected to signer or provider
+function getRouterContract(chain: ChainConfig, withSigner = false) {
   const provider = new JsonRpcProvider(chain.rpcUrl);
   return new Contract(
-    chain.contractAddress,
+    chain.router_contractAddress,
     routerAbi,
+    withSigner ? signerWallet.connect(provider) : provider
+  );
+}
+
+// Function to create ethers Contract for Bridge connected to signer or provider
+function getBridgeContract(chain: ChainConfig, withSigner = false) {
+  const provider = new JsonRpcProvider(chain.rpcUrl);
+  return new Contract(
+    chain.bridge_contractAddress,
+    bridgeAbi,
+    withSigner ? signerWallet.connect(provider) : provider
+  );
+}
+
+// Function to create ethers Contract for ERC-20 Token connected to signer or provider
+function getTokenContract(tokenAddress, chain: ChainConfig, withSigner = false) {
+  const provider = new JsonRpcProvider(chain.rpcUrl);
+  const erc20Abi = ERC20Token__factory.abi;
+  return new Contract(
+    tokenAddress,
+    erc20Abi,
     withSigner ? signerWallet.connect(provider) : provider
   );
 }
@@ -83,7 +109,7 @@ async function pollAndExecute() {
   console.log(`Starting poll cycle at ${new Date().toISOString()}`);
 
   for (const srcChain of supportedChains) {
-    const srcContract = getContract(srcChain, false);
+    const srcContract = getRouterContract(srcChain, false);
 
     try {
       const unfulfilledRequestIds: string[] = await srcContract.getAllUnfulfilledRequestIds();
@@ -126,25 +152,61 @@ async function pollAndExecute() {
         }
 
         // Destination contract instance
-        const dstContract = getContract(dstChain, true);
+        const dstContract = getBridgeContract(dstChain, true);
 
-        // Check if requestId is fulfilled on destination chain
-        const fulfilled = await dstContract.transferStatus(requestId);
-        // transferStatus enum: 0 = None, 1 = Requested, 2 = Executed
-        if (Number(fulfilled) === 2) {
+        // Check if requestId is fulfilled on destination chain (Bridge contract)
+        const fulfilled = await dstContract.isFulfilled(requestId);
+
+        if (fulfilled) {
           console.log(`[${dstChain.name}] Request ${requestId} already fulfilled`);
-          // Optionally: remove from unfulfilled set on source chain if desired
           continue;
+        } 
+
+        // Fulfill request on destination chain as it's not already fulfilled
+        try {
+          const amountOut = params.amount - params.bridgeFee;
+          const tokenAddress = await srcContract.getTokenMapping(params.token, params.dstChainId);
+
+          const tokenContract = getTokenContract(tokenAddress, dstChain, true);
+          
+          // Approve tokens for bridge contract first
+          await tokenContract.approve(await dstContract.getAddress(), amountOut);
+
+          const tx = await dstContract.relayTokens(
+            tokenAddress,
+            params.recipient,
+            amountOut,
+            requestId, 
+            params.srcChainId
+          );
+          console.log(`[${dstChain.name}] Executing request ${requestId}, tx hash: ${tx.hash}`);
+
+          // Wait for tx mined
+          const receipt = await tx.wait();
+          if (receipt.status === 1) {
+            console.log(`[${dstChain.name}] Request ${requestId} executed successfully`);
+          } else {
+            console.warn(`[${dstChain.name}] Request ${requestId} execution failed`);
+          }
+        } catch (execError) {
+          console.error(`[${dstChain.name}] Failed to execute request ${requestId}`, execError);
         }
 
+        // Confirm it's fulfilled on-chain and log the receipt from the destination chain Bridge contract
+
+
+        // Reinburse solver via the source chain Router contract
         const transferParams = {
           sender: params.sender,
           recipient: params.recipient,
           token: params.token,
-          amount: params.amount,
+          amount: params.amount, // user receives amount minus bridgeFee
           srcChainId: params.srcChainId,
           dstChainId: params.dstChainId,
+          bridgeFee: params.bridgeFee, // deducted from amount
+          solverFee: params.solverFee, // deducted from bridge fee
           nonce: params.nonce,
+          executed: params.executed
         };
         
         // Generate BLS signature over message
@@ -164,20 +226,26 @@ async function pollAndExecute() {
         const sig = mcl.serialiseG1Point(signature);
         const sigBytes = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sig[0], sig[1]]);
 
-        // Execute message on destination contract
+        // Execute message on source router contract to refund solver
         try {
-          const tx = await dstContract.executeMessage(message, sigBytes);
-          console.log(`[${dstChain.name}] Executing request ${requestId}, tx hash: ${tx.hash}`);
+          const solverAddress = signerAddress;
+          const tx = await srcContract.rebalanceSolver(
+            solverAddress, 
+            requestId, 
+            message, 
+            sigBytes
+          );
+          console.log(`[${srcChain.name}] Rebalancing solver for request ${requestId}, tx hash: ${tx.hash}`);
 
           // Wait for tx mined
           const receipt = await tx.wait();
           if (receipt.status === 1) {
-            console.log(`[${dstChain.name}] Request ${requestId} executed successfully`);
+            console.log(`[${srcChain.name}] Request ${requestId} executed successfully`);
           } else {
-            console.warn(`[${dstChain.name}] Request ${requestId} execution failed`);
+            console.warn(`[${srcChain.name}] Request ${requestId} execution failed`);
           }
         } catch (execError) {
-          console.error(`[${dstChain.name}] Failed to execute request ${requestId}`, execError);
+          console.error(`[${srcChain.name}] Failed to rebalance solver for request ${requestId}`, execError);
         }
       }
     } catch (err) {
