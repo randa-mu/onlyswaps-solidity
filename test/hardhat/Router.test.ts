@@ -62,8 +62,8 @@ describe("Router", function () {
     recipientAddr = await recipient.getAddress();
     solverAddr = await solver.getAddress();
 
-    srcToken = await new ERC20Token__factory(owner).deploy("SrcToken", "STK", 18);
-    dstToken = await new ERC20Token__factory(owner).deploy("DstToken", "DTK", 18);
+    srcToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
+    dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
 
     bn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy(
       [default_pk.x.c0, default_pk.x.c1],

@@ -22,7 +22,7 @@ describe("Bridge", function () {
     recipientAddr = await recipient.getAddress();
 
     // Deploy token contract
-    token = await new ERC20Token__factory(owner).deploy("MockToken", "MTK", 18);
+    token = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
 
     // Deploy Bridge contract
     bridge = await new Bridge__factory(owner).deploy(ownerAddr);

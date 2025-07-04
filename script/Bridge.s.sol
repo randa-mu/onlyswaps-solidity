@@ -44,8 +44,8 @@ contract BridgeScript is Script {
     function deployMockToken() internal returns (ERC20Token token) {
         vm.broadcast();
         uint8 tokenDecimals = 18;
-        token = new ERC20Token{salt: SALT}("MockPolygonUSDC", "MPUSDC", tokenDecimals);
-        console.log("Mock Polygon USDC contract deployed at: ", address(token));
+        token = new ERC20Token{salt: SALT}("RUSD", "RUSD", tokenDecimals);
+        console.log("RUSD contract deployed at: ", address(token));
     }
 
     function deployBridge(address owner) internal returns (Bridge bridge) {
