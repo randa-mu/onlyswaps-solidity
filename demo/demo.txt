@@ -67,6 +67,8 @@ cast send 0x43748DC0b4735463105c528816f59bB7F37009dE "approve(address,uint256)" 
     --private-key $PRIVATE_KEY
 
 // start agent in another terminal window 
+// ensure correct Router and Bridge contract addresses are set in .env file on 
+// all supported chains
 npx ts-node demo/demo.ts
 
 // make a bridge request from polygon pos to base sepolia 
