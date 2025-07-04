@@ -55,6 +55,8 @@ describe("Bridge", function () {
     expect(receipt.fulfilled).to.be.true;
     expect(receipt.amountOut).to.equal(amount);
     expect(receipt.solver).to.equal(userAddr);
+
+    expect(await bridge.isFulfilled(requestId)).to.be.equal(true);
   });
 
   it("should not allow double fulfillment", async () => {

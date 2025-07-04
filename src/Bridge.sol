@@ -28,12 +28,14 @@ contract Bridge is Ownable, IBridge {
         require(token != address(0) && recipient != address(0), "Invalid token or recipient");
         require(amount > 0, "Zero amount");
 
+        receipts[requestId].fulfilled = true;
+
         IERC20(token).safeTransferFrom(msg.sender, recipient, amount);
 
         receipts[requestId] = TransferReceipt({
             requestId: requestId,
             srcChainId: srcChainId,
-            fulfilled: true,
+            fulfilled: receipts[requestId].fulfilled,
             solver: msg.sender,
             amountOut: amount,
             fulfilledAt: block.timestamp
