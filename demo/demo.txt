@@ -30,26 +30,26 @@ Router contract deployed at:  0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd
 
 2. configure contracts on base 
 
-// map src and dst token addresses and chain ids
-cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "setTokenMapping(uint256,address,address)" 137 0x73E04901b3fA84b5bd6782d446751E91c4e2616C 0x73E04901b3fA84b5bd6782d446751E91c4e2616C \
+// permit messages from other src chain ids
+cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "allowSrcChainId(uint256,bool)" 137 true \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
-// permit messages from other src chain ids
-cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "allowSrcChainId(uint256,bool)" 137 true \
+// map src and dst token addresses and chain ids
+cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "setTokenMapping(uint256,address,address)" 137 0x73E04901b3fA84b5bd6782d446751E91c4e2616C 0x73E04901b3fA84b5bd6782d446751E91c4e2616C \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
 
 3. configure contracts on polygon
 
-// map src and dst token addresses and chain ids
-cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "setTokenMapping(uint256,address,address)" 84532 0x73E04901b3fA84b5bd6782d446751E91c4e2616C 0x73E04901b3fA84b5bd6782d446751E91c4e2616C \
+// permit messages from other src chain ids
+cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "allowSrcChainId(uint256,bool)" 84532 true \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY
 
-// permit messages from other src chain ids
-cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "allowSrcChainId(uint256,bool)" 84532 true \
+// map src and dst token addresses and chain ids
+cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "setTokenMapping(uint256,address,address)" 84532 0x73E04901b3fA84b5bd6782d446751E91c4e2616C 0x73E04901b3fA84b5bd6782d446751E91c4e2616C \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY
 
