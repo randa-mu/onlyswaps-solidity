@@ -116,7 +116,7 @@ contract Router is Ownable, IRouter {
         emit BridgeRequestFeeUpdated(requestId, params.token, newBridgeFeeAmount, newSolverFee);
     }
 
-    /// @notice Called by owner to approve a solver’s fulfillment of a bridge request
+    /// @notice Called with dcipher signature to approve a solver’s fulfillment of a bridge request
     /// @param solver Address of the solver being paid
     /// @param requestId Unique ID of the request
     /// @param message Original message data
