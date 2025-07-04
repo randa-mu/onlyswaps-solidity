@@ -175,13 +175,13 @@ async function pollAndExecute() {
             requestId,
             params.srcChainId
           );
-          console.log(`[${dstChain.name}] Executing request ${requestId}, tx: ${tx.hash}`);
+          console.log(`[${dstChain.name}] Sending tokens to recipient for request ${requestId}, tx: ${tx.hash}`);
 
           const receipt = await tx.wait();
           if (receipt.status === 1) {
-            console.log(`[${dstChain.name}] Request ${requestId} executed successfully`);
+            console.log(`[${dstChain.name}] Token transfer for ${requestId} executed successfully`);
           } else {
-            console.warn(`[${dstChain.name}] Request ${requestId} execution failed`);
+            console.warn(`[${dstChain.name}] Token transfer for ${requestId} failed`);
           }
         } catch (execError) {
           console.error(`[${dstChain.name}] Failed to execute request ${requestId}`, execError);
@@ -189,7 +189,7 @@ async function pollAndExecute() {
 
         // Confirm fulfillment
         const fulfilledNow = await dstContract.isFulfilled(requestId);
-        console.log(`[${dstChain.name}] Request ${requestId} fulfilled: ${fulfilledNow}`);
+        console.log(`[${dstChain.name}] Recipient has received tokens for request ${requestId}: ${fulfilledNow}`);
 
         // Prepare transfer params for rebalance signature
         const transferParams = {
