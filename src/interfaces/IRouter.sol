@@ -11,7 +11,7 @@ interface IRouter {
         uint256 amount; // user receives amount on destination chain
         uint256 srcChainId;
         uint256 dstChainId;
-        uint256 bridgeFee; // deducted from fee param in bridge function
+        uint256 bridgeFee; // deducted from fee parameter specified in bridge function
         uint256 solverFee; // fee - bridge fee
         uint256 nonce;
         bool executed;
