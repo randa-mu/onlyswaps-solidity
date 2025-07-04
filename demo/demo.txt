@@ -31,7 +31,7 @@ Router contract deployed at:  0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd
 2. configure contracts on base 
 
 // permit messages from other src chain ids
-cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "allowSrcChainId(uint256,bool)" 137 true \
+cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "allowDstChainId(uint256,bool)" 137 true \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
@@ -44,7 +44,7 @@ cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "setTokenMapping(uint256,ad
 3. configure contracts on polygon
 
 // permit messages from other src chain ids
-cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "allowSrcChainId(uint256,bool)" 84532 true \
+cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "allowDstChainId(uint256,bool)" 84532 true \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY
 
@@ -55,18 +55,19 @@ cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "setTokenMapping(uint256,ad
 
 4. make a cross chain transfer request from polygon to base
 
-// mint 50 to sender
+// mint 50 to sender on source chain
 cast send 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "mint(address,uint256)" 0xDC21c5F25E196b0C7E13F2C6f3184368059047FF 50e18 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
-// approve tokens for router contract
+// approve tokens for router contract on the source chain
 cast send 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "approve(address,uint256)" 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd 50e18 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
 // make a bridge request from polygon pos to base sepolia 
 // for 10e18 (send to a random recipient from anvil)
+// with a fee of 1e18
 // router will extract the fee from the transfer amount
 // and allocate portion of the fee for the solver 
 // that fulfills the request on the destination chain id

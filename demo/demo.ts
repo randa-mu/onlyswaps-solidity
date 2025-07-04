@@ -1,7 +1,7 @@
 import { JsonRpcProvider, Wallet, Contract, TransactionReceipt, Interface, EventFragment, Result, AbiCoder, MaxUint256, getBytes, hexlify, keccak256, parseEther, sha256, toUtf8Bytes } from "ethers";
 import { ethers } from "ethers";
 import { BlsBn254 } from "../test/hardhat/crypto";
-
+import path from "path";
 import {
   Router__factory,
   Bridge__factory,
@@ -9,6 +9,8 @@ import {
 } from "../typechain-types";
 
 import { config } from "dotenv";
+
+const fs = require('fs');
 
 // Load environment variables from .env
 config();
@@ -24,27 +26,33 @@ interface ChainConfig {
   bridge_contractAddress: string;
 }
 
-// Load chain configurations from env variables CHAIN_ID_i, RPC_URL_i, ROUTER_CONTRACT_ADDR_i, BRIDGE_CONTRACT_ADDR_i
 const supportedChains: ChainConfig[] = [];
 
-for (let i = 1; ; i++) {
-  const chainIdStr = process.env[`CHAIN_ID_${i}`];
-  const rpcUrl = process.env[`RPC_URL_${i}`];
-  const routerContractAddress = process.env[`ROUTER_CONTRACT_ADDR_${i}`];
-  const bridgeContractAddress = process.env[`BRIDGE_CONTRACT_ADDR_${i}`];
-  if (!chainIdStr || !rpcUrl || !routerContractAddress || !bridgeContractAddress) break;
+async function loadSupportedChains() {
+  for (let i = 1; ; i++) {
+    const chainIdStr = process.env[`CHAIN_ID_${i}`];
+    const rpcUrl = process.env[`RPC_URL_${i}`];
+    const routerContractAddress = process.env[`ROUTER_CONTRACT_ADDR_${i}`];
+    const bridgeContractAddress = process.env[`BRIDGE_CONTRACT_ADDR_${i}`];
 
-  supportedChains.push({
-    chainId: Number(chainIdStr),
-    name: `Chain${i}`,
-    rpcUrl,
-    router_contractAddress: routerContractAddress,
-    bridge_contractAddress: bridgeContractAddress
-  });
-}
+    if (!chainIdStr || !rpcUrl || !routerContractAddress || !bridgeContractAddress) break;
 
-if (supportedChains.length === 0) {
-  throw new Error("No supported chains loaded from environment variables.");
+    const chainId = Number(chainIdStr);
+    const name = await getNetworkNameFromChainId(chainId);
+
+    supportedChains.push({
+      chainId,
+      name,
+      rpcUrl,
+      router_contractAddress: routerContractAddress,
+      bridge_contractAddress: bridgeContractAddress
+    });
+  }
+
+  // Move the error check inside the async function
+  if (supportedChains.length === 0) {
+    throw new Error("No supported chains loaded from environment variables.");
+  }
 }
 
 // Load signer private key 
@@ -106,7 +114,7 @@ async function pollAndExecute() {
   console.log(`Starting poll cycle at ${new Date().toISOString()}`);
 
   for (const srcChain of supportedChains) {
-    const srcContract = getRouterContract(srcChain, false);
+    const srcContract = getRouterContract(srcChain, true);
 
     try {
       const unfulfilledRequestIds: string[] = await srcContract.getAllUnfulfilledRequestIds();
@@ -115,7 +123,6 @@ async function pollAndExecute() {
         console.log(`[${srcChain.name}] No unfulfilled requests`);
         continue;
       }
-
       console.log(`[${srcChain.name}] Found ${unfulfilledRequestIds.length} unfulfilled requests`);
 
       for (const requestId of unfulfilledRequestIds) {
@@ -163,12 +170,25 @@ async function pollAndExecute() {
         try {
           const amountOut = params.amount - params.bridgeFee;
           const tokenAddress = await srcContract.getTokenMapping(params.token, params.dstChainId);
-
           const tokenContract = getTokenContract(tokenAddress, dstChain, true);
-          
-          // Approve tokens for bridge contract first
-          await tokenContract.approve(await dstContract.getAddress(), amountOut);
 
+          // Mint tokens for solver if needed
+          const solverBalance = await tokenContract.balanceOf(signerAddress);
+          if (solverBalance < amountOut) {
+            const mintTx = await tokenContract.mint(signerAddress, amountOut);
+            await mintTx.wait();
+            console.log(`[${dstChain.name}] Minted tokens for solver, tx hash: ${mintTx.hash}`);
+          } 
+          
+          // Approve tokens for bridge contract if needed
+          const allowance = await tokenContract.allowance(signerAddress, await dstContract.getAddress());
+          if (allowance < amountOut) {
+            const approveTx = await tokenContract.approve(await dstContract.getAddress(), amountOut);
+            await approveTx.wait();
+            console.log(`[${dstChain.name}] Executing solver token approval for Bridge contract, tx hash: ${approveTx.hash}`);
+          }
+
+          // Relay tokens to recipient address on destination chain
           const tx = await dstContract.relayTokens(
             tokenAddress,
             params.recipient,
@@ -178,7 +198,7 @@ async function pollAndExecute() {
           );
           console.log(`[${dstChain.name}] Executing request ${requestId}, tx hash: ${tx.hash}`);
 
-          // Wait for tx mined
+          // Wait for tx to be mined
           const receipt = await tx.wait();
           if (receipt.status === 1) {
             console.log(`[${dstChain.name}] Request ${requestId} executed successfully`);
@@ -190,8 +210,8 @@ async function pollAndExecute() {
         }
 
         // Confirm it's fulfilled on-chain and log the receipt from the destination chain Bridge contract
-
-
+        console.log(`[${dstChain.name}] Request ${requestId} fulfilled on destination chain: ${await dstContract.isFulfilled(requestId)}`);
+        
         // Reinburse solver via the source chain Router contract
         const transferParams = {
           sender: params.sender,
@@ -210,7 +230,7 @@ async function pollAndExecute() {
         let mcl: BlsBn254;
         mcl = await BlsBn254.create();
 
-        const [message, messageAsG1Bytes, messageAsG1Point] = await dstContract.transferParamsToBytes.staticCall(transferParams);
+        const [message, messageAsG1Bytes, messageAsG1Point] = await srcContract.transferParamsToBytes.staticCall(transferParams);
         const M = mcl.g1FromEvm(messageAsG1Point.x, messageAsG1Point.y);
         const { secretKey, pubKey } = mcl.createKeyPair(blsSecretKeyHex as `0x${string}`);
         const { signature } = mcl.sign(M, secretKey);
@@ -234,7 +254,7 @@ async function pollAndExecute() {
           );
           console.log(`[${srcChain.name}] Rebalancing solver for request ${requestId}, tx hash: ${tx.hash}`);
 
-          // Wait for tx mined
+          // Wait for tx to be mined
           const receipt = await tx.wait();
           if (receipt.status === 1) {
             console.log(`[${srcChain.name}] Request ${requestId} executed successfully`);
@@ -251,11 +271,41 @@ async function pollAndExecute() {
   }
 }
 
-// Start polling loop
-setInterval(pollAndExecute, POLL_INTERVAL);
 
-// Initial start
-pollAndExecute();
+
+function getNetworkNameFromChainId(chainId: number): Promise<string> {
+  const chainsPath = path.join(__dirname, "chains.json");
+
+  return new Promise((resolve, reject) => {
+    fs.readFile(
+      chainsPath,
+      "utf8",
+      (err: NodeJS.ErrnoException | null, data: string | undefined) => {
+        if (err) {
+          reject(new Error(`Failed to read chains.json at ${chainsPath}: ${err.message}`));
+          return;
+        }
+
+        try {
+          const chains: { chainId: number; name: string }[] = JSON.parse(data as string);
+          const match = chains.find((c) => c.chainId === chainId);
+          resolve(match?.name ?? `Unknown (Chain ID: ${chainId})`);
+        } catch (e) {
+          reject(new Error("Invalid JSON format in chains.json"));
+        }
+      }
+    );
+  });
+}
+
+
+async function main() {
+  await loadSupportedChains();
+  pollAndExecute();
+  setInterval(pollAndExecute, POLL_INTERVAL);
+}
+
+main().catch(console.error);
 
 
 // usage: npx ts-node demo/demo.ts
