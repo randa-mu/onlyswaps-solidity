@@ -210,8 +210,6 @@ describe("Router", function () {
 
     const transferParams = await router.getTransferParameters(requestId);
 
-    // const [message, messageAsG1Bytes, messageAsG1Point] = await router.transferParamsToBytes(transferParams);
-
     const [message, messageAsG1Bytes, messageAsG1Point] = await router.transferParamsToBytes({
       sender: transferParams.sender,
       recipient: transferParams.recipient,
