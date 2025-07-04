@@ -265,3 +265,6 @@ main().catch((err) => {
   console.error("Fatal error in main:", err);
   process.exit(1);
 });
+
+
+// Usage: npx ts-node demo/demo.ts
