@@ -26,7 +26,7 @@ interface ChainConfig {
   contractAddress: string;
 }
 
-// Load chain configs from env variables CHAIN_ID_i, RPC_URL_i, CONTRACT_ADDR_i
+// Load chain configurations from env variables CHAIN_ID_i, RPC_URL_i, CONTRACT_ADDR_i
 const supportedChains: ChainConfig[] = [];
 
 for (let i = 1; ; i++) {
@@ -47,7 +47,8 @@ if (supportedChains.length === 0) {
   throw new Error("No supported chains loaded from environment variables.");
 }
 
-// Your signer private key (should have execution rights on destination contracts)
+// Load signer private key 
+// It should have execution rights on the source and destination contracts
 const signerPrivateKey = process.env.PRIVATE_KEY!;
 if (!signerPrivateKey) {
   throw new Error("SIGNER_PRIVATE_KEY env var required");
@@ -96,8 +97,20 @@ async function pollAndExecute() {
 
       for (const requestId of unfulfilledRequestIds) {
         // Fetch transfer params from source contract storage
-        const params = await srcContract.transferParameters(requestId);
-        // params shape matches TransferParams struct: {sender, recipient, token, amount, srcChainId, dstChainId, nonce}
+        const params = await srcContract.getTransferParameters(requestId);
+        // params shape matches TransferParams struct:
+        /* struct TransferParams {
+          address sender;
+          address recipient;
+          address token;
+          uint256 amount; // user receives amount minus bridgeFee
+          uint256 srcChainId;
+          uint256 dstChainId;
+          uint256 bridgeFee; // deducted from amount
+          uint256 solverFee; // deducted from bridge fee
+          uint256 nonce;
+          bool executed;
+        } */
 
         // Validate params object keys exist
         if (!params || !params.dstChainId) {

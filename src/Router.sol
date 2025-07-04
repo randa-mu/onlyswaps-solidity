@@ -41,9 +41,6 @@ contract Router is Ownable, IRouter {
     /// @notice Mapping of requestId => transfer parameters
     mapping(bytes32 => TransferParams) public transferParameters;
 
-    /// @notice Tracks executed BLS messages to prevent replay
-    mapping(bytes => bool) public executedMessages;
-
     /// @notice Whitelisted destination chain IDs
     mapping(uint256 => bool) public allowedDstChainIds;
 
@@ -280,10 +277,6 @@ contract Router is Ownable, IRouter {
 
     function getTotalBridgeFeesBalance(address token) external view returns (uint256) {
         return totalBridgeFeesBalance[token];
-    }
-
-    function getExecutedMessageStatus(bytes calldata message) external view returns (bool) {
-        return executedMessages[message];
     }
 
     function getUnfulfilledRequestIds() external view returns (bytes32[] memory) {
