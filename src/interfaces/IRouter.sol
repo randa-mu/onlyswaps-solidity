@@ -8,10 +8,10 @@ interface IRouter {
         address sender;
         address recipient;
         address token;
-        uint256 amount; // user receives amount minus (bridgeFee + solverFee)
+        uint256 amount; // user receives amount on destination chain
         uint256 srcChainId;
         uint256 dstChainId;
-        uint256 bridgeFee; // deducted from amount
+        uint256 bridgeFee; // deducted from fee param in bridge function
         uint256 solverFee; // fee - bridge fee
         uint256 nonce;
         bool executed;
