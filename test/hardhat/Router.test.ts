@@ -10,14 +10,7 @@ import { BlsBn254 } from "./crypto";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import dotenv from "dotenv";
-import {
-  AbiCoder,
-  parseEther,
-  TransactionReceipt,
-  Interface,
-  EventFragment,
-  Result,
-} from "ethers";
+import { AbiCoder, parseEther, TransactionReceipt, Interface, EventFragment, Result } from "ethers";
 import { ethers } from "hardhat";
 
 dotenv.config();
