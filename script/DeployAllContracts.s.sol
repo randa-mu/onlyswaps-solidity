@@ -12,7 +12,7 @@ import {Router} from "../src/Router.sol";
 import {Bridge} from "../src/Bridge.sol";
 
 contract DeployAllContracts is Script {
-    bytes32 constant SALT = bytes32(uint256(1));
+    bytes32 constant SALT = bytes32(uint256(2));
 
     BLS.PointG2 blsPublicKey = BLS.PointG2({
         x: [vm.envUint("BLS_PUBLIC_KEY_X0"), vm.envUint("BLS_PUBLIC_KEY_X1")],
