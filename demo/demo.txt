@@ -72,13 +72,13 @@ cast send 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "approve(address,uint256)" 
 // and allocate portion of the fee for the solver 
 // that fulfills the request on the destination chain id
 cast send 0xd81DCC29f1B8EED20a5Bf18cA0875115d121Dffd "bridge(address,uint256,uint256,uint256,address,uint256)" \
-    0x73E04901b3fA84b5bd6782d446751E91c4e2616C 10e18 1e18 84532 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f 2 \
+    0x73E04901b3fA84b5bd6782d446751E91c4e2616C 10e18 1e18 84532 0x976EA74026E726554dB657fA54763abd0C3a0aa9 2 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
 // recipient token balances on both chain
-cast call 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "balanceOf(address)(uint256)" 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f \
+cast call 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "balanceOf(address)(uint256)" 0x976EA74026E726554dB657fA54763abd0C3a0aa9 \
     --rpc-url $POLYGON_POS_RPC_URL
 
-cast call 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "balanceOf(address)(uint256)" 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f \
+cast call 0x73E04901b3fA84b5bd6782d446751E91c4e2616C "balanceOf(address)(uint256)" 0x976EA74026E726554dB657fA54763abd0C3a0aa9 \
     --rpc-url $BASE_SEPOLIA_RPC_URL

@@ -1,23 +1,22 @@
-import { JsonRpcProvider, Wallet, Contract, TransactionReceipt, Interface, EventFragment, Result, AbiCoder, MaxUint256, getBytes, hexlify, keccak256, parseEther, sha256, toUtf8Bytes } from "ethers";
-import { ethers } from "ethers";
-import { BlsBn254 } from "../test/hardhat/crypto";
+import {
+  JsonRpcProvider,
+  Wallet,
+  Contract,
+  AbiCoder,
+} from "ethers";
 import path from "path";
+import fs from "fs/promises"; // Use promises-based fs API
 import {
   Router__factory,
   Bridge__factory,
   ERC20Token__factory,
 } from "../typechain-types";
-
 import { config } from "dotenv";
+import { BlsBn254 } from "../test/hardhat/crypto";
 
-const fs = require('fs');
+config(); // Load env variables
 
-// Load environment variables from .env
-config();
-
-const routerAbi = Router__factory.abi;
-const bridgeAbi = Bridge__factory.abi;
-
+// Types
 interface ChainConfig {
   chainId: number;
   name: string;
@@ -26,16 +25,23 @@ interface ChainConfig {
   bridge_contractAddress: string;
 }
 
+// Globals
+const routerAbi = Router__factory.abi;
+const bridgeAbi = Bridge__factory.abi;
 const supportedChains: ChainConfig[] = [];
+// Interval should be enough to wait for all transactions in each iteration to be mined on-chain
+// before starting the next iteration
+const POLL_INTERVAL = 20_000; // ms
 
-async function loadSupportedChains() {
-  for (let i = 1; ; i++) {
+// Load supported chains from env variables dynamically
+async function loadSupportedChains(): Promise<void> {
+  let i = 1;
+  while (true) {
     const chainIdStr = process.env[`CHAIN_ID_${i}`];
     const rpcUrl = process.env[`RPC_URL_${i}`];
-    const routerContractAddress = process.env[`ROUTER_CONTRACT_ADDR_${i}`];
-    const bridgeContractAddress = process.env[`BRIDGE_CONTRACT_ADDR_${i}`];
-
-    if (!chainIdStr || !rpcUrl || !routerContractAddress || !bridgeContractAddress) break;
+    const routerAddr = process.env[`ROUTER_CONTRACT_ADDR_${i}`];
+    const bridgeAddr = process.env[`BRIDGE_CONTRACT_ADDR_${i}`];
+    if (!chainIdStr || !rpcUrl || !routerAddr || !bridgeAddr) break;
 
     const chainId = Number(chainIdStr);
     const name = await getNetworkNameFromChainId(chainId);
@@ -44,74 +50,68 @@ async function loadSupportedChains() {
       chainId,
       name,
       rpcUrl,
-      router_contractAddress: routerContractAddress,
-      bridge_contractAddress: bridgeContractAddress
+      router_contractAddress: routerAddr,
+      bridge_contractAddress: bridgeAddr,
     });
+
+    i++;
   }
 
-  // Move the error check inside the async function
   if (supportedChains.length === 0) {
     throw new Error("No supported chains loaded from environment variables.");
   }
 }
 
-// Load signer private key 
-// It should have execution rights on the source and destination contracts
-const signerPrivateKey = process.env.PRIVATE_KEY!;
-if (!signerPrivateKey) {
-  throw new Error("SIGNER_PRIVATE_KEY env var required");
-}
+// Env vars validation & signer setup
+const signerPrivateKey = process.env.PRIVATE_KEY;
+if (!signerPrivateKey) throw new Error("PRIVATE_KEY env var required");
 const signerWallet = new Wallet(signerPrivateKey);
 const signerAddress = signerWallet.address;
 
-// BLS secret key for signing transfer messages
-const blsSecretKeyHex = process.env.BLS_PRIVATE_KEY!;
-if (!blsSecretKeyHex) {
-  throw new Error("BLS_SECRET_KEY env var required");
-}
+const blsSecretKeyHex = process.env.BLS_PRIVATE_KEY;
+if (!blsSecretKeyHex) throw new Error("BLS_PRIVATE_KEY env var required");
 
-// Helper: get ChainConfig by chainId
-function getChainById(chainId: number) {
+// Helpers
+const abiCoder = AbiCoder.defaultAbiCoder();
+
+function getChainById(chainId: number): ChainConfig | undefined {
   return supportedChains.find((c) => c.chainId === chainId);
 }
 
-// Function to create ethers Contract for Router connected to signer or provider
+function getProvider(chain: ChainConfig) {
+  return new JsonRpcProvider(chain.rpcUrl);
+}
+
+function getContract(
+  abi: any,
+  address: string,
+  chain: ChainConfig,
+  withSigner = false
+): Contract {
+  const provider = getProvider(chain);
+  return new Contract(
+    address,
+    abi,
+    withSigner ? signerWallet.connect(provider) : provider
+  );
+}
+
 function getRouterContract(chain: ChainConfig, withSigner = false) {
-  const provider = new JsonRpcProvider(chain.rpcUrl);
-  return new Contract(
-    chain.router_contractAddress,
-    routerAbi,
-    withSigner ? signerWallet.connect(provider) : provider
-  );
+  return getContract(routerAbi, chain.router_contractAddress, chain, withSigner);
 }
 
-// Function to create ethers Contract for Bridge connected to signer or provider
 function getBridgeContract(chain: ChainConfig, withSigner = false) {
-  const provider = new JsonRpcProvider(chain.rpcUrl);
-  return new Contract(
-    chain.bridge_contractAddress,
-    bridgeAbi,
-    withSigner ? signerWallet.connect(provider) : provider
-  );
+  return getContract(bridgeAbi, chain.bridge_contractAddress, chain, withSigner);
 }
 
-// Function to create ethers Contract for ERC-20 Token connected to signer or provider
 function getTokenContract(tokenAddress: string, chain: ChainConfig, withSigner = false) {
-  const provider = new JsonRpcProvider(chain.rpcUrl);
   const erc20Abi = ERC20Token__factory.abi;
-  return new Contract(
-    tokenAddress,
-    erc20Abi,
-    withSigner ? signerWallet.connect(provider) : provider
-  );
+  return getContract(erc20Abi, tokenAddress, chain, withSigner);
 }
 
-// Poll interval in ms
-// seconds = ms / 1000
-const POLL_INTERVAL = 10_000;
-
+// Main polling logic
 async function pollAndExecute() {
-  console.log(`Starting poll cycle at ${new Date().toISOString()}`);
+  console.log(`Polling cycle started at ${new Date().toISOString()}`);
 
   for (const srcChain of supportedChains) {
     const srcContract = getRouterContract(srcChain, true);
@@ -126,79 +126,57 @@ async function pollAndExecute() {
       console.log(`[${srcChain.name}] Found ${unfulfilledRequestIds.length} unfulfilled requests`);
 
       for (const requestId of unfulfilledRequestIds) {
-        // Fetch transfer params from source contract storage
         const params = await srcContract.getTransferParameters(requestId);
-        // params shape matches TransferParams struct:
-        /* struct TransferParams {
-          address sender;
-          address recipient;
-          address token;
-          uint256 amount; // user receives amount minus bridgeFee
-          uint256 srcChainId;
-          uint256 dstChainId;
-          uint256 bridgeFee; // deducted from amount
-          uint256 solverFee; // deducted from bridge fee
-          uint256 nonce;
-          bool executed;
-        } */
-
-        // Validate params object keys exist
         if (!params || !params.dstChainId) {
-          console.warn(`[${srcChain.name}] Invalid params for requestId ${requestId}`);
+          console.warn(`[${srcChain.name}] Invalid params for request ${requestId}`);
           continue;
         }
 
-        // Get destination chain config
         const dstChain = getChainById(Number(params.dstChainId));
         if (!dstChain) {
-          console.warn(`[${srcChain.name}] Destination chainId ${params.dstChainId} not supported`);
+          console.warn(`[${srcChain.name}] Unsupported destination chainId ${params.dstChainId}`);
           continue;
         }
 
-        // Destination contract instance
         const dstContract = getBridgeContract(dstChain, true);
-
-        // Check if requestId is fulfilled on destination chain (Bridge contract)
         const fulfilled = await dstContract.isFulfilled(requestId);
-
         if (fulfilled) {
           console.log(`[${dstChain.name}] Request ${requestId} already fulfilled`);
           continue;
-        } 
+        }
 
-        // Fulfill request on destination chain as it's not already fulfilled
         try {
-          const amountOut = params.amount - params.bridgeFee;
+          const amountOut = params.amount - params.bridgeFee - params.solverFee;
           const tokenAddress = await srcContract.getTokenMapping(params.token, params.dstChainId);
           const tokenContract = getTokenContract(tokenAddress, dstChain, true);
 
-          // Mint tokens for solver if needed
+          // Mint tokens if needed
           const solverBalance = await tokenContract.balanceOf(signerAddress);
           if (solverBalance < amountOut) {
             const mintTx = await tokenContract.mint(signerAddress, amountOut);
             await mintTx.wait();
-            console.log(`[${dstChain.name}] Minted tokens for solver, tx hash: ${mintTx.hash}`);
-          } 
-          
-          // Approve tokens for bridge contract if needed
-          const allowance = await tokenContract.allowance(signerAddress, await dstContract.getAddress());
-          if (allowance < amountOut) {
-            const approveTx = await tokenContract.approve(await dstContract.getAddress(), amountOut);
-            await approveTx.wait();
-            console.log(`[${dstChain.name}] Executing solver token approval for Bridge contract, tx hash: ${approveTx.hash}`);
+            console.log(`[${dstChain.name}] Minted tokens for solver, tx: ${mintTx.hash}`);
           }
 
-          // Relay tokens to recipient address on destination chain
+          // Approve tokens if needed
+          const bridgeAddress = await dstContract.getAddress();
+          const allowance = await tokenContract.allowance(signerAddress, bridgeAddress);
+          if (allowance < amountOut) {
+            const approveTx = await tokenContract.approve(bridgeAddress, amountOut);
+            await approveTx.wait();
+            console.log(`[${dstChain.name}] Approved tokens for Bridge, tx: ${approveTx.hash}`);
+          }
+
+          // Relay tokens on destination chain
           const tx = await dstContract.relayTokens(
             tokenAddress,
             params.recipient,
             amountOut,
-            requestId, 
+            requestId,
             params.srcChainId
           );
-          console.log(`[${dstChain.name}] Executing request ${requestId}, tx hash: ${tx.hash}`);
+          console.log(`[${dstChain.name}] Executing request ${requestId}, tx: ${tx.hash}`);
 
-          // Wait for tx to be mined
           const receipt = await tx.wait();
           if (receipt.status === 1) {
             console.log(`[${dstChain.name}] Request ${requestId} executed successfully`);
@@ -209,103 +187,81 @@ async function pollAndExecute() {
           console.error(`[${dstChain.name}] Failed to execute request ${requestId}`, execError);
         }
 
-        // Confirm it's fulfilled on-chain and log the receipt from the destination chain Bridge contract
-        console.log(`[${dstChain.name}] Request ${requestId} fulfilled on destination chain: ${await dstContract.isFulfilled(requestId)}`);
-        
-        // Reinburse solver via the source chain Router contract
+        // Confirm fulfillment
+        const fulfilledNow = await dstContract.isFulfilled(requestId);
+        console.log(`[${dstChain.name}] Request ${requestId} fulfilled: ${fulfilledNow}`);
+
+        // Prepare transfer params for rebalance signature
         const transferParams = {
           sender: params.sender,
           recipient: params.recipient,
           token: params.token,
-          amount: params.amount, // user receives amount minus bridgeFee
+          amount: params.amount,
           srcChainId: params.srcChainId,
           dstChainId: params.dstChainId,
-          bridgeFee: params.bridgeFee, // deducted from amount
-          solverFee: params.solverFee, // deducted from bridge fee
+          bridgeFee: params.bridgeFee,
+          solverFee: params.solverFee,
           nonce: params.nonce,
-          executed: params.executed
+          executed: params.executed,
         };
-        
-        // Generate BLS signature over message
-        let mcl: BlsBn254;
-        mcl = await BlsBn254.create();
 
+        // Create BLS signature over transfer params
+        const mcl = await BlsBn254.create();
+
+        // Static call to encode transfer params to bytes & G1 point (assumes method returns these)
         const [message, messageAsG1Bytes, messageAsG1Point] = await srcContract.transferParamsToBytes.staticCall(transferParams);
         const M = mcl.g1FromEvm(messageAsG1Point.x, messageAsG1Point.y);
-        const { secretKey, pubKey } = mcl.createKeyPair(blsSecretKeyHex as `0x${string}`);
+        const { secretKey } = mcl.createKeyPair(blsSecretKeyHex as `0x${string}`);
         const { signature } = mcl.sign(M, secretKey);
 
-        console.log("Transfer parameters", transferParams)
-        console.log("Transfer parameters encoded", message)
-        console.log("Transfer parameters encoded as BLS G1 point in bytes", messageAsG1Bytes)
-        console.log("Transfer parameters encoded as BLS G1 point x, y", messageAsG1Point)
-
         const sig = mcl.serialiseG1Point(signature);
-        const sigBytes = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sig[0], sig[1]]);
+        const sigBytes = abiCoder.encode(["uint256", "uint256"], [sig[0], sig[1]]);
 
-        // Execute message on source router contract to refund solver
         try {
-          const solverAddress = signerAddress;
           const tx = await srcContract.rebalanceSolver(
-            solverAddress, 
-            requestId, 
-            message, 
+            signerAddress,
+            requestId,
+            message,
             sigBytes
           );
-          console.log(`[${srcChain.name}] Rebalancing solver for request ${requestId}, tx hash: ${tx.hash}`);
+          console.log(`[${srcChain.name}] Rebalancing solver for request ${requestId}, tx: ${tx.hash}`);
 
-          // Wait for tx to be mined
           const receipt = await tx.wait();
           if (receipt.status === 1) {
-            console.log(`[${srcChain.name}] Request ${requestId} executed successfully`);
+            console.log(`[${srcChain.name}] Request ${requestId} rebalanced successfully`);
           } else {
-            console.warn(`[${srcChain.name}] Request ${requestId} execution failed`);
+            console.warn(`[${srcChain.name}] Request ${requestId} rebalance failed`);
           }
         } catch (execError) {
           console.error(`[${srcChain.name}] Failed to rebalance solver for request ${requestId}`, execError);
         }
       }
     } catch (err) {
-      console.error(`[${srcChain.name}] Error fetching unfulfilled requests or params`, err);
+      console.error(`[${srcChain.name}] Error processing requests`, err);
     }
   }
 }
 
-
-
-function getNetworkNameFromChainId(chainId: number): Promise<string> {
+// Read network name from chains.json (promises + clear error messages)
+async function getNetworkNameFromChainId(chainId: number): Promise<string> {
   const chainsPath = path.join(__dirname, "chains.json");
-
-  return new Promise((resolve, reject) => {
-    fs.readFile(
-      chainsPath,
-      "utf8",
-      (err: NodeJS.ErrnoException | null, data: string | undefined) => {
-        if (err) {
-          reject(new Error(`Failed to read chains.json at ${chainsPath}: ${err.message}`));
-          return;
-        }
-
-        try {
-          const chains: { chainId: number; name: string }[] = JSON.parse(data as string);
-          const match = chains.find((c) => c.chainId === chainId);
-          resolve(match?.name ?? `Unknown (Chain ID: ${chainId})`);
-        } catch (e) {
-          reject(new Error("Invalid JSON format in chains.json"));
-        }
-      }
-    );
-  });
+  try {
+    const data = await fs.readFile(chainsPath, "utf8");
+    const chains: { chainId: number; name: string }[] = JSON.parse(data);
+    const match = chains.find((c) => c.chainId === chainId);
+    return match?.name ?? `Unknown (Chain ID: ${chainId})`;
+  } catch (err) {
+    throw new Error(`Failed to load chains.json at ${chainsPath}: ${(err as Error).message}`);
+  }
 }
-
 
 async function main() {
   await loadSupportedChains();
-  pollAndExecute();
+  await pollAndExecute();
   setInterval(pollAndExecute, POLL_INTERVAL);
 }
 
-main().catch(console.error);
-
-
-// usage: npx ts-node demo/demo.ts
+main().catch((err) => {
+  console.error("Fatal error in main:", err);
+  process.exit(1);
+});
