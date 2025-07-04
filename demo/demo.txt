@@ -6,7 +6,7 @@ base sepolia ChainId = 84532;
 source .env 
 
 // deploy on base 
-forge script script/DeployContracts.s.sol \
+forge script script/BridgeScript.s.sol \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast

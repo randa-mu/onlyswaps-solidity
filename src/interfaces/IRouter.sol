@@ -75,7 +75,6 @@ interface IRouter {
     function getAllowedDstChainId(uint256 chainId) external view returns (bool);
     function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address);
     function getTransferParameters(bytes32 requestId) external view returns (TransferParams memory transferParams);
-    function getExecutedMessageStatus(bytes calldata message) external view returns (bool);
     function getUnfulfilledRequestIds() external view returns (bytes32[] memory);
     function getFulfilledRequestIds() external view returns (bytes32[] memory);
 
