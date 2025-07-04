@@ -57,6 +57,10 @@ describe("Bridge", function () {
     expect(receipt.solver).to.equal(userAddr);
 
     expect(await bridge.isFulfilled(requestId)).to.be.equal(true);
+
+    await expect(
+      bridge.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId),
+    ).to.revertedWith("Already fulfilled");
   });
 
   it("should not allow double fulfillment", async () => {

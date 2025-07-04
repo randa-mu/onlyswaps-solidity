@@ -24,7 +24,7 @@ contract Bridge is Ownable, IBridge {
     function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
         external
     {
-        require(!receipts[requestId].fulfilled, "Already fulfilled");
+        require(!isFulfilled(requestId), "Already fulfilled");
         require(token != address(0) && recipient != address(0), "Invalid token or recipient");
         require(amount > 0, "Zero amount");
 
@@ -47,7 +47,7 @@ contract Bridge is Ownable, IBridge {
     /// @notice Checks whether a bridge request has been fulfilled
     /// @param bridgeRequestId The request ID to check
     /// @return True if fulfilled, false otherwise
-    function isFulfilled(bytes32 bridgeRequestId) external view returns (bool) {
+    function isFulfilled(bytes32 bridgeRequestId) public view returns (bool) {
         return receipts[bridgeRequestId].fulfilled;
     }
 
