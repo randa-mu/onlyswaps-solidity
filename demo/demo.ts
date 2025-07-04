@@ -261,4 +261,4 @@ setInterval(pollAndExecute, POLL_INTERVAL);
 pollAndExecute();
 
 
-// usage: npx ts-node agent/agent.ts
+// usage: npx ts-node demo/demo.ts
