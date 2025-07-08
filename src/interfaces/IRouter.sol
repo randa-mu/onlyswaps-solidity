@@ -22,12 +22,12 @@ interface IRouter {
     /// @notice Emitted when a new message (request) is created
     /// @param requestId Hash of transfer parameters
     /// @param message Encoded payload for off-chain solver
-    event MessageEmitted(bytes32 indexed requestId, bytes message);
+    event SwapRequested(bytes32 indexed requestId, bytes message);
 
     /// @notice Emitted when a message is successfully fulfilled by a solver
     /// @param requestId Hash of the transfer parameters
     /// @param message Encoded fulfilled payload
-    event MessageExecuted(bytes32 indexed requestId, bytes message);
+    event TransferVerified(bytes32 indexed requestId, bytes message);
 
     /// @notice Emitted when tokens are recovered from contract
     event ERC20Rescued(address indexed token, address indexed to, uint256 amount);

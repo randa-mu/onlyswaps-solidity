@@ -15,6 +15,10 @@ contract Bridge is Ownable, IBridge {
 
     constructor(address owner) Ownable(owner) {}
 
+    error AlreadyFulfilled();
+    error InvalidTokenOrRecipient();
+    error ZeroAmount();
+
     /// @notice Relays tokens to the recipient and stores a receipt
     /// @param token The token being relayed
     /// @param recipient The target recipient of the tokens
@@ -24,9 +28,9 @@ contract Bridge is Ownable, IBridge {
     function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
         external
     {
-        require(!isFulfilled(requestId), "Already fulfilled");
-        require(token != address(0) && recipient != address(0), "Invalid token or recipient");
-        require(amount > 0, "Zero amount");
+        require(!isFulfilled(requestId), AlreadyFulfilled());
+        require(token != address(0) && recipient != address(0), InvalidTokenOrRecipient());
+        require(amount > 0, ZeroAmount());
 
         receipts[requestId].fulfilled = true;
 
@@ -57,7 +61,7 @@ contract Bridge is Ownable, IBridge {
     /// @param to The address to send rescued tokens to
     /// @param amount The amount of tokens to rescue
     function rescueERC20(address token, address to, uint256 amount) external onlyOwner {
-        require(token != address(0) && to != address(0), "Invalid address");
+        require(token != address(0) && to != address(0), InvalidTokenOrRecipient());
         IERC20(token).safeTransfer(to, amount);
     }
 }
