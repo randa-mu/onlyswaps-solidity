@@ -49,10 +49,10 @@ contract DeploymentTest is Test {
         // configurations
         // whitelist messages coming from routers on a specific src chain id
         vm.prank(owner);
-        srcRouter.allowDstChainId(dstChainId, true);
+        srcRouter.permitDestinationChainId(dstChainId);
 
         vm.prank(owner);
-        dstRouter.allowDstChainId(srcChainId, true);
+        dstRouter.permitDestinationChainId(srcChainId);
 
         // set token mapping across chains
         vm.prank(owner);

@@ -14,7 +14,7 @@ import {IRouter} from "./interfaces/IRouter.sol";
 
 /// @title Cross-Chain Token Router
 /// @notice Handles token bridging logic, fee distribution, and transfer request verification using BLS signatures
-/// @dev Integrates with off-chain solvers and a destination Bridge contract
+/// @dev Integrates with off-chain solvers and a destination Swap contract
 contract Router is Ownable, IRouter {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
@@ -24,7 +24,7 @@ contract Router is Ownable, IRouter {
 
     /// @notice Max total fee in BPS (50%)
     uint256 public constant MAX_FEE_BPS = 5_000;
-    uint256 public bridgeFeeBps = 500;
+    uint256 public swapFeeBps = 500;
 
     /// @notice Current chain ID (immutable)
     uint256 public immutable thisChainId;
@@ -48,7 +48,11 @@ contract Router is Ownable, IRouter {
     mapping(address => mapping(uint256 => address)) public tokenMappings;
 
     /// @notice Accumulated fees per token
-    mapping(address => uint256) public totalBridgeFeesBalance;
+    mapping(address => uint256) public totalSwapFeesBalance;
+
+    /// @notice Unique nonce for each swap request and user
+    uint256 public currentNonce;
+    mapping(uint256 => address) public nonceToRequester;
 
     /// @param _owner Initial contract owner
     /// @param _blsValidator BLS validator address
@@ -59,27 +63,30 @@ contract Router is Ownable, IRouter {
 
     // ---------------------- Core Transfer Logic ----------------------
 
-    /// @notice Initiates a bridge request
-    /// @param token Address of the ERC20 token to bridge
-    /// @param amount Amount of tokens to bridge
+    /// @notice Initiates a swap request
+    /// @param token Address of the ERC20 token to swap
+    /// @param amount Amount of tokens to swap
     /// @param dstChainId Target chain ID
-    /// @param recipient Address to receive bridged tokens on target chain
-    /// @param nonce Unique user-provided nonce
-    /// @return requestId The unique bridge request id
-    function bridge(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient, uint256 nonce)
+    /// @param recipient Address to receive swaped tokens on target chain
+    /// @return requestId The unique swap request id
+    function requestCrossChainSwap(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient)
         external
         returns (bytes32 requestId)
     {
         require(amount > 0, "Zero amount");
         require(tokenMappings[token][dstChainId] != address(0), "Token not supported");
 
-        uint256 bridgeFeeAmount = getBridgeFeeAmount(fee);
-        uint256 solverFee = fee - bridgeFeeAmount;
+        uint256 swapFeeAmount = getSwapFeeAmount(fee);
+        uint256 solverFee = fee - swapFeeAmount;
 
-        totalBridgeFeesBalance[token] += bridgeFeeAmount;
+        totalSwapFeesBalance[token] += swapFeeAmount;
+
+        // Generate unique nonce and map it to sender
+        uint256 nonce = ++currentNonce;
+        nonceToRequester[nonce] = msg.sender;
 
         TransferParams memory params =
-            buildTransferParams(token, amount, bridgeFeeAmount, solverFee, dstChainId, recipient, nonce);
+            buildTransferParams(token, amount, swapFeeAmount, solverFee, dstChainId, recipient, nonce);
 
         (bytes memory message,,) = transferParamsToBytes(params);
         requestId = getRequestId(params);
@@ -88,35 +95,35 @@ contract Router is Ownable, IRouter {
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount + fee);
 
-        emit MessageEmitted(requestId, message);
+        emit SwapRequested(requestId, message);
     }
 
     function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external {
         TransferParams storage params = transferParameters[requestId];
         require(!params.executed, "Request already fulfilled");
         require(params.sender == msg.sender, "Unauthorised caller");
-        require(newFee > params.bridgeFee + params.solverFee, "New fee is less than current fee");
+        require(newFee > params.swapFee + params.solverFee, "New fee is less than current fee");
 
-        IERC20(params.token).safeTransferFrom(msg.sender, address(this), newFee - (params.bridgeFee + params.solverFee));
+        IERC20(params.token).safeTransferFrom(msg.sender, address(this), newFee - (params.swapFee + params.solverFee));
 
-        // Calculate new bridge fee and solver fee from newFee
-        uint256 newBridgeFeeAmount = getBridgeFeeAmount(newFee);
-        uint256 newSolverFee = newFee - newBridgeFeeAmount;
+        // Calculate new swap fee and solver fee from newFee
+        uint256 newSwapFeeAmount = getSwapFeeAmount(newFee);
+        uint256 newSolverFee = newFee - newSwapFeeAmount;
 
-        // Adjust the totalBridgeFeesBalance for the token
-        // Subtract old bridge fee, add new bridge fee
-        totalBridgeFeesBalance[params.token] =
-            totalBridgeFeesBalance[params.token] - params.bridgeFee + newBridgeFeeAmount;
+        // Adjust the totalSwapFeesBalance for the token
+        // Subtract old swap fee, add new swap fee
+        totalSwapFeesBalance[params.token] =
+            totalSwapFeesBalance[params.token] - params.swapFee + newSwapFeeAmount;
 
         // Update the fees in the stored params
-        params.bridgeFee = newBridgeFeeAmount;
+        params.swapFee = newSwapFeeAmount;
         params.solverFee = newSolverFee;
 
         // Emit event if needed for tracking fee updates (optional)
-        emit BridgeRequestFeeUpdated(requestId, params.token, newBridgeFeeAmount, newSolverFee);
+        emit SwapRequestFeeUpdated(requestId, params.token, newSwapFeeAmount, newSolverFee);
     }
 
-    /// @notice Called with dcipher signature to approve a solver’s fulfillment of a bridge request
+    /// @notice Called with dcipher signature to approve a solver’s fulfillment of a swap request
     /// @param solver Address of the solver being paid
     /// @param requestId Unique ID of the request
     /// @param message Original message data
@@ -147,7 +154,7 @@ contract Router is Ownable, IRouter {
 
         IERC20(params.token).safeTransfer(solver, solverRefund);
 
-        emit MessageExecuted(requestId, message);
+        emit SwapRequestFulfilled(requestId, message);
     }
 
     // ---------------------- Utility & View ----------------------
@@ -165,7 +172,7 @@ contract Router is Ownable, IRouter {
             params.amount,
             params.srcChainId,
             params.dstChainId,
-            params.bridgeFee,
+            params.swapFee,
             params.solverFee,
             params.nonce,
             params.executed
@@ -179,7 +186,7 @@ contract Router is Ownable, IRouter {
     function buildTransferParams(
         address token,
         uint256 amount,
-        uint256 bridgeFeeAmount,
+        uint256 swapFeeAmount,
         uint256 solverFeeAmount,
         uint256 dstChainId,
         address recipient,
@@ -192,7 +199,7 @@ contract Router is Ownable, IRouter {
             amount: amount,
             srcChainId: thisChainId,
             dstChainId: dstChainId,
-            bridgeFee: bridgeFeeAmount,
+            swapFee: swapFeeAmount,
             solverFee: solverFeeAmount,
             nonce: nonce,
             executed: false
@@ -208,14 +215,14 @@ contract Router is Ownable, IRouter {
     /// @notice Compares two transfer parameter structs
     function isEqual(TransferParams memory a, TransferParams memory b) internal pure returns (bool) {
         return a.sender == b.sender && a.recipient == b.recipient && a.token == b.token && a.amount == b.amount
-            && a.srcChainId == b.srcChainId && a.dstChainId == b.dstChainId && a.bridgeFee == b.bridgeFee
+            && a.srcChainId == b.srcChainId && a.dstChainId == b.dstChainId && a.swapFee == b.swapFee
             && a.solverFee == b.solverFee && a.nonce == b.nonce && a.executed == b.executed;
     }
 
-    /// @notice Computes the bridge fee in underlying token units
-    function getBridgeFeeAmount(uint256 amount) public view returns (uint256) {
-        if (bridgeFeeBps == 0) return 0;
-        return (amount * bridgeFeeBps) / BPS_DIVISOR;
+    /// @notice Computes the swap fee in underlying token units
+    function getSwapFeeAmount(uint256 amount) public view returns (uint256) {
+        if (swapFeeBps == 0) return 0;
+        return (amount * swapFeeBps) / BPS_DIVISOR;
     }
 
     /// @notice Computes the unique request ID (hash of transfer parameters)
@@ -228,7 +235,7 @@ contract Router is Ownable, IRouter {
                 p.amount,
                 getChainID(),
                 p.dstChainId,
-                p.bridgeFee,
+                p.swapFee,
                 p.solverFee,
                 p.nonce,
                 p.executed
@@ -251,8 +258,8 @@ contract Router is Ownable, IRouter {
         return unfulfilledRequestIds.values();
     }
 
-    function getBridgeFeeBps() external view returns (uint256) {
-        return bridgeFeeBps;
+    function getSwapFeeBps() external view returns (uint256) {
+        return swapFeeBps;
     }
 
     function getThisChainId() external view returns (uint256) {
@@ -275,8 +282,8 @@ contract Router is Ownable, IRouter {
         return tokenMappings[srcToken][dstChainId];
     }
 
-    function getTotalBridgeFeesBalance(address token) external view returns (uint256) {
-        return totalBridgeFeesBalance[token];
+    function getTotalSwapFeesBalance(address token) external view returns (uint256) {
+        return totalSwapFeesBalance[token];
     }
 
     function getUnfulfilledRequestIds() external view returns (bytes32[] memory) {
@@ -289,12 +296,12 @@ contract Router is Ownable, IRouter {
 
     // ---------------------- Admin Functions ----------------------
 
-    /// @notice Sets the bridge fee in BPS
-    /// @param _bridgeFeeBps New bridge fee
-    function setBridgeFeeBps(uint256 _bridgeFeeBps) external onlyOwner {
-        require(_bridgeFeeBps <= MAX_FEE_BPS, "Too high");
-        bridgeFeeBps = _bridgeFeeBps;
-        emit BridgeFeeBpsUpdated(bridgeFeeBps);
+    /// @notice Sets the swap fee in BPS
+    /// @param _swapFeeBps New swap fee
+    function setSwapFeeBps(uint256 _swapFeeBps) external onlyOwner {
+        require(_swapFeeBps <= MAX_FEE_BPS, "Too high");
+        swapFeeBps = _swapFeeBps;
+        emit SwapFeeBpsUpdated(swapFeeBps);
     }
 
     /// @notice Updates the BLS signature validator
@@ -304,12 +311,18 @@ contract Router is Ownable, IRouter {
         emit BLSValidatorUpdated(address(blsValidator));
     }
 
-    /// @notice Allows or disallows a destination chain ID
-    /// @param chainId Chain ID to toggle
-    /// @param allowed Whether it is allowed
-    function allowDstChainId(uint256 chainId, bool allowed) external onlyOwner {
-        allowedDstChainIds[chainId] = allowed;
-        emit WhitelistUpdatedForDSTChainId(chainId, allowed);
+    /// @notice Permits swap requests to a destination chain ID
+    /// @param chainId Chain ID to permit
+    function permitDestinationChainId(uint256 chainId) external onlyOwner {
+        allowedDstChainIds[chainId] = true;
+        emit DestinationChainIdPermitted(chainId);
+    }
+
+    /// @notice Blocks swap requests to a destination chain ID
+    /// @param chainId Chain ID to permit
+    function blockDestinationChainId(uint256 chainId) external onlyOwner {
+        allowedDstChainIds[chainId] = false;
+        emit DestinationChainIdBlocked(chainId);
     }
 
     /// @notice Sets a token mapping for a cross-chain pair
@@ -322,13 +335,13 @@ contract Router is Ownable, IRouter {
         emit TokenMappingUpdated(dstChainId, dstToken, srcToken);
     }
 
-    /// @notice Withdraws accumulated bridge fees
+    /// @notice Withdraws accumulated swap fees
     /// @param token Token address to withdraw
     /// @param to Recipient address
-    function withdrawBridgeFees(address token, address to) external onlyOwner {
-        uint256 amount = totalBridgeFeesBalance[token];
-        totalBridgeFeesBalance[token] = 0;
+    function withdrawSwapFees(address token, address to) external onlyOwner {
+        uint256 amount = totalSwapFeesBalance[token];
+        totalSwapFeesBalance[token] = 0;
         IERC20(token).safeTransfer(to, amount);
-        emit BridgeFeesWithdrawn(token, to, amount);
+        emit SwapFeesWithdrawn(token, to, amount);
     }
 }

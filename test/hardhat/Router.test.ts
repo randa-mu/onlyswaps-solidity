@@ -81,7 +81,7 @@ describe("Router", function () {
 
     await expect(
       router.connect(user).bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr, nonce),
-    ).to.emit(router, "MessageEmitted");
+    ).to.emit(router, "SwapRequested");
   });
 
   it("should update bridge fees for unfulfilled request", async () => {
@@ -107,7 +107,7 @@ describe("Router", function () {
       routerInterface,
       receipt,
       await router.getAddress(),
-      routerInterface.getEvent("MessageEmitted"),
+      routerInterface.getEvent("SwapRequested"),
     );
 
     const newFee = parseEther("1.5");
@@ -118,7 +118,7 @@ describe("Router", function () {
 
     await expect(router.connect(user).updateFeesIfUnfulfilled(requestId, newFee)).to.emit(
       router,
-      "BridgeRequestFeeUpdated",
+      "SwapRequestFeeUpdated",
     );
 
     expect(await srcToken.balanceOf(userAddr)).to.equal(0);
@@ -156,7 +156,7 @@ describe("Router", function () {
       routerInterface,
       receipt,
       await router.getAddress(),
-      routerInterface.getEvent("MessageEmitted"),
+      routerInterface.getEvent("SwapRequested"),
     );
 
     const before = await srcToken.balanceOf(owner.address);
@@ -198,7 +198,7 @@ describe("Router", function () {
       routerInterface,
       receipt,
       await router.getAddress(),
-      routerInterface.getEvent("MessageEmitted"),
+      routerInterface.getEvent("SwapRequested"),
     );
 
     const transferParams = await router.getTransferParameters(requestId);
