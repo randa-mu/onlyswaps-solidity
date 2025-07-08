@@ -112,8 +112,7 @@ contract Router is Ownable, IRouter {
 
         // Adjust the totalSwapFeesBalance for the token
         // Subtract old swap fee, add new swap fee
-        totalSwapFeesBalance[params.token] =
-            totalSwapFeesBalance[params.token] - params.swapFee + newSwapFeeAmount;
+        totalSwapFeesBalance[params.token] = totalSwapFeesBalance[params.token] - params.swapFee + newSwapFeeAmount;
 
         // Update the fees in the stored params
         params.swapFee = newSwapFeeAmount;
