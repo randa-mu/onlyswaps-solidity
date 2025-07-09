@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 import {Router} from "../../src/Router.sol";
-import {Bridge} from "../../src/Bridge.sol";
 import {BN254SignatureScheme} from "../../src/signature-scheme/BN254SignatureScheme.sol";
 import {ERC20Token} from "../../src/mocks/ERC20Token.sol";
 import {BLS} from "../../src/libraries/BLS.sol";
@@ -11,8 +10,6 @@ import {BLS} from "../../src/libraries/BLS.sol";
 contract DeploymentTest is Test {
     Router public srcRouter;
     Router public dstRouter;
-    Bridge public srcBridge;
-    Bridge public dstBridge;
     ERC20Token public srcToken;
     ERC20Token public dstToken;
     BN254SignatureScheme public srcBLSSigVerifier;
@@ -37,13 +34,11 @@ contract DeploymentTest is Test {
         // for each chain, we deploy the following contracts
         srcBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
         srcToken = new ERC20Token("Source Token", "ST", tokenDecimals);
-        srcBridge = new Bridge(owner);
         srcRouter = new Router(owner, address(srcBLSSigVerifier));
 
         // dst chain
         dstBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
         dstToken = new ERC20Token("Destination Token", "DT", tokenDecimals);
-        dstBridge = new Bridge(owner);
         dstRouter = new Router(owner, address(dstBLSSigVerifier));
 
         // configurations
@@ -72,7 +67,5 @@ contract DeploymentTest is Test {
         assertEq(dstRouter.getBlsValidator(), address(dstBLSSigVerifier));
         assertEq(srcRouter.owner(), owner);
         assertEq(dstRouter.owner(), owner);
-        assertEq(srcBridge.owner(), owner);
-        assertEq(dstBridge.owner(), owner);
     }
 }
