@@ -17,7 +17,6 @@ dotenv.config();
 
 const blsKey = process.env.BLS_PRIVATE_KEY;
 const DST_CHAIN_ID = 137;
-const nonce = Math.floor(Math.random() * (100 - 1 + 1)) + 1;
 const default_pk = {
   x: {
     c0: BigInt("0x2691d39ecc380bfa873911a0b848c77556ee948fb8ab649137d3d3e78153f6ca"),
@@ -175,7 +174,6 @@ describe("Router", function () {
   it("should rebalance solver and transfer correct amount", async () => {
     const amount = parseEther("10");
     const fee = parseEther("1");
-    const nonce = 1;
     const amountToMint = amount + fee;
 
     await srcToken.mint(userAddr, amountToMint);
