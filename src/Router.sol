@@ -54,6 +54,9 @@ contract Router is Ownable, IRouter {
     uint256 public currentNonce;
     mapping(uint256 => address) public nonceToRequester;
 
+    /// @dev Mapping of requestId to transfer receipt
+    mapping(bytes32 => TransferReceipt) public receipts;
+
     /// @param _owner Initial contract owner
     /// @param _blsValidator BLS validator address
     constructor(address _owner, address _blsValidator) Ownable(_owner) {
@@ -120,6 +123,37 @@ contract Router is Ownable, IRouter {
 
         // Emit event if needed for tracking fee updates (optional)
         emit SwapRequestFeeUpdated(requestId, params.token, newSwapFeeAmount, newSolverFee);
+    }
+
+    error AlreadyFulfilled();
+    error InvalidTokenOrRecipient();
+    error ZeroAmount();
+    /// @notice Relays tokens to the recipient and stores a receipt
+    /// @param token The token being relayed
+    /// @param recipient The target recipient of the tokens
+    /// @param amount The net amount delivered (after fees)
+    /// @param requestId The original request ID from the source chain
+    /// @param srcChainId The ID of the source chain where the request originated
+
+    function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
+        external
+    {
+        require(!receipts[requestId].fulfilled, AlreadyFulfilled());
+        require(token != address(0) && recipient != address(0), InvalidTokenOrRecipient());
+        require(amount > 0, ZeroAmount());
+
+        IERC20(token).safeTransfer(recipient, amount);
+
+        receipts[requestId] = TransferReceipt({
+            requestId: requestId,
+            srcChainId: srcChainId,
+            fulfilled: true,
+            solver: msg.sender,
+            amountOut: amount,
+            fulfilledAt: block.timestamp
+        });
+
+        emit BridgeReceipt(requestId, srcChainId, true, msg.sender, amount, block.timestamp);
     }
 
     /// @notice Called with dcipher signature to approve a solver’s fulfillment of a swap request
@@ -342,5 +376,27 @@ contract Router is Ownable, IRouter {
         totalSwapFeesBalance[token] = 0;
         IERC20(token).safeTransfer(to, amount);
         emit SwapFeesWithdrawn(token, to, amount);
+    }
+
+    /// @notice Checks whether a bridge request has been fulfilled
+    /// @param bridgeRequestId The request ID to check
+    /// @return True if fulfilled, false otherwise
+    function isFulfilled(bytes32 bridgeRequestId) external view returns (bool) {
+        return receipts[bridgeRequestId].fulfilled;
+    }
+
+    /// @notice Gets a transfer receipt for a given requestID
+    /// @param requestId The request ID to check
+    /// @return all the values from the TransferReceipt struct
+    function getReceipt(bytes32 requestId) external view returns (bytes32, uint256, bool, address, uint256, uint256) {
+        TransferReceipt storage receipt = receipts[requestId];
+        return (
+            receipt.requestId,
+            receipt.srcChainId,
+            receipt.fulfilled,
+            receipt.solver,
+            receipt.amountOut,
+            receipt.fulfilledAt
+        );
     }
 }

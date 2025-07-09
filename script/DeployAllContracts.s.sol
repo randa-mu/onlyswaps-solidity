@@ -9,7 +9,6 @@ import {BLS} from "../src/libraries/BLS.sol";
 
 import {ERC20Token} from "../src/mocks/ERC20Token.sol";
 import {Router} from "../src/Router.sol";
-import {Bridge} from "../src/Bridge.sol";
 
 contract DeployAllContracts is Script {
     bytes32 constant SALT = bytes32(uint256(2));
@@ -29,8 +28,6 @@ contract DeployAllContracts is Script {
         BN254SignatureScheme bn254SignatureScheme = deployBN254SignatureScheme();
         // Deploy source token
         deployMockToken();
-        // Deploy Bridge contract
-        deployBridge(wallet);
         // Deploy Router contract
         deployRouter(wallet, address(bn254SignatureScheme));
     }
@@ -46,12 +43,6 @@ contract DeployAllContracts is Script {
         uint8 tokenDecimals = 18;
         token = new ERC20Token{salt: SALT}("RUSD", "RUSD", tokenDecimals);
         console.log("RUSD contract deployed at: ", address(token));
-    }
-
-    function deployBridge(address owner) internal returns (Bridge bridge) {
-        vm.broadcast();
-        bridge = new Bridge{salt: SALT}(owner);
-        console.log("Bridge contract deployed at: ", address(bridge));
     }
 
     function deployRouter(address owner, address bLSSigVerifier) internal returns (Router router) {

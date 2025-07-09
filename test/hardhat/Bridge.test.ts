@@ -1,4 +1,4 @@
-import { Bridge, Bridge__factory, ERC20Token, ERC20Token__factory } from "../../typechain-types";
+import { Router, Router__factory, ERC20Token, ERC20Token__factory } from "../../typechain-types";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import { parseEther, keccak256, toUtf8Bytes } from "ethers";
@@ -11,7 +11,7 @@ describe("Bridge", function () {
 
   let ownerAddr: string, userAddr: string, recipientAddr: string;
 
-  let bridge: Bridge;
+  let router: Router;
   let token: ERC20Token;
 
   beforeEach(async () => {
@@ -25,7 +25,7 @@ describe("Bridge", function () {
     token = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
 
     // Deploy Bridge contract
-    bridge = await new Bridge__factory(owner).deploy(ownerAddr);
+    router = await new Router__factory(owner).deploy(ownerAddr);
   });
 
   it("should relay tokens and store a receipt", async () => {
@@ -40,26 +40,26 @@ describe("Bridge", function () {
     await token.mint(userAddr, amount);
 
     // Approve Bridge to spend user's tokens
-    await token.connect(user).approve(await bridge.getAddress(), amount);
+    await token.connect(user).approve(await router.getAddress(), amount);
 
     // Relay tokens
     await expect(
-      bridge.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId),
-    ).to.emit(bridge, "BridgeReceipt");
+      router.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId),
+    ).to.emit(router, "BridgeReceipt");
 
     // Check recipient balance after transfer
     expect(await token.balanceOf(recipientAddr)).to.equal(amount);
 
     // Check receipt
-    const receipt = await bridge.receipts(requestId);
+    const receipt = await router.receipts(requestId);
     expect(receipt.fulfilled).to.be.true;
     expect(receipt.amountOut).to.equal(amount);
     expect(receipt.solver).to.equal(userAddr);
 
-    expect(await bridge.isFulfilled(requestId)).to.be.equal(true);
+    expect(await router.isFulfilled(requestId)).to.be.equal(true);
 
     await expect(
-      bridge.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId),
+      router.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId),
     ).to.revertedWith("Already fulfilled");
   });
 
@@ -70,13 +70,13 @@ describe("Bridge", function () {
 
     // Mint tokens for user
     await token.mint(userAddr, amount);
-    await token.connect(user).approve(await bridge.getAddress(), amount);
-    await bridge.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId);
+    await token.connect(user).approve(await router.getAddress(), amount);
+    await router.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId);
 
     // Try again with same requestId
-    await token.connect(user).approve(await bridge.getAddress(), amount);
+    await token.connect(user).approve(await router.getAddress(), amount);
     await expect(
-      bridge.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId),
+      router.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId),
     ).to.be.revertedWith("Already fulfilled");
   });
 
@@ -87,12 +87,12 @@ describe("Bridge", function () {
 
     // Mint tokens for user
     await token.mint(userAddr, amount);
-    await token.connect(user).approve(await bridge.getAddress(), amount);
-    await bridge.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId);
+    await token.connect(user).approve(await router.getAddress(), amount);
+    await router.connect(user).relayTokens(await token.getAddress(), recipientAddr, amount, requestId, srcChainId);
 
-    expect(await bridge.isFulfilled(requestId)).to.be.true;
+    expect(await router.isFulfilled(requestId)).to.be.true;
     const fakeId = keccak256(toUtf8Bytes("non-existent"));
-    expect(await bridge.isFulfilled(fakeId)).to.be.false;
+    expect(await router.isFulfilled(fakeId)).to.be.false;
   });
 
   it("should allow owner to rescue ERC20 tokens", async () => {
@@ -100,12 +100,12 @@ describe("Bridge", function () {
 
     // Mint tokens for user
     await token.mint(userAddr, rescueAmount);
-    // Transfer tokens directly to the bridge
-    await token.connect(user).transfer(await bridge.getAddress(), rescueAmount);
-    expect(await token.balanceOf(await bridge.getAddress())).to.equal(rescueAmount);
+    // Transfer tokens directly to the router
+    await token.connect(user).transfer(await router.getAddress(), rescueAmount);
+    expect(await token.balanceOf(await router.getAddress())).to.equal(rescueAmount);
 
     // Rescue as owner
-    await bridge.connect(owner).rescueERC20(await token.getAddress(), ownerAddr, rescueAmount);
+    await router.connect(owner).rescueERC20(await token.getAddress(), ownerAddr, rescueAmount);
     expect(await token.balanceOf(ownerAddr)).to.equal(rescueAmount);
   });
 
@@ -113,10 +113,10 @@ describe("Bridge", function () {
     const rescueAmount = parseEther("5");
     // Mint tokens for user
     await token.mint(userAddr, rescueAmount);
-    await token.connect(user).transfer(await bridge.getAddress(), rescueAmount);
+    await token.connect(user).transfer(await router.getAddress(), rescueAmount);
 
-    await expect(bridge.connect(user).rescueERC20(await token.getAddress(), userAddr, rescueAmount))
-      .to.be.revertedWithCustomError(bridge, "OwnableUnauthorizedAccount")
+    await expect(router.connect(user).rescueERC20(await token.getAddress(), userAddr, rescueAmount))
+      .to.be.revertedWithCustomError(router, "OwnableUnauthorizedAccount")
       .withArgs(await user.getAddress());
   });
 });
