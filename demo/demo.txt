@@ -11,10 +11,9 @@ forge script script/DeployAllContracts.s.sol \
   --private-key $PRIVATE_KEY \
   --broadcast
 
-Bn254SignatureScheme contract deployed at:  0xcD3a7aa71d7621879B6Ef28bd9fE6BBbE1c4d13a
-  RUSD contract deployed at:  0x43748DC0b4735463105c528816f59bB7F37009dE
-  Bridge contract deployed at:  0xA3dE7F3E3300691F765A54C7B002E13E8Df2baf7
-  Router contract deployed at:  0xA7c60e1109a98858E132D040444AD8eC84F8a4E5
+Bn254SignatureScheme contract deployed at:  0x2466F7c06c6Bc623F59bB9705edEf2B62eAe0acf
+  RUSD contract deployed at:  0x46D346f8d9582f8963110108A7988B1a0bB3668D
+  Router contract deployed at:  0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43
 
 // deploy on polygon
 forge script script/DeployAllContracts.s.sol \
@@ -22,21 +21,20 @@ forge script script/DeployAllContracts.s.sol \
   --private-key $PRIVATE_KEY \
   --broadcast
 
-Bn254SignatureScheme contract deployed at:  0xcD3a7aa71d7621879B6Ef28bd9fE6BBbE1c4d13a
-  RUSD contract deployed at:  0x43748DC0b4735463105c528816f59bB7F37009dE
-  Bridge contract deployed at:  0xA3dE7F3E3300691F765A54C7B002E13E8Df2baf7
-  Router contract deployed at:  0xA7c60e1109a98858E132D040444AD8eC84F8a4E5
+Bn254SignatureScheme contract deployed at:  0x2466F7c06c6Bc623F59bB9705edEf2B62eAe0acf
+  RUSD contract deployed at:  0x46D346f8d9582f8963110108A7988B1a0bB3668D
+  Router contract deployed at:  0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43
 
 
 2. configure contracts on base 
 
 // permit messages from other src chain ids
-cast send 0xA7c60e1109a98858E132D040444AD8eC84F8a4E5 "allowDstChainId(uint256,bool)" 137 true \
+cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "permitDestinationChainId(uint256)" 137 \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
 // map src and dst token addresses and chain ids
-cast send 0xA7c60e1109a98858E132D040444AD8eC84F8a4E5 "setTokenMapping(uint256,address,address)" 137 0x43748DC0b4735463105c528816f59bB7F37009dE 0x43748DC0b4735463105c528816f59bB7F37009dE \
+cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "setTokenMapping(uint256,address,address)" 137 0x46D346f8d9582f8963110108A7988B1a0bB3668D 0x46D346f8d9582f8963110108A7988B1a0bB3668D \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
@@ -44,49 +42,49 @@ cast send 0xA7c60e1109a98858E132D040444AD8eC84F8a4E5 "setTokenMapping(uint256,ad
 3. configure contracts on polygon
 
 // permit messages from other src chain ids
-cast send 0xA7c60e1109a98858E132D040444AD8eC84F8a4E5 "allowDstChainId(uint256,bool)" 84532 true \
+cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "permitDestinationChainId(uint256)" 84532 \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY
 
 // map src and dst token addresses and chain ids
-cast send 0xA7c60e1109a98858E132D040444AD8eC84F8a4E5 "setTokenMapping(uint256,address,address)" 84532 0x43748DC0b4735463105c528816f59bB7F37009dE 0x43748DC0b4735463105c528816f59bB7F37009dE \
+cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "setTokenMapping(uint256,address,address)" 84532 0x46D346f8d9582f8963110108A7988B1a0bB3668D 0x46D346f8d9582f8963110108A7988B1a0bB3668D \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY
 
-4. make a cross chain transfer request from polygon to base
+4. mint tokens and approve source chain router 
 
 // mint 11 to sender on source chain
 // 10 tokens to bridge + 1 token in fees
-cast send 0x43748DC0b4735463105c528816f59bB7F37009dE "mint(address,uint256)" 0xDC21c5F25E196b0C7E13F2C6f3184368059047FF 11e18 \
+cast send 0x46D346f8d9582f8963110108A7988B1a0bB3668D "mint(address,uint256)" 0xDC21c5F25E196b0C7E13F2C6f3184368059047FF 11e18 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
 // approve tokens for router contract on the source chain
-cast send 0x43748DC0b4735463105c528816f59bB7F37009dE "approve(address,uint256)" 0xA7c60e1109a98858E132D040444AD8eC84F8a4E5 11e18 \
+cast send 0x46D346f8d9582f8963110108A7988B1a0bB3668D "approve(address,uint256)" 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 11e18 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
-// start agent in another terminal window 
-// ensure correct Router and Bridge contract addresses are set in .env file on 
-// all supported chains
+
+5. start agent in another terminal window 
+// ensure correct Router contract address is set in .env file for all supported chains
 npx ts-node demo/demo.ts
 
-// make a bridge request from polygon pos to base sepolia 
+6. make a bridge request from polygon pos to base sepolia 
 // for 10e18 (send to a random recipient from anvil)
 // with a fee of 1e18.
 // router collects the fee plus amount to transfer
-// and allocate a portion of the fee for the solver
-// that fulfills the request on the destination chain id
-// and the rest of it for the dcipher threshold network 
-// So recipient will get 9e18 on destination chain.
-cast send 0xA7c60e1109a98858E132D040444AD8eC84F8a4E5 "bridge(address,uint256,uint256,uint256,address,uint256)" \
-    0x43748DC0b4735463105c528816f59bB7F37009dE 10e18 1e18 84532 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 2 \
+// and allocates a portion of the fee for the solver
+// who fulfills the request on the destination chain id
+// and the rest of it is held in the contract for the dcipher threshold network 
+// So recipient will get 10e18 on destination chain.
+cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "requestCrossChainSwap(address,uint256,uint256,uint256,address)" \
+    0x46D346f8d9582f8963110108A7988B1a0bB3668D 10e18 1e18 84532 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
 // recipient token balances on both chain
-cast call 0x43748DC0b4735463105c528816f59bB7F37009dE "balanceOf(address)(uint256)" 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 \
+cast call 0x46D346f8d9582f8963110108A7988B1a0bB3668D "balanceOf(address)(uint256)" 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 \
     --rpc-url $POLYGON_POS_RPC_URL
 
-cast call 0x43748DC0b4735463105c528816f59bB7F37009dE "balanceOf(address)(uint256)" 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 \
+cast call 0x46D346f8d9582f8963110108A7988B1a0bB3668D "balanceOf(address)(uint256)" 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 \
     --rpc-url $BASE_SEPOLIA_RPC_URL

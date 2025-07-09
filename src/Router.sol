@@ -379,7 +379,8 @@ contract Router is Ownable, IRouter {
         emit SwapFeesWithdrawn(token, to, amount);
     }
 
-    /// @notice Checks whether a bridge request has been fulfilled
+    /// @notice Checks whether a swap request has been fulfilled
+    /// i.e., if the recipient has received the tokens via the destination chain Router
     /// @param bridgeRequestId The request ID to check
     /// @return True if fulfilled, false otherwise
     function isFulfilled(bytes32 bridgeRequestId) external view returns (bool) {
