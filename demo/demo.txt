@@ -26,15 +26,21 @@ Bn254SignatureScheme contract deployed at:  0x2466F7c06c6Bc623F59bB9705edEf2B62e
   Router contract deployed at:  0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43
 
 
+export BN254_SIGNATURE_SCHEME_CONTRACT=0x2466F7c06c6Bc623F59bB9705edEf2B62eAe0acf
+export RUSD_CONTRACT=0x46D346f8d9582f8963110108A7988B1a0bB3668D
+export ROUTER_CONTRACT=0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43
+export SENDER=0xDC21c5F25E196b0C7E13F2C6f3184368059047FF
+export RECIPIENT=0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+
 2. configure contracts on base 
 
 // permit messages from other src chain ids
-cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "permitDestinationChainId(uint256)" 137 \
+cast send $ROUTER_CONTRACT "permitDestinationChainId(uint256)" 137 \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
 // map src and dst token addresses and chain ids
-cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "setTokenMapping(uint256,address,address)" 137 0x46D346f8d9582f8963110108A7988B1a0bB3668D 0x46D346f8d9582f8963110108A7988B1a0bB3668D \
+cast send $ROUTER_CONTRACT "setTokenMapping(uint256,address,address)" 137 $RUSD_CONTRACT $RUSD_CONTRACT \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 
@@ -42,12 +48,12 @@ cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "setTokenMapping(uint256,ad
 3. configure contracts on polygon
 
 // permit messages from other src chain ids
-cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "permitDestinationChainId(uint256)" 84532 \
+cast send $ROUTER_CONTRACT "permitDestinationChainId(uint256)" 84532 \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY
 
 // map src and dst token addresses and chain ids
-cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "setTokenMapping(uint256,address,address)" 84532 0x46D346f8d9582f8963110108A7988B1a0bB3668D 0x46D346f8d9582f8963110108A7988B1a0bB3668D \
+cast send $ROUTER_CONTRACT "setTokenMapping(uint256,address,address)" 84532 $RUSD_CONTRACT $RUSD_CONTRACT \
   --rpc-url $POLYGON_POS_RPC_URL \
   --private-key $PRIVATE_KEY
 
@@ -55,12 +61,12 @@ cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "setTokenMapping(uint256,ad
 
 // mint 11 to sender on source chain
 // 10 tokens to bridge + 1 token in fees
-cast send 0x46D346f8d9582f8963110108A7988B1a0bB3668D "mint(address,uint256)" 0xDC21c5F25E196b0C7E13F2C6f3184368059047FF 11e18 \
+cast send $RUSD_CONTRACT "mint(address,uint256)" $SENDER 11e18 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
 // approve tokens for router contract on the source chain
-cast send 0x46D346f8d9582f8963110108A7988B1a0bB3668D "approve(address,uint256)" 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 11e18 \
+cast send $RUSD_CONTRACT "approve(address,uint256)" $ROUTER_CONTRACT 11e18 \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
@@ -77,14 +83,14 @@ npx ts-node demo/demo.ts
 // who fulfills the request on the destination chain id
 // and the rest of it is held in the contract for the dcipher threshold network 
 // So recipient will get 10e18 on destination chain.
-cast send 0xEBa6Df4a0cc479646EEEBB39C902F0F682595A43 "requestCrossChainSwap(address,uint256,uint256,uint256,address)" \
-    0x46D346f8d9582f8963110108A7988B1a0bB3668D 10e18 1e18 84532 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 \
+cast send $ROUTER_CONTRACT "requestCrossChainSwap(address,uint256,uint256,uint256,address)" \
+    $RUSD_CONTRACT 10e18 1e18 84532 $RECIPIENT \
     --rpc-url $POLYGON_POS_RPC_URL \
     --private-key $PRIVATE_KEY
 
 // recipient token balances on both chain
-cast call 0x46D346f8d9582f8963110108A7988B1a0bB3668D "balanceOf(address)(uint256)" 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 \
+cast call $RUSD_CONTRACT "balanceOf(address)(uint256)" $RECIPIENT \
     --rpc-url $POLYGON_POS_RPC_URL
 
-cast call 0x46D346f8d9582f8963110108A7988B1a0bB3668D "balanceOf(address)(uint256)" 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 \
+cast call $RUSD_CONTRACT "balanceOf(address)(uint256)" $RECIPIENT \
     --rpc-url $BASE_SEPOLIA_RPC_URL
