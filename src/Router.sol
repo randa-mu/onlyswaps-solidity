@@ -8,8 +8,9 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import {BLS} from "./libraries/BLS.sol";
-import {ISignatureScheme} from "./interfaces/ISignatureScheme.sol";
+import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 
+import {ISignatureScheme} from "./interfaces/ISignatureScheme.sol";
 import {IRouter} from "./interfaces/IRouter.sol";
 
 /// @title Cross-Chain Token Router
@@ -57,12 +58,6 @@ contract Router is Ownable, IRouter {
     /// @dev Mapping of requestId to transfer receipt
     mapping(bytes32 => TransferReceipt) public receipts;
 
-
-    /// @dev Custom errors
-    error AlreadyFulfilled();
-    error InvalidTokenOrRecipient();
-    error ZeroAmount();
-
     /// @param _owner Initial contract owner
     /// @param _blsValidator BLS validator address
     constructor(address _owner, address _blsValidator) Ownable(_owner) {
@@ -82,8 +77,8 @@ contract Router is Ownable, IRouter {
         external
         returns (bytes32 requestId)
     {
-        require(amount > 0, "Zero amount");
-        require(tokenMappings[token][dstChainId] != address(0), "Token not supported");
+        require(amount > 0, ErrorsLib.ZeroAmount());
+        require(tokenMappings[token][dstChainId] != address(0), ErrorsLib.TokenNotSupported());
 
         uint256 swapFeeAmount = getSwapFeeAmount(fee);
         uint256 solverFee = fee - swapFeeAmount;
@@ -109,9 +104,12 @@ contract Router is Ownable, IRouter {
 
     function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external {
         TransferParams storage params = transferParameters[requestId];
-        require(!params.executed, "Request already fulfilled");
-        require(params.sender == msg.sender, "Unauthorised caller");
-        require(newFee > params.swapFee + params.solverFee, "New fee is less than current fee");
+        require(!params.executed, ErrorsLib.AlreadyFulfilled());
+        require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
+        require(
+            newFee > params.swapFee + params.solverFee,
+            ErrorsLib.NewFeeTooLow(newFee, params.swapFee + params.solverFee)
+        );
 
         IERC20(params.token).safeTransferFrom(msg.sender, address(this), newFee - (params.swapFee + params.solverFee));
 
@@ -141,9 +139,9 @@ contract Router is Ownable, IRouter {
     function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
         external
     {
-        require(!receipts[requestId].fulfilled, AlreadyFulfilled());
-        require(token != address(0) && recipient != address(0), InvalidTokenOrRecipient());
-        require(amount > 0, ZeroAmount());
+        require(!receipts[requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
+        require(token != address(0) && recipient != address(0), ErrorsLib.InvalidTokenOrRecipient());
+        require(amount > 0, ErrorsLib.ZeroAmount());
 
         IERC20(token).safeTransferFrom(msg.sender, recipient, amount);
 
@@ -169,17 +167,17 @@ contract Router is Ownable, IRouter {
         onlyOwner
     {
         TransferParams storage params = transferParameters[requestId];
-        require(!params.executed, "Message already executed");
+        require(!params.executed, ErrorsLib.AlreadyFulfilled());
         /// @dev rebalancing of solvers happens on the source chain router
-        require(params.srcChainId == thisChainId, "Invalid source chain id");
+        require(params.srcChainId == thisChainId, ErrorsLib.SourceChainIdMismatch(params.srcChainId, thisChainId));
 
         TransferParams memory decoded = abi.decode(message, (TransferParams));
-        require(isEqual(params, decoded), "Non-equal transfer parameters");
+        require(isEqual(params, decoded), ErrorsLib.TransferParametersMismatch());
 
         (, bytes memory messageAsG1Bytes,) = transferParamsToBytes(params);
         require(
             blsValidator.verifySignature(messageAsG1Bytes, signature, blsValidator.getPublicKeyBytes()),
-            "Invalid BLS signature"
+            ErrorsLib.BLSSignatureVerificationFailed()
         );
 
         fulfilledRequestIds.add(requestId);
@@ -335,7 +333,7 @@ contract Router is Ownable, IRouter {
     /// @notice Sets the swap fee in BPS
     /// @param _swapFeeBps New swap fee
     function setSwapFeeBps(uint256 _swapFeeBps) external onlyOwner {
-        require(_swapFeeBps <= MAX_FEE_BPS, "Too high");
+        require(_swapFeeBps <= MAX_FEE_BPS, ErrorsLib.FeeBpsExceedsThreshold(MAX_FEE_BPS));
         swapFeeBps = _swapFeeBps;
         emit SwapFeeBpsUpdated(swapFeeBps);
     }
@@ -366,7 +364,7 @@ contract Router is Ownable, IRouter {
     /// @param dstToken Token address on the destination chain
     /// @param srcToken Token address on the source chain
     function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external onlyOwner {
-        require(allowedDstChainIds[dstChainId], "Destination chain id not supported");
+        require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
         tokenMappings[srcToken][dstChainId] = dstToken;
         emit TokenMappingUpdated(dstChainId, dstToken, srcToken);
     }
