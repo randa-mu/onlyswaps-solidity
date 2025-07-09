@@ -10,7 +10,7 @@ import { BlsBn254 } from "./crypto";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import dotenv from "dotenv";
-import { AbiCoder, parseEther, TransactionReceipt, Interface, EventFragment, Result } from "ethers";
+import { AbiCoder, parseEther, TransactionReceipt, Interface, EventFragment, Result, keccak256, toUtf8Bytes } from "ethers";
 import { ethers } from "hardhat";
 
 dotenv.config();
@@ -66,28 +66,26 @@ describe("Router", function () {
     // Deploy one router on src chain
     router = await new Router__factory(owner).deploy(ownerAddr, await bn254SigScheme.getAddress());
     // router configuration
-    await router.connect(owner).allowDstChainId(DST_CHAIN_ID, true);
+    await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
 
   it("should initiate a bridge request and emit message", async () => {
     const amount = parseEther("10");
     const fee = parseEther("1");
-    const nonce = 1;
     const amountToMint = amount + fee;
 
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
 
     await expect(
-      router.connect(user).bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr, nonce),
+      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr),
     ).to.emit(router, "SwapRequested");
   });
 
   it("should update bridge fees for unfulfilled request", async () => {
     const amount = parseEther("5");
     const fee = parseEther("1");
-    const nonce = 2;
     const amountToMint = amount + fee;
 
     await srcToken.mint(userAddr, amountToMint);
@@ -95,7 +93,7 @@ describe("Router", function () {
 
     const tx = await router
       .connect(user)
-      .bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address, nonce);
+      .requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
 
     let receipt = await tx.wait(1);
     if (!receipt) {
@@ -124,11 +122,11 @@ describe("Router", function () {
     expect(await srcToken.balanceOf(userAddr)).to.equal(0);
 
     const transferParams = await router.getTransferParameters(requestId);
-    expect(transferParams.bridgeFee + transferParams.solverFee).to.equal(newFee);
+    expect(transferParams.swapFee + transferParams.solverFee).to.equal(newFee);
   });
 
   it("should block non-owner from withdrawing fees", async () => {
-    await expect(router.connect(user).withdrawBridgeFees(await srcToken.getAddress(), user.address))
+    await expect(router.connect(user).withdrawSwapFees(await srcToken.getAddress(), user.address))
       .to.be.revertedWithCustomError(router, "OwnableUnauthorizedAccount")
       .withArgs(await user.getAddress());
   });
@@ -136,7 +134,6 @@ describe("Router", function () {
   it("should allow owner to withdraw bridge fees", async () => {
     const amount = parseEther("10");
     const fee = parseEther("1");
-    const nonce = 1;
     const amountToMint = amount + fee;
 
     await srcToken.mint(userAddr, amountToMint);
@@ -144,7 +141,7 @@ describe("Router", function () {
 
     const tx = await router
       .connect(user)
-      .bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address, nonce);
+      .requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
 
     let receipt = await tx.wait(1);
     if (!receipt) {
@@ -161,15 +158,15 @@ describe("Router", function () {
 
     const before = await srcToken.balanceOf(owner.address);
 
-    await expect(router.connect(owner).withdrawBridgeFees(await srcToken.getAddress(), ownerAddr)).to.emit(
+    await expect(router.connect(owner).withdrawSwapFees(await srcToken.getAddress(), ownerAddr)).to.emit(
       router,
-      "BridgeFeesWithdrawn",
+      "SwapFeesWithdrawn",
     );
 
     const after = await srcToken.balanceOf(ownerAddr);
     expect(after).to.be.gt(before);
 
-    expect(await router.getTotalBridgeFeesBalance(await srcToken.getAddress())).to.equal(0);
+    expect(await router.getTotalSwapFeesBalance(await srcToken.getAddress())).to.equal(0);
 
     const transferParams = await router.getTransferParameters(requestId);
     expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + transferParams.solverFee);
@@ -186,7 +183,7 @@ describe("Router", function () {
 
     const tx = await router
       .connect(user)
-      .bridge(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address, nonce);
+      .requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
 
     let receipt = await tx.wait(1);
     if (!receipt) {
@@ -210,7 +207,7 @@ describe("Router", function () {
       amount: transferParams.amount,
       srcChainId: transferParams.srcChainId,
       dstChainId: transferParams.dstChainId,
-      bridgeFee: transferParams.bridgeFee,
+      swapFee: transferParams.swapFee,
       solverFee: transferParams.solverFee,
       nonce: 1,
       executed: false,
@@ -233,7 +230,74 @@ describe("Router", function () {
 
     const after = await srcToken.balanceOf(solverAddr);
     expect(after - before).to.equal(amount + transferParams.solverFee);
-    expect(await srcToken.balanceOf(await router.getAddress())).to.be.equal(transferParams.bridgeFee);
+    expect(await srcToken.balanceOf(await router.getAddress())).to.be.equal(transferParams.swapFee);
+  });
+
+  it("should relay tokens and store a receipt", async () => {
+    const amount = parseEther("10");
+    const requestId = keccak256(toUtf8Bytes("test"));
+    const srcChainId = 1;
+
+    // Check recipient balance before transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+
+    // Mint tokens for user
+    await srcToken.mint(userAddr, amount);
+
+    // Approve Bridge to spend user's tokens
+    await srcToken.connect(user).approve(await router.getAddress(), amount);
+
+    // Relay tokens
+    await expect(
+      router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+    ).to.emit(router, "BridgeReceipt");
+
+    // Check recipient balance after transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(amount);
+
+    // Check receipt
+    const receipt = await router.receipts(requestId);
+    expect(receipt.fulfilled).to.be.true;
+    expect(receipt.amountOut).to.equal(amount);
+    expect(receipt.solver).to.equal(userAddr);
+
+    expect(await router.isFulfilled(requestId)).to.be.equal(true);
+
+    await expect(
+      router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+    ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
+  });
+
+  it("should not allow double fulfillment", async () => {
+    const amount = parseEther("5");
+    const requestId = keccak256(toUtf8Bytes("duplicate"));
+    const srcChainId = 100;
+
+    // Mint tokens for user
+    await srcToken.mint(userAddr, amount);
+    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+
+    // Try again with same requestId
+    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await expect(
+      router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+    ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
+  });
+
+  it("should return correct isFulfilled status", async () => {
+    const amount = parseEther("1");
+    const requestId = keccak256(toUtf8Bytes("status"));
+    const srcChainId = 250;
+
+    // Mint tokens for user
+    await srcToken.mint(userAddr, amount);
+    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+
+    expect(await router.isFulfilled(requestId)).to.be.true;
+    const fakeId = keccak256(toUtf8Bytes("non-existent"));
+    expect(await router.isFulfilled(fakeId)).to.be.false;
   });
 });
 

@@ -57,6 +57,12 @@ contract Router is Ownable, IRouter {
     /// @dev Mapping of requestId to transfer receipt
     mapping(bytes32 => TransferReceipt) public receipts;
 
+
+    /// @dev Custom errors
+    error AlreadyFulfilled();
+    error InvalidTokenOrRecipient();
+    error ZeroAmount();
+
     /// @param _owner Initial contract owner
     /// @param _blsValidator BLS validator address
     constructor(address _owner, address _blsValidator) Ownable(_owner) {
@@ -125,9 +131,6 @@ contract Router is Ownable, IRouter {
         emit SwapRequestFeeUpdated(requestId, params.token, newSwapFeeAmount, newSolverFee);
     }
 
-    error AlreadyFulfilled();
-    error InvalidTokenOrRecipient();
-    error ZeroAmount();
     /// @notice Relays tokens to the recipient and stores a receipt
     /// @param token The token being relayed
     /// @param recipient The target recipient of the tokens
@@ -142,7 +145,7 @@ contract Router is Ownable, IRouter {
         require(token != address(0) && recipient != address(0), InvalidTokenOrRecipient());
         require(amount > 0, ZeroAmount());
 
-        IERC20(token).safeTransfer(recipient, amount);
+        IERC20(token).safeTransferFrom(msg.sender, recipient, amount);
 
         receipts[requestId] = TransferReceipt({
             requestId: requestId,
