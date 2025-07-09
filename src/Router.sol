@@ -125,6 +125,9 @@ contract Router is Ownable, IRouter {
         emit SwapRequestFeeUpdated(requestId, params.token, newSwapFeeAmount, newSolverFee);
     }
 
+    error AlreadyFulfilled();
+    error InvalidTokenOrRecipient();
+    error ZeroAmount();
     /// @notice Relays tokens to the recipient and stores a receipt
     /// @param token The token being relayed
     /// @param recipient The target recipient of the tokens
@@ -134,9 +137,9 @@ contract Router is Ownable, IRouter {
     function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
         external
     {
-        require(!receipts[requestId].fulfilled, "Already fulfilled");
-        require(token != address(0) && recipient != address(0), "Invalid token or recipient");
-        require(amount > 0, "Zero amount");
+        require(!receipts[requestId].fulfilled, AlreadyFulfilled());
+        require(token != address(0) && recipient != address(0), InvalidTokenOrRecipient());
+        require(amount > 0, ZeroAmount());
 
         IERC20(token).safeTransfer(recipient, amount);
 
