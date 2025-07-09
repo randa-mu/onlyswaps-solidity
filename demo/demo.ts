@@ -8,7 +8,6 @@ import path from "path";
 import fs from "fs/promises"; // Use promises-based fs API
 import {
   Router__factory,
-  Bridge__factory,
   ERC20Token__factory,
 } from "../typechain-types";
 import { config } from "dotenv";
@@ -27,7 +26,6 @@ interface ChainConfig {
 
 // Globals
 const routerAbi = Router__factory.abi;
-const bridgeAbi = Bridge__factory.abi;
 const supportedChains: ChainConfig[] = [];
 // Interval should be enough to wait for all transactions in each iteration to be mined on-chain
 // before starting the next iteration
@@ -100,10 +98,6 @@ function getRouterContract(chain: ChainConfig, withSigner = false) {
   return getContract(routerAbi, chain.router_contractAddress, chain, withSigner);
 }
 
-function getBridgeContract(chain: ChainConfig, withSigner = false) {
-  return getContract(bridgeAbi, chain.bridge_contractAddress, chain, withSigner);
-}
-
 function getTokenContract(tokenAddress: string, chain: ChainConfig, withSigner = false) {
   const erc20Abi = ERC20Token__factory.abi;
   return getContract(erc20Abi, tokenAddress, chain, withSigner);
@@ -138,7 +132,7 @@ async function pollAndExecute() {
           continue;
         }
 
-        const dstContract = getBridgeContract(dstChain, true);
+        const dstContract = getRouterContract(dstChain, true);
         const fulfilled = await dstContract.isFulfilled(requestId);
         if (fulfilled) {
           console.log(`[${dstChain.name}] Request ${requestId} already fulfilled`);
