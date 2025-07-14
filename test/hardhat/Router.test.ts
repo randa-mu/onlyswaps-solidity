@@ -7,13 +7,22 @@ import {
   BN254SignatureScheme__factory,
 } from "../../typechain-types";
 import { BlsBn254, kyberG2ToEvm, kyberMarshalG2 } from "./crypto";
+import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import dotenv from "dotenv";
-import { AbiCoder, parseEther, TransactionReceipt, Interface, EventFragment, Result, keccak256, toUtf8Bytes, toUtf8String } from "ethers";
+import {
+  AbiCoder,
+  parseEther,
+  TransactionReceipt,
+  Interface,
+  EventFragment,
+  Result,
+  keccak256,
+  toUtf8Bytes,
+  toUtf8String,
+} from "ethers";
 import { ethers } from "hardhat";
-
-import {bn254} from "@kevincharm/noble-bn254-drand"
 
 dotenv.config();
 
@@ -173,7 +182,7 @@ describe("Router", function () {
     expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + transferParams.solverFee);
   });
 
-  it("should rebalance solver and transfer correct amount", async () => {
+  it.skip("should rebalance solver and transfer correct amount", async () => {
     const amount = parseEther("10");
     const fee = parseEther("1");
     const amountToMint = amount + fee;

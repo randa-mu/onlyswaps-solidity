@@ -38,7 +38,7 @@ contract Router is Ownable, IRouter {
 
     /// @dev Stores all unfulfilled solver refunds by request IDs
     EnumerableSet.Bytes32Set private unfulfilledSolverRefunds;
-    
+
     /// @dev Stores all fulfilled solver refunds by request IDs
     EnumerableSet.Bytes32Set private fulfilledSolverRefunds;
 
