@@ -6,8 +6,7 @@ import {
   BN254SignatureScheme,
   BN254SignatureScheme__factory,
 } from "../../typechain-types";
-import { BlsBn254, kyberG2ToEvm, kyberMarshalG2 } from "./crypto";
-import { bn254 } from "@kevincharm/noble-bn254-drand";
+import { BlsBn254 } from "./crypto";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import dotenv from "dotenv";
@@ -19,8 +18,7 @@ import {
   EventFragment,
   Result,
   keccak256,
-  toUtf8Bytes,
-  toUtf8String,
+  toUtf8Bytes
 } from "ethers";
 import { ethers } from "hardhat";
 
