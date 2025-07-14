@@ -98,8 +98,6 @@ interface IRouter {
 
     // -------- View Functions --------
 
-    function getAllFulfilledRequestIds() external view returns (bytes32[] memory);
-    function getAllUnfulfilledRequestIds() external view returns (bytes32[] memory);
     function getSwapFeeAmount(uint256 amount) external view returns (uint256);
     function getRequestId(TransferParams memory p) external view returns (bytes32);
     function getChainID() external view returns (uint256);
@@ -110,12 +108,9 @@ interface IRouter {
     function getAllowedDstChainId(uint256 chainId) external view returns (bool);
     function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address);
     function getTransferParameters(bytes32 requestId) external view returns (TransferParams memory transferParams);
-    function getUnfulfilledRequestIds() external view returns (bytes32[] memory);
-    function getFulfilledRequestIds() external view returns (bytes32[] memory);
-    /// @notice Checks whether a bridge request has been fulfilled
-    /// @param bridgeRequestId The request ID to check
-    /// @return True if fulfilled, false otherwise
-    function isFulfilled(bytes32 bridgeRequestId) external view returns (bool);
+    function getFulfilledTransfers() external view returns (bytes32[] memory);
+    function getUnfulfilledSolverRefunds() external view returns (bytes32[] memory);
+    function getFulfilledSolverRefunds() external view returns (bytes32[] memory);
     /// @notice View a transfer receipt by requestId
     /// @param requestId The request ID of the transfer
     /// @return receipt The stored TransferReceipt struct

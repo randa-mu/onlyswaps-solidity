@@ -33,11 +33,14 @@ contract Router is Ownable, IRouter {
     /// @notice BLS validator used for signature verification
     ISignatureScheme public blsValidator;
 
-    /// @dev Stores all unfulfilled transfer request IDs
-    EnumerableSet.Bytes32Set private unfulfilledRequestIds;
-
     /// @dev Stores all fulfilled transfer request IDs
-    EnumerableSet.Bytes32Set private fulfilledRequestIds;
+    EnumerableSet.Bytes32Set private fulfilledTransfers;
+
+    /// @dev Stores all unfulfilled solver refunds by request IDs
+    EnumerableSet.Bytes32Set private unfulfilledSolverRefunds;
+    
+    /// @dev Stores all fulfilled solver refunds by request IDs
+    EnumerableSet.Bytes32Set private fulfilledSolverRefunds;
 
     /// @notice Mapping of requestId => transfer parameters
     mapping(bytes32 => TransferParams) public transferParameters;
@@ -143,6 +146,8 @@ contract Router is Ownable, IRouter {
         require(token != address(0) && recipient != address(0), ErrorsLib.InvalidTokenOrRecipient());
         require(amount > 0, ErrorsLib.ZeroAmount());
 
+        fulfilledTransfers.add(requestId);
+
         IERC20(token).safeTransferFrom(msg.sender, recipient, amount);
 
         receipts[requestId] = TransferReceipt({
@@ -180,8 +185,8 @@ contract Router is Ownable, IRouter {
             ErrorsLib.BLSSignatureVerificationFailed()
         );
 
-        fulfilledRequestIds.add(requestId);
-        unfulfilledRequestIds.remove(requestId);
+        fulfilledSolverRefunds.add(requestId);
+        unfulfilledSolverRefunds.remove(requestId);
         params.executed = true;
 
         uint256 solverRefund = params.amount + params.solverFee;
@@ -243,7 +248,7 @@ contract Router is Ownable, IRouter {
     /// @notice Stores a transfer request and marks as unfulfilled
     function storeTransferRequest(bytes32 requestId, TransferParams memory params) internal {
         transferParameters[requestId] = params;
-        unfulfilledRequestIds.add(requestId);
+        unfulfilledSolverRefunds.add(requestId);
     }
 
     /// @notice Compares two transfer parameter structs
@@ -282,16 +287,6 @@ contract Router is Ownable, IRouter {
         return block.chainid;
     }
 
-    /// @notice Returns list of all fulfilled request IDs
-    function getAllFulfilledRequestIds() external view returns (bytes32[] memory) {
-        return fulfilledRequestIds.values();
-    }
-
-    /// @notice Returns list of all unfulfilled request IDs
-    function getAllUnfulfilledRequestIds() external view returns (bytes32[] memory) {
-        return unfulfilledRequestIds.values();
-    }
-
     function getSwapFeeBps() external view returns (uint256) {
         return swapFeeBps;
     }
@@ -320,12 +315,16 @@ contract Router is Ownable, IRouter {
         return totalSwapFeesBalance[token];
     }
 
-    function getUnfulfilledRequestIds() external view returns (bytes32[] memory) {
-        return unfulfilledRequestIds.values();
+    function getFulfilledTransfers() external view returns (bytes32[] memory) {
+        return fulfilledTransfers.values();
     }
 
-    function getFulfilledRequestIds() external view returns (bytes32[] memory) {
-        return fulfilledRequestIds.values();
+    function getUnfulfilledSolverRefunds() external view returns (bytes32[] memory) {
+        return unfulfilledSolverRefunds.values();
+    }
+
+    function getFulfilledSolverRefunds() external view returns (bytes32[] memory) {
+        return fulfilledSolverRefunds.values();
     }
 
     // ---------------------- Admin Functions ----------------------
@@ -377,14 +376,6 @@ contract Router is Ownable, IRouter {
         totalSwapFeesBalance[token] = 0;
         IERC20(token).safeTransfer(to, amount);
         emit SwapFeesWithdrawn(token, to, amount);
-    }
-
-    /// @notice Checks whether a swap request has been fulfilled
-    /// i.e., if the recipient has received the tokens via the destination chain Router
-    /// @param bridgeRequestId The request ID to check
-    /// @return True if fulfilled, false otherwise
-    function isFulfilled(bytes32 bridgeRequestId) external view returns (bool) {
-        return receipts[bridgeRequestId].fulfilled;
     }
 
     /// @notice Gets a transfer receipt for a given requestID
