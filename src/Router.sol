@@ -166,10 +166,7 @@ contract Router is Ownable, IRouter {
     /// @param solver Address of the solver being paid
     /// @param requestId Unique ID of the request
     /// @param signature BLS signature of the message
-    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature)
-        external
-        onlyOwner
-    {
+    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external onlyOwner {
         TransferParams storage params = transferParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         /// @dev rebalancing of solvers happens on the source chain router

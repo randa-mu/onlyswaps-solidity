@@ -76,8 +76,7 @@ interface IRouter {
 
     function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external;
 
-    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature)
-        external;
+    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external;
 
     /// @notice Relays tokens to the recipient and stores a receipt
     /// @param token The token being relayed
