@@ -18,7 +18,7 @@ import {
   EventFragment,
   Result,
   keccak256,
-  toUtf8Bytes
+  toUtf8Bytes,
 } from "ethers";
 import { ethers } from "hardhat";
 

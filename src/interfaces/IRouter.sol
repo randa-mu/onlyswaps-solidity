@@ -33,10 +33,7 @@ interface IRouter {
     /// @param solver The address that fulfilled the transfer
     /// @param amountOut The amount transferred to the recipient
     event BridgeReceipt(
-        bytes32 indexed requestId,
-        uint256 indexed srcChainId,
-        address indexed solver,
-        uint256 amountOut
+        bytes32 indexed requestId, uint256 indexed srcChainId, address indexed solver, uint256 amountOut
     );
 
     // -------- Events --------
