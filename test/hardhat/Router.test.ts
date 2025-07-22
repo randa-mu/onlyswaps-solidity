@@ -10,7 +10,16 @@ import { BlsBn254 } from "./crypto";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import dotenv from "dotenv";
-import { AbiCoder, parseEther, TransactionReceipt, Interface, EventFragment, Result, keccak256, toUtf8Bytes } from "ethers";
+import {
+  AbiCoder,
+  parseEther,
+  TransactionReceipt,
+  Interface,
+  EventFragment,
+  Result,
+  keccak256,
+  toUtf8Bytes
+} from "ethers";
 import { ethers } from "hardhat";
 
 dotenv.config();
@@ -224,11 +233,17 @@ describe("Router", function () {
 
     const before = await srcToken.balanceOf(solverAddr);
 
+    expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(0);
+    expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(1);
+
     await router.connect(owner).rebalanceSolver(solver.address, requestId, message, sigBytes);
 
     const after = await srcToken.balanceOf(solverAddr);
     expect(after - before).to.equal(amount + transferParams.solverFee);
     expect(await srcToken.balanceOf(await router.getAddress())).to.be.equal(transferParams.swapFee);
+
+    expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(1);
+    expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(0);
   });
 
   it("should relay tokens and store a receipt", async () => {
@@ -259,11 +274,14 @@ describe("Router", function () {
     expect(receipt.amountOut).to.equal(amount);
     expect(receipt.solver).to.equal(userAddr);
 
-    expect(await router.isFulfilled(requestId)).to.be.equal(true);
+    expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
+    expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
 
     await expect(
       router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
     ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
+
+    expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
   });
 
   it("should not allow double fulfillment", async () => {
@@ -276,11 +294,17 @@ describe("Router", function () {
     await srcToken.connect(user).approve(await router.getAddress(), amount);
     await router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
 
+    expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
+    expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+
     // Try again with same requestId
     await srcToken.connect(user).approve(await router.getAddress(), amount);
     await expect(
       router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
     ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
+
+    expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
+    expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
   });
 
   it("should return correct isFulfilled status", async () => {
@@ -293,9 +317,9 @@ describe("Router", function () {
     await srcToken.connect(user).approve(await router.getAddress(), amount);
     await router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
 
-    expect(await router.isFulfilled(requestId)).to.be.true;
+    expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.true;
     const fakeId = keccak256(toUtf8Bytes("non-existent"));
-    expect(await router.isFulfilled(fakeId)).to.be.false;
+    expect((await router.getFulfilledTransfers()).includes(fakeId)).to.be.false;
   });
 });
 
