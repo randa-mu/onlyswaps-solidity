@@ -159,7 +159,7 @@ contract Router is Ownable, IRouter {
             fulfilledAt: block.timestamp
         });
 
-        emit BridgeReceipt(requestId, srcChainId, true, msg.sender, amount, block.timestamp);
+        emit BridgeReceipt(requestId, srcChainId, msg.sender, amount);
     }
 
     /// @notice Called with dcipher signature to approve a solver’s fulfillment of a swap request

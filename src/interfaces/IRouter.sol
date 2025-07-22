@@ -30,17 +30,13 @@ interface IRouter {
     /// @notice Emitted when a bridge receipt is recorded
     /// @param requestId The unique ID of the bridge transfer request
     /// @param srcChainId The source chain ID
-    /// @param fulfilled Whether the request was fulfilled
     /// @param solver The address that fulfilled the transfer
     /// @param amountOut The amount transferred to the recipient
-    /// @param fulfilledAt The timestamp of fulfillment
     event BridgeReceipt(
         bytes32 indexed requestId,
         uint256 indexed srcChainId,
-        bool fulfilled,
         address indexed solver,
-        uint256 amountOut,
-        uint256 fulfilledAt
+        uint256 amountOut
     );
 
     // -------- Events --------
