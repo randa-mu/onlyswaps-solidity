@@ -45,8 +45,7 @@ interface IRouter {
 
     /// @notice Emitted when a message is successfully fulfilled by a solver
     /// @param requestId Hash of the transfer parameters
-    /// @param message Encoded fulfilled payload
-    event SwapRequestFulfilled(bytes32 indexed requestId, bytes message);
+    event SwapRequestFulfilled(bytes32 indexed requestId);
 
     /// @notice Emitted when the fee is updated for a request by the sender
     event SwapRequestFeeUpdated(bytes32 indexed requestId, address token, uint256 newSwapFee, uint256 newSolverFee);
@@ -77,7 +76,7 @@ interface IRouter {
 
     function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external;
 
-    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata message, bytes calldata signature)
+    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature)
         external;
 
     /// @notice Relays tokens to the recipient and stores a receipt

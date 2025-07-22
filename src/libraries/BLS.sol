@@ -168,6 +168,7 @@ library BLS {
             pubkey.y[1],
             pubkey.y[0]
         ];
+
         uint256[1] memory out;
         assembly {
             callSuccess := staticcall(sub(gas(), 2000), 8, input, 384, out, 0x20)

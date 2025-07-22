@@ -5,6 +5,7 @@ import {
   ERC20Token__factory,
   BN254SignatureScheme,
   BN254SignatureScheme__factory,
+  BLSTest, BLSTest__factory,
 } from "../../typechain-types";
 import { BlsBn254 } from "./crypto";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
@@ -18,9 +19,11 @@ import {
   EventFragment,
   Result,
   keccak256,
-  toUtf8Bytes,
+  toUtf8Bytes, 
+  toUtf8String,
 } from "ethers";
 import { ethers } from "hardhat";
+import {bn254} from "@kevincharm/noble-bn254-drand"
 
 dotenv.config();
 
@@ -207,7 +210,7 @@ describe("Router", function () {
 
     const transferParams = await router.getTransferParameters(requestId);
 
-    const [message, messageAsG1Bytes, messageAsG1Point] = await router.transferParamsToBytes({
+    const [, , messageAsG1Point] = await router.transferParamsToBytes({
       sender: transferParams.sender,
       recipient: transferParams.recipient,
       token: await srcToken.getAddress(),
@@ -236,7 +239,7 @@ describe("Router", function () {
     expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(0);
     expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(1);
 
-    await router.connect(owner).rebalanceSolver(solver.address, requestId, message, sigBytes);
+    await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
 
     const after = await srcToken.balanceOf(solverAddr);
     expect(after - before).to.equal(amount + transferParams.solverFee);

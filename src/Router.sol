@@ -165,9 +165,8 @@ contract Router is Ownable, IRouter {
     /// @notice Called with dcipher signature to approve a solver’s fulfillment of a swap request
     /// @param solver Address of the solver being paid
     /// @param requestId Unique ID of the request
-    /// @param message Original message data
     /// @param signature BLS signature of the message
-    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata message, bytes calldata signature)
+    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature)
         external
         onlyOwner
     {
@@ -175,9 +174,6 @@ contract Router is Ownable, IRouter {
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         /// @dev rebalancing of solvers happens on the source chain router
         require(params.srcChainId == thisChainId, ErrorsLib.SourceChainIdMismatch(params.srcChainId, thisChainId));
-
-        TransferParams memory decoded = abi.decode(message, (TransferParams));
-        require(isEqual(params, decoded), ErrorsLib.TransferParametersMismatch());
 
         (, bytes memory messageAsG1Bytes,) = transferParamsToBytes(params);
         require(
@@ -193,7 +189,7 @@ contract Router is Ownable, IRouter {
 
         IERC20(params.token).safeTransfer(solver, solverRefund);
 
-        emit SwapRequestFulfilled(requestId, message);
+        emit SwapRequestFulfilled(requestId);
     }
 
     // ---------------------- Utility & View ----------------------
