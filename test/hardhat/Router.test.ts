@@ -180,7 +180,7 @@ describe("Router", function () {
     expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + transferParams.solverFee);
   });
 
-  it.skip("should rebalance solver and transfer correct amount", async () => {
+  it("should rebalance solver and transfer correct amount", async () => {
     const amount = parseEther("10");
     const fee = parseEther("1");
     const amountToMint = amount + fee;
