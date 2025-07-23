@@ -207,7 +207,7 @@ describe("Router", function () {
 
     const transferParams = await router.getTransferParameters(requestId);
 
-    const [message, messageAsG1Bytes, messageAsG1Point] = await router.transferParamsToBytes({
+    const [, , messageAsG1Point] = await router.transferParamsToBytes({
       sender: transferParams.sender,
       recipient: transferParams.recipient,
       token: await srcToken.getAddress(),
@@ -236,7 +236,7 @@ describe("Router", function () {
     expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(0);
     expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(1);
 
-    await router.connect(owner).rebalanceSolver(solver.address, requestId, message, sigBytes);
+    await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
 
     const after = await srcToken.balanceOf(solverAddr);
     expect(after - before).to.equal(amount + transferParams.solverFee);
