@@ -218,10 +218,7 @@ describe("Router", function () {
       y: BigInt(messageAsG1Point[1]),
     });
 
-    // Step 3: Secret key as hex string
-    const privateKeyBytes = privKeyBytes;
-
-    // Step 4: Sign message
+    // Step 3: Sign message
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
 
     // Step 5: Serialize signature (x, y) for EVM
