@@ -19,7 +19,6 @@ import {
   Result,
   keccak256,
   toUtf8Bytes,
-  toUtf8String,
 } from "ethers";
 import { ethers } from "hardhat";
 
