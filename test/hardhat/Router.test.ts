@@ -221,7 +221,7 @@ describe("Router", function () {
     // Step 3: Sign message
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
 
-    // Step 5: Serialize signature (x, y) for EVM
+    // Step 4: Serialize signature (x, y) for EVM
     const sigPointToAffine = sigPoint.toAffine();
     const sigBytes = AbiCoder.defaultAbiCoder().encode(
       ["uint256", "uint256"],
@@ -238,6 +238,7 @@ describe("Router", function () {
     expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(0);
     expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(1);
 
+    // Rebalance Solver
     await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
 
     const after = await srcToken.balanceOf(solverAddr);
