@@ -6,10 +6,10 @@ import {
   BN254SignatureScheme,
   BN254SignatureScheme__factory,
 } from "../../typechain-types";
-import { BlsBn254 } from "./crypto";
+import { bn254 } from "@kevincharm/noble-bn254-drand";
+import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import dotenv from "dotenv";
 import {
   AbiCoder,
   parseEther,
@@ -22,27 +22,9 @@ import {
 } from "ethers";
 import { ethers } from "hardhat";
 
-dotenv.config();
-
-const blsKey = process.env.BLS_PRIVATE_KEY;
 const DST_CHAIN_ID = 137;
-const default_pk = {
-  x: {
-    c0: BigInt("0x2691d39ecc380bfa873911a0b848c77556ee948fb8ab649137d3d3e78153f6ca"),
-    c1: BigInt("0x2863e20a5125b098108a5061b31f405e16a069e9ebff60022f57f4c4fd0237bf"),
-  },
-  y: {
-    c0: BigInt("0x193513dbe180d700b189c529754f650b7b7882122c8a1e242a938d23ea9f765c"),
-    c1: BigInt("0x11c939ea560caf31f552c9c4879b15865d38ba1dfb0f7a7d2ac46a4f0cae25ba"),
-  },
-};
 
 describe("Router", function () {
-  let mcl: BlsBn254;
-  before(async () => {
-    mcl = await BlsBn254.create();
-  });
-
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
   let solver: SignerWithAddress;
@@ -53,6 +35,7 @@ describe("Router", function () {
   let dstToken: ERC20Token;
   let bn254SigScheme: BN254SignatureScheme;
 
+  let privKeyBytes: Uint8Array;
   let ownerAddr: string, solverAddr: string, userAddr: string, recipientAddr: string;
 
   beforeEach(async () => {
@@ -63,17 +46,22 @@ describe("Router", function () {
     recipientAddr = await recipient.getAddress();
     solverAddr = await solver.getAddress();
 
+    // Create random private key and public key
+    privKeyBytes = Uint8Array.from(randomBytes(32));
+    const pk = bn254.getPublicKeyForShortSignatures(privKeyBytes); // G2 public key
+
+    // Deserialize public key from a Uint8Array to G2 point
+    const pubKeyPoint = bn254.G2.ProjectivePoint.fromHex(pk).toAffine();
+    // Extract x and y (each is an Fp2: { c0, c1 } as BigInt)
+    const { x, y } = pubKeyPoint;
+
+    // Deploy contracts
     srcToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
-
-    bn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy(
-      [default_pk.x.c0, default_pk.x.c1],
-      [default_pk.y.c0, default_pk.y.c1],
-    );
-
-    // Deploy one router on src chain
+    bn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c0, x.c1], [y.c0, y.c1]);
     router = await new Router__factory(owner).deploy(ownerAddr, await bn254SigScheme.getAddress());
-    // router configuration
+
+    // Router contract configuration
     await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
@@ -181,6 +169,7 @@ describe("Router", function () {
   });
 
   it("should rebalance solver and transfer correct amount", async () => {
+    // Create token swap request on source chain
     const amount = parseEther("10");
     const fee = parseEther("1");
     const amountToMint = amount + fee;
@@ -205,28 +194,44 @@ describe("Router", function () {
       routerInterface.getEvent("SwapRequested"),
     );
 
+    // Message signing
+
+    // Step 1. Fetch transfer parameters from the chain using the request id
     const transferParams = await router.getTransferParameters(requestId);
 
     const [, , messageAsG1Point] = await router.transferParamsToBytes({
       sender: transferParams.sender,
       recipient: transferParams.recipient,
-      token: await srcToken.getAddress(),
+      token: transferParams.token,
       amount: transferParams.amount,
       srcChainId: transferParams.srcChainId,
       dstChainId: transferParams.dstChainId,
       swapFee: transferParams.swapFee,
       solverFee: transferParams.solverFee,
-      nonce: 1,
-      executed: false,
+      nonce: transferParams.nonce,
+      executed: transferParams.executed,
     });
-    const M = mcl.g1FromEvm(messageAsG1Point[0], messageAsG1Point[1]);
-    const { secretKey, pubKey } = mcl.createKeyPair(blsKey as `0x${string}`);
-    const { signature } = mcl.sign(M, secretKey);
 
-    const sig = mcl.serialiseG1Point(signature);
-    const sigBytes = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sig[0], sig[1]]);
+    // Step 2: Message from EVM
+    const M = bn254.G1.ProjectivePoint.fromAffine({
+      x: BigInt(messageAsG1Point[0]),
+      y: BigInt(messageAsG1Point[1]),
+    });
 
-    // ensure router has enough liquidity to pay solver
+    // Step 3: Secret key as hex string
+    const privateKeyBytes = privKeyBytes;
+
+    // Step 4: Sign message
+    const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+
+    // Step 5: Serialize signature (x, y) for EVM
+    const sigPointToAffine = sigPoint.toAffine();
+    const sigBytes = AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256"],
+      [sigPointToAffine.x, sigPointToAffine.y],
+    );
+
+    // ensure that the router has enough liquidity to pay solver
     expect(await srcToken.balanceOf(await router.getAddress())).to.be.greaterThanOrEqual(
       transferParams.amount + transferParams.solverFee,
     );
