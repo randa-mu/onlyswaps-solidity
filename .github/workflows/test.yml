@@ -55,7 +55,7 @@ jobs:
         run: npm install
 
       - name: Run lint
-        run: npm run lint
+        run: npm run lint:hardhat
 
       - name: Build project
         run: npm run build
