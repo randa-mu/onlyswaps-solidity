@@ -58,7 +58,7 @@ jobs:
         run: npm run lint:hardhat
 
       - name: Build project
-        run: npm run build
+        run: npm run build:hardhat
 
       - name: Run Hardhat tests
-        run: npx hardhat test --verbose
+        run: npm run test:hardhat
