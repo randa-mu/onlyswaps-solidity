@@ -1,4 +1,4 @@
-import { AbiCoder, formatEther, parseEther } from "ethers";
+import { formatEther, parseEther } from "ethers";
 import { ERC20Token, Router } from "../../typechain-types";
 
 export async function executeSwap(
@@ -25,9 +25,4 @@ export async function executeSwap(
   );
   
   return { tx, amount, fee };
-}
-
-export function encodeSignature(sigAffine: { x: bigint, y: bigint }): string {
-  const abi = new AbiCoder();
-  return abi.encode(["uint256", "uint256"], [sigAffine.x, sigAffine.y]);
 }

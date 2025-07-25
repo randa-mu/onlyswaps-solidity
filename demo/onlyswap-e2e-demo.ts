@@ -1,8 +1,8 @@
 import { ethers, formatEther } from "ethers";
 import { launchAnvilPair } from "./utilities/anvil-helper";
-import { generateBlsKeys, signMessage } from "./utilities/signing";
+import { generateBlsKeys, signMessage, encodeSignature } from "./utilities/signing";
 import { deployContracts } from "./utilities/deploy-contracts";
-import { executeSwap, encodeSignature } from "./utilities/swap";
+import { executeSwap } from "./utilities/swap";
 import { extractSingleLog } from "./utilities/ethers-utils";
 
 const SRC_CHAIN_ID = 31337;
