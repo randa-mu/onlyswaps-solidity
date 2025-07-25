@@ -83,7 +83,7 @@ The OnlySwaps demo script shows how to deploy and interact with contracts across
 #### Prerequisites
 
 * [Anvil](https://github.com/foundry-rs/foundry) installed
-* Node.js and dependencies installed (including `ethers`, `ts-node`, and your contract typechain)
+* Node.js and dependencies installed (including `ethers`, `ts-node`)
 
 #### Steps
 
