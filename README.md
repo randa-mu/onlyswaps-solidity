@@ -46,19 +46,14 @@ npm run test
 
 To run foundry coverage:
 ```bash
-FOUNDRY_PROFILE=coverage forge coverage --report summary
+npx hardhat coverage
 ```
 
-This project also includes a [coverage.sh](utils/coverage.sh) script to generate and view test coverage reports using lcov. After the script runs, it generates and opens a html page showing lines of code covered by tests and those that have not been covered. If lcov is not installed, the script will attempt to install it automatically using Homebrew (macOS) or apt (Linux).
-
-To make the script executable:
+After running coverage, you can optionally open the generated report to see detailed info:
 ```bash
-chmod +x utils/coverage.sh
-```
-
-To run the script:
-```bash
-./utils/coverage.sh
+open coverage/index.html
+# or on Linux
+xdg-open coverage/index.html
 ```
 
 
