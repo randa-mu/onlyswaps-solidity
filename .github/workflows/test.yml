@@ -58,4 +58,4 @@ jobs:
         run: npx hardhat compile
 
       - name: Run Hardhat tests
-        run: npx hardhat test
+        run: npx hardhat test --verbose
