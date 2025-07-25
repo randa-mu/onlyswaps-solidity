@@ -16,7 +16,7 @@ async function main() {
     const dstProvider = new ethers.JsonRpcProvider("http://127.0.0.1:8546");
 
     const srcSigner = await srcProvider.getSigner(0);
-    const dstSigner = await dstProvider.getSigner(0);
+    const dstSigner = await dstProvider.getSigner(1);
 
     const { privKeyBytes, pubKeyPoint } = generateBlsKeys();
 
