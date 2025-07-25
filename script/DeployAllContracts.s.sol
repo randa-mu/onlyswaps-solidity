@@ -11,7 +11,7 @@ import {ERC20Token} from "../src/mocks/ERC20Token.sol";
 import {Router} from "../src/Router.sol";
 
 contract DeployAllContracts is Script {
-    bytes32 constant SALT = bytes32(uint256(3));
+    bytes32 constant SALT = bytes32(uint256(6));
 
     BLS.PointG2 blsPublicKey = BLS.PointG2({
         x: [vm.envUint("BLS_PUBLIC_KEY_X0"), vm.envUint("BLS_PUBLIC_KEY_X1")],

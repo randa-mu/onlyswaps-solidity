@@ -71,7 +71,6 @@ function verifyKeyPairWithDST(
   }
 }
 
-
 async function main() {
   // Generate random private key as Uint8Array
   const privKeyBytes = Uint8Array.from(randomBytes(32));
@@ -91,7 +90,9 @@ async function main() {
   const isValidWithDST = verifyKeyPairWithDST(privKeyBytes, pubKeyBytes, "dst");
 
   // Log results
+  console.log("Private Key (Uint8Array:", privKeyBytes);
   console.log("Private Key (hex):", privKeyHex);
+  console.log("Public Key (point):", pubKeyPoint);
   console.log("Public Key (Solidity format):", pubKeySol);
   console.log("Key pair matches:", isValid);
   console.log("Key pair matches with DST:", isValidWithDST);
