@@ -69,27 +69,17 @@ npm run lint:fix
 
 ### OnlySwaps
 
-The OnlySwaps demo script shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs.
+The OnlySwaps demo script shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs. 
 
-#### Steps
+The script automatically spawns two Anvil blockchains at port 8545 (with chain id 31337) and 8546 (with chain id 31338).
 
-1. **Start two Anvil chains in separate terminal windows:**
-
-```bash
-anvil --port 8545 --chain-id 31337
-```
+To run the demo script, run the following command: 
 
 ```bash
-anvil --port 8546 --chain-id 31338
+npx ts-node demo/onlyswap-e2e-demo.ts
 ```
 
-2. **Run the demo script:**
-
-```bash
-npx ts-node demo/onlyswaps-e2e-demo.ts
-```
-
-The script will deploy contracts on both chains, perform a cross-chain token swap, and display logs including chain IDs, transfer parameters, and balances.
+The script will then deploy contracts on both chains, perform a cross-chain token swap, and display logs including chain IDs, transfer parameters, and balances.
 
 
 ## Licensing

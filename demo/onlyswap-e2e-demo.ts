@@ -7,17 +7,10 @@ import {
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { AbiCoder, parseEther, Interface, EventFragment, TransactionReceipt, Result } from "ethers";
-
+import { launchAnvilPair } from "./anvil-helper";
 
 /**
 Demo script usage:
-
-Start two Anvil blockchains in two separate terminal windows:
-
-anvil --port 8545 --chain-id 31337
-anvil --port 8546 --chain-id 31338
-
-Then run:
 
 npx ts-node demo/onlyswaps-e2e-demo.ts
 
@@ -27,6 +20,9 @@ const SRC_CHAIN_ID = 31337;
 const DST_CHAIN_ID = 31338;
 
 async function main() {
+    const { cleanup } = await launchAnvilPair();
+    
+    try {
     // Setup providers for two local anvil chains
     const srcProvider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
     const dstProvider = new ethers.JsonRpcProvider("http://127.0.0.1:8546");
@@ -186,6 +182,11 @@ async function main() {
     // After rebalancing, print solver balance
     const balanceAfter = await ERC20Src.balanceOf(solverAddr);
     console.log("Solver balance after rebalance:", balanceAfter.toString());
+} catch (err) {
+    console.error("Error during demo execution:", err);
+  } finally {
+    cleanup();
+  }
 }
 
 main().catch((err) => {
