@@ -40,8 +40,9 @@ async function main() {
       await ERC20Dst.getAddress()
     );
 
+    const solver = dstSigner;
     const recipientAddr = await dstSigner.getAddress();
-    const solverAddr = await srcSigner.getAddress();
+    const solverAddr = await solver.getAddress();
 
     const recipientBalanceBefore = await ERC20Dst.balanceOf(recipientAddr);
     console.log(`Recipient balance before swap request: ${formatEther(recipientBalanceBefore)} RUSD`);
@@ -103,7 +104,7 @@ async function main() {
     );
     const sigBytes = encodeSignature(sigAffine);
 
-    await ERC20Dst.mint(recipientAddr, amount);
+    await ERC20Dst.mint(solverAddr, amount);
     await ERC20Dst.approve(await RouterDst.getAddress(), amount);
     await RouterDst.relayTokens(
       await ERC20Dst.getAddress(),
