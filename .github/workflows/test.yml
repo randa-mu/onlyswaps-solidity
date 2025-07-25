@@ -9,10 +9,9 @@ env:
   FOUNDRY_PROFILE: ci
 
 jobs:
-  check:
+  foundry:
     strategy:
       fail-fast: true
-
     name: Foundry project
     runs-on: ubuntu-latest
     steps:
@@ -24,20 +23,42 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Show Forge version
-        run: |
-          forge --version
+        run: forge --version
 
       - name: Run Forge fmt
-        run: |
-          forge fmt --check
+        run: forge fmt --check
         id: fmt
 
       - name: Run Forge build
-        run: |
-          forge build --sizes
+        run: forge build --sizes
         id: build
 
       - name: Run Forge tests
-        run: |
-          forge test -vvv
+        run: forge test -vvv
         id: test
+
+  hardhat:
+    needs: foundry
+    runs-on: ubuntu-latest
+    name: Hardhat tests
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build project
+        run: npm run build
+
+      - name: Run Hardhat tests
+        run: npx hardhat test --verbose
