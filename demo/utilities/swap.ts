@@ -1,5 +1,5 @@
 import { AbiCoder, formatEther, parseEther } from "ethers";
-import { ERC20Token, Router } from "../typechain-types";
+import { ERC20Token, Router } from "../../typechain-types";
 
 export async function executeSwap(
   ERC20Src: ERC20Token,

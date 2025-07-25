@@ -1,9 +1,9 @@
 import { ethers, formatEther } from "ethers";
-import { launchAnvilPair } from "./anvil-helper";
-import { generateBlsKeys, signMessage } from "./signing";
-import { deployContracts } from "./deploy-contracts";
-import { executeSwap, encodeSignature } from "./swap";
-import { extractSingleLog } from "./utils";
+import { launchAnvilPair } from "./utilities/anvil-helper";
+import { generateBlsKeys, signMessage } from "./utilities/signing";
+import { deployContracts } from "./utilities/deploy-contracts";
+import { executeSwap, encodeSignature } from "./utilities/swap";
+import { extractSingleLog } from "./utilities/ethers-utils";
 
 const SRC_CHAIN_ID = 31337;
 const DST_CHAIN_ID = 31338;

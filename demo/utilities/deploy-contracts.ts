@@ -3,7 +3,7 @@ import {
   Router__factory,
   ERC20Token__factory,
   BN254SignatureScheme__factory
-} from "../typechain-types";
+} from "../../typechain-types";
 
 export async function deployContracts(srcSigner: ethers.Signer, dstSigner: ethers.Signer, pubKeyPoint: any) {
   const ERC20Src = await new ERC20Token__factory(srcSigner).deploy("RUSD", "RUSD", 18);
