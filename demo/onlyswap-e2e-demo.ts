@@ -12,7 +12,7 @@ import { launchAnvilPair } from "./anvil-helper";
 /**
 Demo script usage:
 
-npx ts-node demo/onlyswaps-e2e-demo.ts
+npx ts-node demo/onlyswap-e2e-demo.ts
 
 */
 
