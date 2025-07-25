@@ -17,7 +17,10 @@ async function main() {
 
     const srcSigner = await srcProvider.getSigner(0);
     const dstSigner = await dstProvider.getSigner(1);
-
+    const recipientSigner = await dstProvider.getSigner(2);
+    const recipientAddr = await recipientSigner.getAddress();
+    const solverAddr = await dstSigner.getAddress();
+    
     const { privKeyBytes, pubKeyPoint } = generateBlsKeys();
 
     const { ERC20Src, ERC20Dst, RouterSrc, RouterDst } = await deployContracts(
@@ -39,10 +42,6 @@ async function main() {
       await ERC20Src.getAddress(),
       await ERC20Dst.getAddress()
     );
-
-    const solver = dstSigner;
-    const recipientAddr = await dstSigner.getAddress();
-    const solverAddr = await solver.getAddress();
 
     const recipientBalanceBefore = await ERC20Dst.balanceOf(recipientAddr);
     console.log(`Recipient balance before swap request: ${formatEther(recipientBalanceBefore)} RUSD`);
