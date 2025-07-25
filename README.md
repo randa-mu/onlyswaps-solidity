@@ -76,12 +76,6 @@ npm run lint:fix
 
 ## Demo
 
-Sure! Here's a nice **README** section you can add for running the demo:
-
----
-
-## E2e Demos
-
 ### OnlySwaps
 
 The OnlySwaps demo script shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs.
