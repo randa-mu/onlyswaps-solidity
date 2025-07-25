@@ -46,6 +46,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
