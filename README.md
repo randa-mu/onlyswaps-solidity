@@ -74,6 +74,43 @@ To correctly format the Solidity and JS code, run the following command:
 npm run lint:fix
 ```
 
+## Demo
+
+Sure! Here's a nice **README** section you can add for running the demo:
+
+---
+
+## E2e Demos
+
+### OnlySwaps
+
+The OnlySwaps demo script shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs.
+
+#### Prerequisites
+
+* [Anvil](https://github.com/foundry-rs/foundry) installed
+* Node.js and dependencies installed (including `ethers`, `ts-node`, and your contract typechain)
+
+#### Steps
+
+1. **Start two Anvil chains in separate terminal windows:**
+
+```bash
+anvil --port 8545 --chain-id 31337
+```
+
+```bash
+anvil --port 8546 --chain-id 31338
+```
+
+2. **Run the demo script:**
+
+```bash
+npx ts-node demo/onlyswaps-e2e-demo.ts
+```
+
+The script will deploy contracts on both chains, perform a cross-chain token swap, and display logs including chain IDs, transfer parameters, and balances.
+
 
 ## Licensing
 

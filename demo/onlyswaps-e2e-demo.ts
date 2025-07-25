@@ -10,14 +10,19 @@ import { AbiCoder, parseEther, Interface, EventFragment, TransactionReceipt, Res
 
 
 /**
-Start Anvil on two chains:
+Demo script usage:
+
+Start two Anvil blockchains in two separate terminal windows:
 
 anvil --port 8545 --chain-id 31337
 anvil --port 8546 --chain-id 31338
 
-npx ts-node demo/e2e-demo.ts
+Then run:
 
- */
+npx ts-node demo/onlyswaps-e2e-demo.ts
+
+*/
+
 const SRC_CHAIN_ID = 31337;
 const DST_CHAIN_ID = 31338;
 
