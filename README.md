@@ -26,22 +26,18 @@ To clone the repo:
 git clone https://github.com/randa-mu/onlysubs-solidity
 ```
 
-### Installation
-
-#### Hardhat (npm)
-
-#### Foundry
-
+### Install dependencies
 ```bash
-forge install https://github.com/randa-mu/onlysubs-solidity
+npm install
 ```
 
-#### Build
+
+### Build
 ```bash
 npm run build
 ```
 
-#### Test
+### Test
 ```bash
 npm run test
 ```
@@ -79,11 +75,6 @@ npm run lint:fix
 ### OnlySwaps
 
 The OnlySwaps demo script shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs.
-
-#### Prerequisites
-
-* [Anvil](https://github.com/foundry-rs/foundry) installed
-* Node.js and dependencies installed (including `ethers`, `ts-node`)
 
 #### Steps
 
