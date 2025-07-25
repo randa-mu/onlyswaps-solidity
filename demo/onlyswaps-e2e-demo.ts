@@ -148,7 +148,7 @@ async function main() {
         executed: transferParams.executed,
     };
 
-    console.log(formattedTransferParams);
+    console.log("Swap request parameters:", formattedTransferParams);
 
     // Simulate relaying tokens on destination chain (recipient gets tokens)
     // Mint tokens on destination chain for recipient to simulate receipt
