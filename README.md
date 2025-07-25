@@ -69,7 +69,7 @@ npm run lint:fix
 
 ### OnlySwaps
 
-The OnlySwaps demo script shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs. 
+The OnlySwaps [demo script](demo/onlyswap-e2e-demo.ts) shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs. 
 
 The script automatically spawns two Anvil blockchains at port 8545 (with chain id 31337) and 8546 (with chain id 31338).
 
