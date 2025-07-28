@@ -68,11 +68,11 @@ contract DeployRUSD is JsonUtils, EnvReader {
             OnlySwapsDeploymentAddresses memory data = _readOnlySwapsJsonToStruct(path);
 
             // If the address field is empty, write it using the write function
-            if (data.rusdAddress == address(0)) {
+            if (data.rusdFaucet == address(0)) {
                 _writeAddressToJsonInput(path, Constants.KEY_RUSD, address(rusd));
             } else {
                 // Update the existing struct with the new address
-                data.rusdAddress = address(rusd);
+                data.rusdFaucet = address(rusd);
 
                 // Write the updated struct back to the JSON file
                 _writeOnlySwapsStructToJson(path, data);

@@ -29,14 +29,14 @@ contract JsonUtils is Script {
     {
         result.bn254SignatureSchemeAddress = _readAddressFromJsonInput(filePath, "bn254SignatureSchemeAddress");
         result.routerAddress = _readAddressFromJsonInput(filePath, "routerAddress");
-        result.rusdAddress = _readAddressFromJsonInput(filePath, "rusdAddress");
+        result.rusdFaucet = _readAddressFromJsonInput(filePath, "rusdFaucet");
     }
 
     function _writeOnlySwapsStructToJson(string memory filePath, OnlySwapsDeploymentAddresses memory data) internal {
         string memory json;
         json = vm.serializeAddress("root", "bn254SignatureSchemeAddress", data.bn254SignatureSchemeAddress);
         json = vm.serializeAddress("root", "routerAddress", data.routerAddress);
-        json = vm.serializeAddress("root", "rusdAddress", data.rusdAddress);
+        json = vm.serializeAddress("root", "rusdFaucet", data.rusdFaucet);
 
         vm.writeJson(json, _constructJsonFilePath(filePath));
     }

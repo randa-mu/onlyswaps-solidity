@@ -8,7 +8,7 @@ library Constants {
 
     string constant DEPLOYMENT_CONFIG_DIR = "/script/onlyswaps/json/";
 
-    string constant KEY_RUSD = "rusdAddress";
+    string constant KEY_RUSD = "rusdFaucet";
     string constant KEY_BN254_SIGNATURE_SCHEME = "bn254SignatureSchemeAddress";
     string constant KEY_ROUTER = "routerAddress";
 }
