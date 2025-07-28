@@ -49,22 +49,26 @@ contract DeployBN254SignatureScheme is JsonUtils, EnvReader {
         // Define the file path based on deployment config directory and current chain ID
         string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
 
-// This will now succeed if fs_permissions is correct
-string memory content = vm.readFile(path);
-console.log("Read success, length: %s", vm.toString(bytes(content).length));
+        bool fileExists = _filePathExists(path);
 
-// // Now proceed based on fileIsEmpty flag
-// if (fileIsEmpty) {
-//     _writeAddressToJsonInput(path, Constants.KEY_BN254_SIGNATURE_VERIFIER, address(bn254SignatureScheme));
-// } else {
-//     OnlySwapsDeploymentAddresses memory data = _readOnlySwapsJsonToStruct(path);
+        // If the file doesn't exist, create it by writing the address directly using a key
+        if (!fileExists) {
+            // Initialize the JSON file with the BN254SignatureScheme address
+            _writeAddressToJsonInput(path, Constants.KEY_BN254_SIGNATURE_SCHEME, address(bn254SignatureScheme));
+        } else {
+            // File exists — parse the contents into a struct for further modification
+            OnlySwapsDeploymentAddresses memory data = _readOnlySwapsJsonToStruct(path);
 
-//     if (data.bn254SignatureVerifierAddress == address(0)) {
-//         _writeAddressToJsonInput(path, Constants.KEY_BN254_SIGNATURE_VERIFIER, address(bn254SignatureScheme));
-//     } else {
-//         data.bn254SignatureVerifierAddress = address(bn254SignatureScheme);
-//         _writeOnlySwapsStructToJson(path, data);
-//     }
-// }
+            // If the address field is empty, write it using the write function
+            if (data.bn254SignatureSchemeAddress == address(0)) {
+                _writeAddressToJsonInput(path, Constants.KEY_BN254_SIGNATURE_SCHEME, address(bn254SignatureScheme));
+            } else {
+                // Update the existing struct with the new address
+                data.bn254SignatureSchemeAddress = address(bn254SignatureScheme);
+
+                // Write the updated struct back to the JSON file
+                _writeOnlySwapsStructToJson(path, data);
+            }
+        }
     }
 }

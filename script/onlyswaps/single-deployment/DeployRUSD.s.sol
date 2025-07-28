@@ -51,22 +51,11 @@ contract DeployRUSD is JsonUtils, EnvReader {
         // Define the file path based on deployment config directory and current chain ID
         string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
 
-        // Assume the file exists until proven otherwise
-        bool fileExists = true;
-        // string memory contents; // optional
-
-        // Attempt to read the file using vm.readFile (cheatcode)
-        // This will throw an error if the file doesn't exist, which we catch below
-        try vm.readFile(path) returns (string memory content) {
-            // contents = content; // store the file contents (optional, in case needed later)
-        } catch {
-            // File does not exist — handle the creation
-            fileExists = false;
-        }
+        bool fileExists = _filePathExists(path);
 
         // If the file doesn't exist, create it by writing the address directly using a key
         if (!fileExists) {
-            // Initialize the JSON file with the RUSD address
+            // Initialize the JSON file with the RUSD token address
             _writeAddressToJsonInput(path, Constants.KEY_RUSD, address(rusd));
         } else {
             // File exists — parse the contents into a struct for further modification

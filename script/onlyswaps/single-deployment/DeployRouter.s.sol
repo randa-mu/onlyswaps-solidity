@@ -24,13 +24,15 @@ contract DeployRouter is JsonUtils, EnvReader {
     function run() public virtual {
         address bn254SignatureVerifier = _readAddressFromJsonInput(
             string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),
-            Constants.KEY_BN254_SIGNATURE_VERIFIER
+            Constants.KEY_BN254_SIGNATURE_SCHEME
         );
-
+        
         deployRouter(bn254SignatureVerifier);
     }
 
     function deployRouter(address bn254SignatureVerifier) internal returns (Router router) {
+        require(bn254SignatureVerifier != address(0), "BN254 verifier address must not be zero address");
+
         DeploymentParameters memory deploymentParameters = DeploymentParamsSelector.getDeploymentParams(block.chainid);
 
         bytes memory code =
@@ -50,18 +52,7 @@ contract DeployRouter is JsonUtils, EnvReader {
         // Define the file path based on deployment config directory and current chain ID
         string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
 
-        // Assume the file exists until proven otherwise
-        bool fileExists = true;
-        // string memory contents; // optional
-
-        // Attempt to read the file using vm.readFile (cheatcode)
-        // This will throw an error if the file doesn't exist, which we catch below
-        try vm.readFile(path) returns (string memory content) {
-            // contents = content; // store the file contents (optional, in case needed later)
-        } catch {
-            // File does not exist — handle the creation
-            fileExists = false;
-        }
+        bool fileExists = _filePathExists(path);
 
         // If the file doesn't exist, create it by writing the address directly using a key
         if (!fileExists) {
