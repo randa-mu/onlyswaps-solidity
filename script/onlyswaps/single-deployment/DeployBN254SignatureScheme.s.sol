@@ -49,37 +49,22 @@ contract DeployBN254SignatureScheme is JsonUtils, EnvReader {
         // Define the file path based on deployment config directory and current chain ID
         string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
 
-        // Assume the file exists until proven otherwise
-        bool fileExists = true;
-        // string memory contents; // optional
+// This will now succeed if fs_permissions is correct
+string memory content = vm.readFile(path);
+console.log("Read success, length: %s", vm.toString(bytes(content).length));
 
-        // Attempt to read the file using vm.readFile (cheatcode)
-        // This will throw an error if the file doesn't exist, which we catch below
-        try vm.readFile(path) returns (string memory content) {
-            // contents = content; // store the file contents (optional, in case needed later)
-        } catch {
-            // File does not exist — handle the creation
-            fileExists = false;
-        }
+// // Now proceed based on fileIsEmpty flag
+// if (fileIsEmpty) {
+//     _writeAddressToJsonInput(path, Constants.KEY_BN254_SIGNATURE_VERIFIER, address(bn254SignatureScheme));
+// } else {
+//     OnlySwapsDeploymentAddresses memory data = _readOnlySwapsJsonToStruct(path);
 
-        // If the file doesn't exist, create it by writing the address directly using a key
-        if (!fileExists) {
-            // Initialize the JSON file with the BN254 Signature Verifier address
-            _writeAddressToJsonInput(path, Constants.KEY_BN254_SIGNATURE_VERIFIER, address(bn254SignatureScheme));
-        } else {
-            // File exists — parse the contents into a struct for further modification
-            OnlySwapsDeploymentAddresses memory data = _readOnlySwapsJsonToStruct(path);
-
-            // If the address field is empty, write it using the simple write function
-            if (data.bn254SignatureVerifierAddress == address(0)) {
-                _writeAddressToJsonInput(path, Constants.KEY_BN254_SIGNATURE_VERIFIER, address(bn254SignatureScheme));
-            } else {
-                // Update the existing struct with the new address
-                data.bn254SignatureVerifierAddress = address(bn254SignatureScheme);
-
-                // Write the updated struct back to the JSON file
-                _writeOnlyswapsStructToJson(path, data);
-            }
-        }
+//     if (data.bn254SignatureVerifierAddress == address(0)) {
+//         _writeAddressToJsonInput(path, Constants.KEY_BN254_SIGNATURE_VERIFIER, address(bn254SignatureScheme));
+//     } else {
+//         data.bn254SignatureVerifierAddress = address(bn254SignatureScheme);
+//         _writeOnlySwapsStructToJson(path, data);
+//     }
+// }
     }
 }

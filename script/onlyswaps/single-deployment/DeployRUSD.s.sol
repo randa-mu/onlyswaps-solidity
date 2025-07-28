@@ -80,7 +80,7 @@ contract DeployRUSD is JsonUtils, EnvReader {
                 data.rusdAddress = address(rusd);
 
                 // Write the updated struct back to the JSON file
-                _writeOnlyswapsStructToJson(path, data);
+                _writeOnlySwapsStructToJson(path, data);
             }
         }
     }

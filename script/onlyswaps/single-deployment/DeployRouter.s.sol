@@ -79,7 +79,7 @@ contract DeployRouter is JsonUtils, EnvReader {
                 data.routerAddress = address(router);
 
                 // Write the updated struct back to the JSON file
-                _writeOnlyswapsStructToJson(path, data);
+                _writeOnlySwapsStructToJson(path, data);
             }
         }
     }

@@ -32,7 +32,7 @@ contract JsonUtils is Script {
         result.rusdAddress = vm.parseJsonAddress(vm.readFile(fullPath), ".rusdAddress");
     }
 
-    function _writeOnlyswapsStructToJson(string memory filePath, OnlySwapsDeploymentAddresses memory data) internal {
+    function _writeOnlySwapsStructToJson(string memory filePath, OnlySwapsDeploymentAddresses memory data) internal {
         string memory json;
         json = vm.serializeAddress("root", "bn254SignatureVerifierAddress", data.bn254SignatureVerifierAddress);
         json = vm.serializeAddress("root", "routerAddress", data.routerAddress);
