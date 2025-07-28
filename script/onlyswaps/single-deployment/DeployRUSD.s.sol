@@ -16,7 +16,7 @@ import {
 
 import {Constants} from "../libraries/Constants.sol";
 
-import {ERC20Token} from "src/mocks/ERC20Token.sol";
+import {ERC20FaucetToken} from "src/mocks/ERC20FaucetToken.sol";
 
 /// @title DeployRUSD
 /// @dev Script for deploying RUSD token contract.
@@ -25,13 +25,16 @@ contract DeployRUSD is JsonUtils, EnvReader {
         deployRUSD();
     }
 
-    function deployRUSD() internal returns (ERC20Token rusd) {
+    function deployRUSD() internal returns (ERC20FaucetToken rusd) {
         DeploymentParameters memory deploymentParameters = DeploymentParamsSelector.getDeploymentParams(block.chainid);
 
         bytes memory code = abi.encodePacked(
-            type(ERC20Token).creationCode,
+            type(ERC20FaucetToken).creationCode,
             abi.encode(
-                deploymentParameters.tokenName, deploymentParameters.tokenSymbol, deploymentParameters.tokenDecimals
+                deploymentParameters.tokenName,
+                deploymentParameters.tokenSymbol,
+                deploymentParameters.tokenDecimals,
+                deploymentParameters.faucetAmount
             )
         );
 
@@ -39,10 +42,13 @@ contract DeployRUSD is JsonUtils, EnvReader {
         if (deploymentParameters.customCREATE2FactoryContractAddress != DeploymentParamsCore.DEFAULT_CREATE2_DEPLOYER) {
             address contractAddress =
                 Factory(deploymentParameters.customCREATE2FactoryContractAddress).deploy(Constants.SALT, code);
-            rusd = ERC20Token(contractAddress);
+            rusd = ERC20FaucetToken(contractAddress);
         } else {
-            rusd = new ERC20Token{salt: Constants.SALT}(
-                deploymentParameters.tokenName, deploymentParameters.tokenSymbol, deploymentParameters.tokenDecimals
+            rusd = new ERC20FaucetToken{salt: Constants.SALT}(
+                deploymentParameters.tokenName,
+                deploymentParameters.tokenSymbol,
+                deploymentParameters.tokenDecimals,
+                deploymentParameters.faucetAmount
             );
         }
 

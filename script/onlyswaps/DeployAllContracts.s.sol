@@ -7,7 +7,7 @@ import {Constants} from "./libraries/Constants.sol";
 
 import {BN254SignatureScheme, DeployBN254SignatureScheme} from "./single-deployment/DeployBN254SignatureScheme.s.sol";
 import {Router, DeployRouter} from "./single-deployment/DeployRouter.s.sol";
-import {ERC20Token, DeployRUSD} from "./single-deployment/DeployRUSD.s.sol";
+import {ERC20FaucetToken, DeployRUSD} from "./single-deployment/DeployRUSD.s.sol";
 
 /// @title DeployAllContracts
 /// @author Randamu
@@ -23,7 +23,7 @@ contract DeployAllContracts is DeployBN254SignatureScheme, DeployRouter, DeployR
     /// @return bn254SignatureScheme The deployed instance of BN254SignatureVerifier.
     /// @return router The deployed instance of Router.
     /// @return rusd The deployed instance of RUSD.
-    function deployAll() public returns (BN254SignatureScheme bn254SignatureScheme, Router router, ERC20Token rusd) {
+    function deployAll() public returns (BN254SignatureScheme bn254SignatureScheme, Router router, ERC20FaucetToken rusd) {
         // BN254SignatureScheme
         bn254SignatureScheme = deployBN254SignatureScheme();
         // Router

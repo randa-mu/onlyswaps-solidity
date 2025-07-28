@@ -8,13 +8,16 @@ struct DeploymentParameters {
     string tokenName;
     string tokenSymbol;
     uint8 tokenDecimals;
+    uint256 faucetAmount;
     address customCREATE2FactoryContractAddress;
 }
 
 library DeploymentParamsCore {
     string constant TOKEN_NAME = "RUSD";
     string constant TOKEN_SYMBOL = "RUSD";
+    
     uint8 constant TOKEN_DECIMALS = 18;
+    uint256 constant FAUCET_AMOUNT = 10 ether;
 
     address constant DEFAULT_CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 

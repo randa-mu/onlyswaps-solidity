@@ -10,6 +10,7 @@ library DeploymentParamsAnvil {
             tokenName: DeploymentParamsCore.TOKEN_NAME,
             tokenSymbol: DeploymentParamsCore.TOKEN_SYMBOL,
             tokenDecimals: DeploymentParamsCore.TOKEN_DECIMALS,
+            faucetAmount: DeploymentParamsCore.FAUCET_AMOUNT,
             customCREATE2FactoryContractAddress: DeploymentParamsCore.DEFAULT_CREATE2_DEPLOYER
         });
     }
