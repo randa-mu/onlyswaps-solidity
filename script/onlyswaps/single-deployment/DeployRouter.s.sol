@@ -26,7 +26,7 @@ contract DeployRouter is JsonUtils, EnvReader {
             string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),
             Constants.KEY_BN254_SIGNATURE_SCHEME
         );
-        
+
         deployRouter(bn254SignatureVerifier);
     }
 
