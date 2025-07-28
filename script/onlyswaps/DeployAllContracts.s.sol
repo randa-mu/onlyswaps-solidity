@@ -5,9 +5,7 @@ import {Script} from "forge-std/Script.sol";
 
 import {Constants} from "./libraries/Constants.sol";
 
-import {
-    BN254SignatureScheme, DeployBN254SignatureScheme
-} from "./single-deployment/DeployBN254SignatureScheme.s.sol";
+import {BN254SignatureScheme, DeployBN254SignatureScheme} from "./single-deployment/DeployBN254SignatureScheme.s.sol";
 import {Router, DeployRouter} from "./single-deployment/DeployRouter.s.sol";
 import {ERC20Token, DeployRUSD} from "./single-deployment/DeployRUSD.s.sol";
 

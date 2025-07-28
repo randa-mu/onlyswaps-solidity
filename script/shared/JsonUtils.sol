@@ -27,8 +27,7 @@ contract JsonUtils is Script {
         result.bn254SignatureVerifierAddress =
             vm.parseJsonAddress(vm.readFile(fullPath), ".bn254SignatureVerifierAddress");
 
-        result.routerAddress =
-            vm.parseJsonAddress(vm.readFile(fullPath), ".routerAddress");
+        result.routerAddress = vm.parseJsonAddress(vm.readFile(fullPath), ".routerAddress");
 
         result.rusdAddress = vm.parseJsonAddress(vm.readFile(fullPath), ".rusdAddress");
     }
@@ -36,9 +35,7 @@ contract JsonUtils is Script {
     function _writeOnlyswapsStructToJson(string memory filePath, OnlySwapsDeploymentAddresses memory data) internal {
         string memory json;
         json = vm.serializeAddress("root", "bn254SignatureVerifierAddress", data.bn254SignatureVerifierAddress);
-        json = vm.serializeAddress(
-            "root", "routerAddress", data.routerAddress
-        );
+        json = vm.serializeAddress("root", "routerAddress", data.routerAddress);
         json = vm.serializeAddress("root", "rusdAddress", data.rusdAddress);
 
         vm.writeJson(json, _constructJsonFilePath(filePath));

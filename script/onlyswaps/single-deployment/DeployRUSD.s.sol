@@ -7,6 +7,7 @@ import {console} from "forge-std/console.sol";
 import {Factory} from "../../shared/Factory.sol";
 import {EnvReader} from "../../shared/EnvReader.sol";
 import {JsonUtils} from "../../shared/JsonUtils.sol";
+import {OnlySwapsDeploymentAddresses} from "../../shared/TypesLib.sol";
 import {
     DeploymentParamsSelector,
     DeploymentParameters,
@@ -47,10 +48,40 @@ contract DeployRUSD is JsonUtils, EnvReader {
 
         console.log("RUSD contract deployed at: ", address(rusd));
 
-        _writeAddressToJsonInput(
-            string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),
-            Constants.KEY_RUSD,
-            address(rusd)
-        );
+        // Define the file path based on deployment config directory and current chain ID
+        string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
+
+        // Assume the file exists until proven otherwise
+        bool fileExists = true;
+        // string memory contents; // optional
+
+        // Attempt to read the file using vm.readFile (cheatcode)
+        // This will throw an error if the file doesn't exist, which we catch below
+        try vm.readFile(path) returns (string memory content) {
+            // contents = content; // store the file contents (optional, in case needed later)
+        } catch {
+            // File does not exist — handle the creation
+            fileExists = false;
+        }
+
+        // If the file doesn't exist, create it by writing the address directly using a key
+        if (!fileExists) {
+            // Initialize the JSON file with the RUSD address
+            _writeAddressToJsonInput(path, Constants.KEY_RUSD, address(rusd));
+        } else {
+            // File exists — parse the contents into a struct for further modification
+            OnlySwapsDeploymentAddresses memory data = _readOnlySwapsJsonToStruct(path);
+
+            // If the address field is empty, write it using the write function
+            if (data.rusdAddress == address(0)) {
+                _writeAddressToJsonInput(path, Constants.KEY_RUSD, address(rusd));
+            } else {
+                // Update the existing struct with the new address
+                data.rusdAddress = address(rusd);
+
+                // Write the updated struct back to the JSON file
+                _writeOnlyswapsStructToJson(path, data);
+            }
+        }
     }
 }
