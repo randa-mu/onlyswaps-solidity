@@ -26,22 +26,18 @@ To clone the repo:
 git clone https://github.com/randa-mu/onlysubs-solidity
 ```
 
-### Installation
-
-#### Hardhat (npm)
-
-#### Foundry
-
+### Install dependencies
 ```bash
-forge install https://github.com/randa-mu/onlysubs-solidity
+npm install
 ```
 
-#### Build
+
+### Build
 ```bash
 npm run build
 ```
 
-#### Test
+### Test
 ```bash
 npm run test
 ```
@@ -50,19 +46,14 @@ npm run test
 
 To run foundry coverage:
 ```bash
-FOUNDRY_PROFILE=coverage forge coverage --report summary
+npx hardhat coverage
 ```
 
-This project also includes a [coverage.sh](utils/coverage.sh) script to generate and view test coverage reports using lcov. After the script runs, it generates and opens a html page showing lines of code covered by tests and those that have not been covered. If lcov is not installed, the script will attempt to install it automatically using Homebrew (macOS) or apt (Linux).
-
-To make the script executable:
+After running coverage, you can optionally open the generated report to see detailed info:
 ```bash
-chmod +x utils/coverage.sh
-```
-
-To run the script:
-```bash
-./utils/coverage.sh
+open coverage/index.html
+# or on Linux
+xdg-open coverage/index.html
 ```
 
 
@@ -73,6 +64,22 @@ To correctly format the Solidity and JS code, run the following command:
 ```bash
 npm run lint:fix
 ```
+
+## Demo
+
+### OnlySwaps
+
+The OnlySwaps [demo script](demo/onlyswap-e2e-demo.ts) shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs. 
+
+The script automatically spawns two Anvil blockchains at port 8545 (with chain id 31337) and 8546 (with chain id 31338).
+
+To run the demo script, run the following command: 
+
+```bash
+npx ts-node demo/onlyswap-e2e-demo.ts
+```
+
+The script will then deploy contracts on both chains, perform a cross-chain token swap, and display logs including chain IDs, transfer parameters, and balances.
 
 
 ## Licensing
