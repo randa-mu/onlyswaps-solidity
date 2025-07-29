@@ -31,7 +31,7 @@ contract DeployRouter is JsonUtils, EnvReader {
     }
 
     function deployRouter(address bn254SignatureVerifier) internal returns (Router router) {
-        require(bn254SignatureVerifier != address(0), "BN254 verifier address must not be zero address");
+        require(bn254SignatureVerifier != address(0), "BN254 signature scheme address must not be zero address");
 
         DeploymentParameters memory deploymentParameters = DeploymentParamsSelector.getDeploymentParams(block.chainid);
 
