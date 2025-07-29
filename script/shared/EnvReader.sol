@@ -11,7 +11,7 @@ abstract contract EnvReader is Script {
     function _requireValidChainId(uint256 chainId) internal pure {
         require(chainId != 0, "Chain ID is invalid");
     }
-    
+
     function addressEnvOrDefault(string memory envName, address defaultAddr) internal view returns (address) {
         try vm.envAddress(envName) returns (address env) {
             return env;

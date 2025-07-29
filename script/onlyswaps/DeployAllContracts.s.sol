@@ -23,7 +23,10 @@ contract DeployAllContracts is DeployBN254SignatureScheme, DeployRouter, DeployR
     /// @return bn254SignatureScheme The deployed instance of BN254SignatureVerifier.
     /// @return router The deployed instance of Router.
     /// @return rusd The deployed instance of RUSD.
-    function deployAll() public returns (BN254SignatureScheme bn254SignatureScheme, Router router, ERC20FaucetToken rusd) {
+    function deployAll()
+        public
+        returns (BN254SignatureScheme bn254SignatureScheme, Router router, ERC20FaucetToken rusd)
+    {
         // BN254SignatureScheme
         bn254SignatureScheme = deployBN254SignatureScheme();
         // Router

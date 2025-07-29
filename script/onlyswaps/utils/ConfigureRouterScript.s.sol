@@ -5,8 +5,8 @@ import "forge-std/Script.sol";
 
 import {EnvReader} from "../../shared/EnvReader.sol";
 
-import {Router} from "src/Router.sol"; 
-import {ERC20} from "src/mocks/ERC20Token.sol";  
+import {Router} from "src/Router.sol";
+import {ERC20} from "src/mocks/ERC20Token.sol";
 
 contract ConfigureRouterScript is EnvReader {
     function run() external {
@@ -30,7 +30,7 @@ contract ConfigureRouterScript is EnvReader {
 
         // Call methods
         console.log("Configuring router on chain id:", block.chainid);
-        
+
         vm.broadcast();
         routerSrc.permitDestinationChainId(dstChainId);
 
