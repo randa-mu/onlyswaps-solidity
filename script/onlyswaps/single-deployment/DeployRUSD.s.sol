@@ -34,7 +34,8 @@ contract DeployRUSD is JsonUtils, EnvReader {
                 deploymentParameters.tokenName,
                 deploymentParameters.tokenSymbol,
                 deploymentParameters.tokenDecimals,
-                deploymentParameters.faucetAmount
+                deploymentParameters.faucetAmount,
+                loadContractAdminFromEnv()
             )
         );
 
@@ -48,7 +49,8 @@ contract DeployRUSD is JsonUtils, EnvReader {
                 deploymentParameters.tokenName,
                 deploymentParameters.tokenSymbol,
                 deploymentParameters.tokenDecimals,
-                deploymentParameters.faucetAmount
+                deploymentParameters.faucetAmount,
+                loadContractAdminFromEnv()
             );
         }
 
