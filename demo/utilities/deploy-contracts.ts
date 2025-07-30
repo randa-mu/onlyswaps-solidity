@@ -6,8 +6,8 @@ import {
 } from "../../typechain-types";
 
 export async function deployContracts(srcSigner: ethers.Signer, dstSigner: ethers.Signer, pubKeyPoint: any) {
-  const ERC20Src = await new ERC20Token__factory(srcSigner).deploy("RUSD", "RUSD", 18);
-  const ERC20Dst = await new ERC20Token__factory(dstSigner).deploy("RUSD", "RUSD", 18);
+  const ERC20Src = await new ERC20Token__factory(srcSigner).deploy("RUSD", "RUSD", 18, await srcSigner.getAddress());
+  const ERC20Dst = await new ERC20Token__factory(dstSigner).deploy("RUSD", "RUSD", 18, await dstSigner.getAddress());
 
   const BN254SigSrc = await new BN254SignatureScheme__factory(srcSigner).deploy(
     [pubKeyPoint.x.c0, pubKeyPoint.x.c1],
