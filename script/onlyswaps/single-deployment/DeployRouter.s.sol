@@ -49,29 +49,7 @@ contract DeployRouter is JsonUtils, EnvReader {
 
         console.log("Router contract deployed at: ", address(router));
 
-        // Define the file path based on deployment config directory and current chain ID
         string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
-
-        bool fileExists = _filePathExists(path);
-
-        // If the file doesn't exist, create it by writing the address directly using a key
-        if (!fileExists) {
-            // Initialize the JSON file with the Router address
-            _writeAddressToJsonInput(path, Constants.KEY_ROUTER, address(router));
-        } else {
-            // File exists — parse the contents into a struct for further modification
-            OnlySwapsDeploymentAddresses memory data = _readOnlySwapsJsonToStruct(path);
-
-            // If the address field is empty, write it using the write function
-            if (data.routerAddress == address(0)) {
-                _writeAddressToJsonInput(path, Constants.KEY_ROUTER, address(router));
-            } else {
-                // Update the existing struct with the new address
-                data.routerAddress = address(router);
-
-                // Write the updated struct back to the JSON file
-                _writeOnlySwapsStructToJson(path, data);
-            }
-        }
+        _storeOnlySwapsAddressInJson(path, Constants.KEY_ROUTER, address(router));
     }
 }

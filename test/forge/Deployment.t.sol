@@ -30,26 +30,26 @@ contract DeploymentTest is Test {
 
         uint8 tokenDecimals = 18;
 
-        // src chain
-        // for each chain, we deploy the following contracts
+        /// @dev src chain deployment
+        /// for each chain, we deploy the following contracts
         srcBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
         srcToken = new ERC20Token("Source Token", "ST", tokenDecimals);
         srcRouter = new Router(owner, address(srcBLSSigVerifier));
 
-        // dst chain
+        /// @dev dst chain deployment
         dstBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
         dstToken = new ERC20Token("Destination Token", "DT", tokenDecimals);
         dstRouter = new Router(owner, address(dstBLSSigVerifier));
 
-        // configurations
-        // whitelist messages coming from routers on a specific src chain id
+        /// @dev configurations
+        /// whitelist requests to specific destination chain ids
         vm.prank(owner);
         srcRouter.permitDestinationChainId(dstChainId);
 
         vm.prank(owner);
         dstRouter.permitDestinationChainId(srcChainId);
 
-        // set token mapping across chains
+        /// map token on each src chain to a token on the dst chain
         vm.prank(owner);
         srcRouter.setTokenMapping(dstChainId, address(dstToken), address(srcToken));
 
