@@ -3,6 +3,7 @@ pragma solidity ^0.8;
 
 import {Script} from "forge-std/Script.sol";
 import {OnlySwapsDeploymentAddresses} from "./TypesLib.sol";
+import {Constants} from "../onlyswaps/libraries/Constants.sol";
 
 contract JsonUtils is Script {
     function _readAddressFromJsonInput(string memory filePath, string memory contractName)
@@ -69,5 +70,28 @@ contract JsonUtils is Script {
         } catch {
             fileExists = false;
         }
+    }
+
+    function _storeOnlySwapsAddressInJson(string memory path, string memory key, address value) internal {
+        OnlySwapsDeploymentAddresses memory data;
+
+        if (_filePathExists(path)) {
+            data = _readOnlySwapsJsonToStruct(path);
+        }
+
+        // Match the key to known json object fields and update accordingly
+        bytes32 hashedKey = keccak256(bytes(key));
+
+        if (hashedKey == keccak256(bytes(Constants.KEY_RUSD))) {
+            data.rusdFaucet = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_ROUTER))) {
+            data.routerAddress = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_BN254_SIGNATURE_SCHEME))) {
+            data.bn254SignatureSchemeAddress = value;
+        } else {
+            revert("Unsupported key in _storeOnlySwapsAddressInJson");
+        }
+
+        _writeOnlySwapsStructToJson(path, data);
     }
 }

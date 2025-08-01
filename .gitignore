@@ -162,3 +162,6 @@ types
 cache_hardhat
 artifacts
 typechain-types
+
+# Deloyments
+script/onlyswaps/json/31337.json
