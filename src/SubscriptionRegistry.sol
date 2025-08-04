@@ -6,6 +6,11 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+
+/// @title SubscriptionRegistry
+/// @notice This contract manages subscriptions to creators, allowing users to subscribe to different tiers.
+/// @dev todo We can have role based access control for the cross-chain functionalities
+/// to have only whitelisted dcipher nodes call this function.
 contract SubscriptionRegistry is Ownable {
     using SafeERC20 for IERC20;
 
@@ -20,15 +25,12 @@ contract SubscriptionRegistry is Ownable {
         uint256 expiresAt;
     }
 
-    // creator => accepted token
     mapping(address => IERC20) public acceptedTokens;
-
-    mapping(address => mapping(uint256 => Tier)) public tiers; // creator => tierId => Tier
-    mapping(address => uint256) public tierCount; // creator => tier count
-
-    mapping(address => mapping(address => Subscription)) public subscriptions; // subscriber => creator => Subscription
-    mapping(address => mapping(address => bool)) public consumers; // primary => consumer
-    mapping(address => mapping(address => address)) public consumerToPrimary; // consumer => creator => primary
+    mapping(address => mapping(uint256 => Tier)) public tiers;
+    mapping(address => uint256) public tierCount;
+    mapping(address => mapping(address => Subscription)) public subscriptions;
+    mapping(address => mapping(address => bool)) public consumers;
+    mapping(address => mapping(address => address)) public consumerToPrimary;
 
     event TierSet(address indexed creator, uint256 indexed tierId, uint256 price, uint256 duration);
     event TierUpdated(address indexed creator, uint256 indexed tierId, uint256 price, uint256 duration);
@@ -39,7 +41,6 @@ contract SubscriptionRegistry is Ownable {
     event PaymentTransferred(address indexed from, address indexed to, uint256 amount, address token);
     event AcceptedTokenSet(address indexed creator, address indexed token);
 
-    /// @param _owner Initial contract owner
     constructor(address _owner) Ownable(_owner) {}
 
     function setAcceptedToken(address token) external {
@@ -86,6 +87,28 @@ contract SubscriptionRegistry is Ownable {
         emit Subscribed(msg.sender, creator, tierId, expiresAt);
     }
 
+    /// @dev Only callable by trusted relayer or contract owner
+    function completeCrossChainSubscription(
+        address subscriber,
+        address creator,
+        uint256 tierId,
+        uint256 amount,
+        address token
+    ) external onlyOwner {
+        Tier memory tier = tiers[creator][tierId];
+        require(tier.duration > 0 && tier.active, "Invalid or inactive tier");
+        require(amount >= tier.price, "Insufficient payment");
+        require(token == address(acceptedTokens[creator]), "Wrong token");
+
+        uint256 expiresAt = block.timestamp + tier.duration;
+        subscriptions[subscriber][creator] = Subscription(tierId, expiresAt);
+
+        require(IERC20(token).transfer(creator, amount), "Payment transfer failed");
+
+        emit PaymentTransferred(subscriber, creator, amount, token);
+        emit Subscribed(subscriber, creator, tierId, expiresAt);
+    }
+
     function directSubscribe(address creator, uint256 tierId) external {
         Tier memory tier = tiers[creator][tierId];
         require(tier.duration > 0 && tier.active, "Invalid or inactive tier");
@@ -95,6 +118,33 @@ contract SubscriptionRegistry is Ownable {
         uint256 expiresAt = block.timestamp + tier.duration;
         subscriptions[msg.sender][creator] = Subscription(tierId, expiresAt);
         emit Subscribed(msg.sender, creator, tierId, expiresAt);
+    }
+
+    /// @notice Completes a cross-chain direct subscription (e.g., native from src chain swapped to token on dst)
+    /// @param subscriber The subscriber who initiated the payment
+    /// @param creator The creator whose tier is being subscribed to
+    /// @param tierId The tier index
+    /// @param amount Amount of tokens received after cross-chain transfer
+    /// @param token The token used to pay
+    function completeCrossChainDirectSubscribe(
+        address subscriber,
+        address creator,
+        uint256 tierId,
+        uint256 amount,
+        address token
+    ) external onlyOwner {
+        Tier memory tier = tiers[creator][tierId];
+        require(tier.duration > 0 && tier.active, "Invalid or inactive tier");
+        require(amount >= tier.price, "Insufficient payment");
+        require(token == address(acceptedTokens[creator]), "Wrong token");
+
+        uint256 expiresAt = block.timestamp + tier.duration;
+        subscriptions[subscriber][creator] = Subscription(tierId, expiresAt);
+
+        require(IERC20(token).transfer(creator, amount), "Payment transfer failed");
+
+        emit PaymentTransferred(subscriber, creator, amount, token);
+        emit Subscribed(subscriber, creator, tierId, expiresAt);
     }
 
     function renewSubscription(address creator) external {
@@ -142,33 +192,5 @@ contract SubscriptionRegistry is Ownable {
 
     function getSubscription(address subscriber, address creator) external view returns (Subscription memory) {
         return subscriptions[subscriber][creator];
-    }
-
-    /// @dev todo We can have role based access control to have only whitelisted dcipher nodes call this function
-    /// @notice Completes a cross-chain subscription by applying delivered funds to a subscription tier
-    /// @param subscriber The user who initiated the subscription on source chain
-    /// @param creator The creator receiving the subscription
-    /// @param tierId The tier being subscribed to
-    /// @param amount Amount of tokens bridged and received
-    /// @param token The token used for payment
-    function completeCrossChainSubscription(
-        address subscriber,
-        address creator,
-        uint256 tierId,
-        uint256 amount,
-        address token
-    ) external onlyOwner {
-        Tier memory tier = tiers[creator][tierId];
-        require(tier.duration > 0 && tier.active, "Invalid or inactive tier");
-        require(amount >= tier.price, "Insufficient payment");
-        require(token == address(acceptedTokens[creator]), "Wrong token");
-
-        uint256 expiresAt = block.timestamp + tier.duration;
-        subscriptions[subscriber][creator] = Subscription(tierId, expiresAt);
-
-        require(IERC20(token).transfer(creator, amount), "Payment transfer failed");
-
-        emit PaymentTransferred(subscriber, creator, amount, token);
-        emit Subscribed(subscriber, creator, tierId, expiresAt);
     }
 }
