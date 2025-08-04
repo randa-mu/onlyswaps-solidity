@@ -16,7 +16,7 @@ import {IRouter} from "./interfaces/IRouter.sol";
 /// @title Cross-Chain Token Router
 /// @notice Handles token bridging logic, fee distribution, and transfer request verification using BLS signatures
 /// @dev Integrates with off-chain solvers and a destination Swap contract
-contract Router is Ownable, IRouter {
+contract Router is Ownable, ReentrancyGuard, IRouter {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
@@ -78,6 +78,7 @@ contract Router is Ownable, IRouter {
     /// @return requestId The unique swap request id
     function requestCrossChainSwap(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient)
         external
+        nonReentrant
         returns (bytes32 requestId)
     {
         require(amount > 0, ErrorsLib.ZeroAmount());
@@ -105,7 +106,7 @@ contract Router is Ownable, IRouter {
         emit SwapRequested(requestId, message);
     }
 
-    function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external {
+    function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external nonReentrant {
         TransferParams storage params = transferParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
@@ -141,6 +142,7 @@ contract Router is Ownable, IRouter {
 
     function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
         external
+        nonReentrant
     {
         require(!receipts[requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
         require(token != address(0) && recipient != address(0), ErrorsLib.InvalidTokenOrRecipient());
@@ -166,7 +168,7 @@ contract Router is Ownable, IRouter {
     /// @param solver Address of the solver being paid
     /// @param requestId Unique ID of the request
     /// @param signature BLS signature of the message
-    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external onlyOwner {
+    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external onlyOwner nonReentrant {
         TransferParams storage params = transferParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         /// @dev rebalancing of solvers happens on the source chain router
@@ -364,7 +366,7 @@ contract Router is Ownable, IRouter {
     /// @notice Withdraws accumulated swap fees
     /// @param token Token address to withdraw
     /// @param to Recipient address
-    function withdrawSwapFees(address token, address to) external onlyOwner {
+    function withdrawSwapFees(address token, address to) external onlyOwner nonReentrant {
         uint256 amount = totalSwapFeesBalance[token];
         totalSwapFeesBalance[token] = 0;
         IERC20(token).safeTransfer(to, amount);
