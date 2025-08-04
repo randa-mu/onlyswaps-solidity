@@ -8,7 +8,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 
 /// @title SubscriptionRegistry
 /// @notice This contract manages subscriptions to creators, allowing users to subscribe to different tiers.
-contract SubscriptionRegistry is Ownable {
+contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     struct Tier {
@@ -88,7 +88,7 @@ contract SubscriptionRegistry is Ownable {
         emit TierRemoved(msg.sender, tierId);
     }
 
-    function createSubscription(address creator, uint256 tierId) external {
+    function createSubscription(address creator, uint256 tierId) external nonReentrant {
         Tier memory tier = tiers[creator][tierId];
         require(tier.duration > 0 && tier.active, "Invalid or inactive tier");
 
@@ -104,7 +104,7 @@ contract SubscriptionRegistry is Ownable {
         emit Subscribed(msg.sender, creator, tierId, expiresAt);
     }
 
-    function fundSubscriptionBalance(address creator, uint256 amount) external {
+    function fundSubscriptionBalance(address creator, uint256 amount) external nonReentrant {
         IERC20 token = acceptedTokens[creator];
         require(address(token) != address(0), "No accepted token");
 
@@ -114,7 +114,7 @@ contract SubscriptionRegistry is Ownable {
         emit BalanceFunded(msg.sender, creator, amount, address(token));
     }
 
-    function renewSubscription(address creator) external {
+    function renewSubscription(address creator) external nonReentrant {
         Subscription storage sub = subscriptions[msg.sender][creator];
         Tier memory tier = tiers[creator][sub.tierId];
         require(tier.duration > 0 && tier.active, "Invalid or inactive tier");
@@ -134,7 +134,7 @@ contract SubscriptionRegistry is Ownable {
         emit SubscriptionCancelled(msg.sender, creator);
     }
 
-    function autoRenewFromBalance(address subscriber, address creator) external {
+    function autoRenewFromBalance(address subscriber, address creator) external nonReentrant {
         Subscription storage sub = subscriptions[subscriber][creator];
         require(sub.expiresAt >= block.timestamp, "Subscription expired");
 
@@ -199,7 +199,7 @@ contract SubscriptionRegistry is Ownable {
         uint256 tierId,
         uint256 amount,
         address token
-    ) external onlyOwner {
+    ) external onlyOwner nonReentrant {
         Tier memory tier = tiers[creator][tierId];
         require(tier.duration > 0 && tier.active, "Invalid or inactive tier");
         require(amount >= tier.price, "Insufficient payment");
@@ -222,7 +222,10 @@ contract SubscriptionRegistry is Ownable {
         address creator,
         uint256 amount,
         address token
-    ) external onlyOwner {
+    ) external onlyOwner nonReentrant {
+        /// @dev This function is used to fund a user's subscription balance for a specific creator.
+        /// @dev it is guarded by the owner to ensure only authorized entities can fund balances.
+        /// @dev It is typically used in cross-chain scenarios where the owner is a relayer.
         require(token == address(acceptedTokens[creator]), "Wrong token");
         subscriptionBalances[subscriber][creator] += amount;
 
@@ -235,7 +238,7 @@ contract SubscriptionRegistry is Ownable {
         uint256 tierId,
         uint256 amount,
         address token
-    ) external onlyOwner {
+    ) external onlyOwner nonReentrant {
         Subscription storage sub = subscriptions[subscriber][creator];
         Tier memory tier = tiers[creator][tierId];
         require(sub.expiresAt >= block.timestamp, "Not currently subscribed");
