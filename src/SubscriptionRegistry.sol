@@ -7,7 +7,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title SubscriptionRegistry
-/// @notice This contract manages subscriptions to creators, allowing users to subscribe to different tiers.
+/// @notice This contract manages user-creator subscriptions.
+/// It manages the creation, renewal, funding, sharing and closing of subscriptions.
 contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
