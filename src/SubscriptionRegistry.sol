@@ -12,11 +12,8 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    // struct Tier {
-    //     uint256 price;
-    //     uint256 duration;
-    //     bool active;
-    // }
+    /// @notice Tracks balance per user per token
+    mapping(address => mapping(address => uint256)) public balances;
 
     // struct Subscription {
     //     uint256 tierId;
