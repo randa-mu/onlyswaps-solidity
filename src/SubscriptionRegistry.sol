@@ -25,23 +25,25 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     mapping(bytes32 => bool) public activeSubscriptions;
     
     /// @notice Emitted when a user subscribes
-    event Subscribed(address indexed user, bytes32 indexed subCode, address token, uint256 amount);
+    event Subscribed(address indexed user, address indexed creator, bytes32 indexed subCode, address token, uint256 amount);
 
     /// @notice Emitted when a user tops up their balance
     event Funded(address indexed user, address indexed token, uint256 amount);
 
     /// @notice Emitted when renewal is performed from balance
-    event AutoRenewed(address indexed user, bytes32 indexed subCode, address token, uint256 tierPrice);
+    event AutoRenewed(address indexed user, address indexed creator, bytes32 indexed subCode, address token, uint256 tierPrice);
 
     /// @notice Emitted when a subscription is closed
-    event Closed(address indexed user, bytes32 indexed subCode);
+    event Closed(address indexed user, address indexed creator, bytes32 indexed subCode);
 
+    /// @notice Emitted when a consumer is added to a subscription
     event SubscriptionConsumerAdded(
         address indexed user,
         bytes32 indexed subCode,
         address consumer
     );
 
+    /// @notice Emitted when a consumer is removed from a subscription
     event SubscriptionConsumerRemoved(
         address indexed user,
         bytes32 indexed subCode,
