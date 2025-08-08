@@ -9,40 +9,47 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /// @title SubscriptionRegistry
 /// @notice This contract manages user-creator subscriptions.
 /// It manages the creation, renewal, funding, sharing and closing of subscriptions.
+/// Assumptions:
+///     - subCode is unique per (user, creator, tier, duration) and generated off-chain.
+///     - The Threshold Network has exclusive rights to call autoRenewFromBalance.
+///     - Bridging logic and DepositVault, Router, and Settlement Wallet are external and will act on emitted events (AutoRenewed).
+///     - subCode contains a binding to the user identity, which should be validated off-chain (and possibly hashed with the user address).
+///     - Contract will manage a list of supported tokens per creator.
 contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// @notice Tracks balance per user per token
     mapping(address => mapping(address => uint256)) public balances;
 
-    // struct Subscription {
-    //     uint256 tierId;
-    //     uint256 expiresAt;
-    // }
+    /// @notice Maps subCode to active status
+    mapping(bytes32 => bool) public activeSubscriptions;
+    
+    /// @notice Emitted when a user subscribes
+    event Subscribed(address indexed user, bytes32 indexed subCode, address token, uint256 amount);
 
-    // mapping(address => IERC20) public acceptedTokens;
-    // mapping(address => mapping(uint256 => Tier)) public tiers;
-    // mapping(address => uint256) public tierCount;
+    /// @notice Emitted when a user tops up their balance
+    event Funded(address indexed user, address indexed token, uint256 amount);
 
-    // mapping(address => mapping(address => Subscription)) public subscriptions;
-    // mapping(address => mapping(address => bool)) public consumers;
-    // mapping(address => mapping(address => address)) public consumerToPrimary;
+    /// @notice Emitted when renewal is performed from balance
+    event AutoRenewed(address indexed user, bytes32 indexed subCode, address token, uint256 tierPrice);
 
-    // mapping(address => mapping(address => uint256)) public subscriptionBalances;
+    /// @notice Emitted when a subscription is closed
+    event Closed(address indexed user, bytes32 indexed subCode);
 
-    // event TierSet(address indexed creator, uint256 indexed tierId, uint256 price, uint256 duration);
-    // event TierUpdated(address indexed creator, uint256 indexed tierId, uint256 price, uint256 duration);
-    // event TierRemoved(address indexed creator, uint256 indexed tierId);
-    // event Subscribed(address indexed subscriber, address indexed creator, uint256 indexed tierId, uint256 expiresAt);
-    // event ConsumerAdded(address indexed primary, address indexed consumer, address indexed creator);
-    // event ConsumerRemoved(address indexed primary, address indexed consumer, address indexed creator);
+    event SubscriptionConsumerAdded(
+        address indexed user,
+        bytes32 indexed subCode,
+        address consumer
+    );
+
+    event SubscriptionConsumerRemoved(
+        address indexed user,
+        bytes32 indexed subCode,
+        address consumer
+    );
+    
     // event PaymentTransferred(address indexed from, address indexed to, uint256 amount, address token);
     // event AcceptedTokenSet(address indexed creator, address indexed token);
-    // event SubscriptionCancelled(address indexed subscriber, address indexed creator);
-    // event BalanceFunded(address indexed subscriber, address indexed creator, uint256 amount, address token);
-    // event SubscriptionAutoRenewed(
-    //     address indexed subscriber, address indexed creator, uint256 tierId, uint256 expiresAt
-    // );
 
     constructor(address _owner) Ownable(_owner) {}
 
