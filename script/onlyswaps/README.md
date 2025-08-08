@@ -95,3 +95,25 @@ The deployment addresses file is generated with:
 ```sh
 bash utils/generate-contract-addresses.sh > contract-addresses.json
 ```
+
+
+## Post-deployment
+
+### OnlySwaps Router contract configuration
+
+The [ConfigureRouterScript](script/onlyswaps/utils/ConfigureRouterScript.s.sol) script enables the deployer or Router contract admin to configure the contract on any chain, i.e., set supported tokens and destination chain ids. It requires the following environment variables:
+```bash 
+ROUTER_SRC_ADDRESS=0xYourRouterSrcAddress
+ERC20_SRC_ADDRESS=0xYourERC20SrcAddress
+ERC20_DST_ADDRESS=0xYourERC20DstAddress
+DST_CHAIN_ID=84532
+```
+
+And it can be ran using the following command:
+
+```bash
+forge script script/onlyswaps/utils/ConfigureRouterScript.s.sol:ConfigureRouterScript \
+--rpc-url $RPC_URL \
+--private-key $PRIVATE_KEY \
+--broadcast
+```
