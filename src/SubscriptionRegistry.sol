@@ -182,6 +182,7 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
 
     function requestCrossChainSwap(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient)
         external
+        nonReentrant
         onlyOwner
         returns (bytes32 requestId)
     {
