@@ -23,7 +23,9 @@ import {ISignatureScheme} from "./interfaces/ISignatureScheme.sol";
 ///     - The contract owner can set accepted tokens for creators.
 ///     - The contract abstracts away the concept of tiers, focusing on subscriptions and balances.
 ///     - The contract abstract away the fact that creators might be paid on different destination chains and
-///     - it lets users manage their subscription and balances on the source chain.
+///     - It lets users manage their subscription and balances on the source chain.
+///     - Users can fund their subscription balances with any token and only the creators supported token
+///         - will be taken from their token balances.
 contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -39,7 +41,7 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     /// It is used to identify the subscription and manage its state.
     /// Inactive or closed subscriptions are deleted from storage.
     /// todo - subCode is expected to encode cross-chain metadata (e.g., source chain ID, destination chain ID),
-    //  but this is not currently explicitly enforced or validated.
+    /// but this is not currently explicitly enforced or validated (TBC)
     mapping(address => mapping(address => bytes32)) public userSubscriptions;
     /// @notice Maps user to token balance
     mapping(address => mapping(address => uint256)) public userTokenBalances;
@@ -49,7 +51,9 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     /// @dev But for simplicity, we assume each creator has a single accepted token.
     /// @dev We can use a set or a list to manage multiple accepted tokens per creator in the future if needed.
     mapping(address => address) public creatorToAcceptedToken;
+    /// @notice Maps consumer address to primary creator address
     mapping(address => address) public consumerToPrimary;
+    /// @notice Maps creator to token balances for amounts deducted from user balances
     mapping(address => mapping(address => uint256)) public creatorBalances;
 
     /// @notice Emitted when a user subscribes
@@ -74,13 +78,16 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     /// @notice Emitted when a consumer is removed from a subscription
     event SubscriptionConsumerRemoved(address indexed user, address consumer);
 
+    /// @notice Emitted when a subscription is created
     event SubscriptionCreated(address indexed user, address indexed creator, bytes32 indexed subCode, uint256 amount);
 
+    /// @notice Emitted when a subscription is renewed
     event SubscriptionRenewed(address indexed user, address indexed creator, bytes32 indexed subCode, uint256 amount);
 
-    // event PaymentTransferred(address indexed from, address indexed to, uint256 amount, address token);
+    /// @notice Emitted when a creator sets an accepted token
     event AcceptedTokenSet(address indexed creator, address indexed token);
 
+    /// @notice Emitted when a cross-chain swap is requested
     event CrossChainSwapRequested(
         address indexed caller,
         address indexed token,
@@ -98,6 +105,9 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
         router = _routerContract;
     }
 
+    /// @notice Sets the accepted token for a creator
+    /// @param token The address of the token contract
+    /// @param creator The address of the creator for whom the token is being set
     function setAcceptedToken(address token, address creator) external onlyOwner {
         require(token != address(0), "Invalid token address");
         require(creator != address(0), "Invalid creator address");
@@ -105,6 +115,11 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
         emit AcceptedTokenSet(creator, token);
     }
 
+    /// @notice Creates a subscription for a user to a specific creator and transfers tokens for the
+    /// subscription from the user and allocates the tokens to the creator's balance.
+    /// @param creator The address of the creator to whom the subscription is made
+    /// @param subCode A unique identifier for the subscription
+    /// @param amount The amount of tokens to be transferred for the subscription
     function createSubscription(address creator, bytes32 subCode, uint256 amount) external nonReentrant {
         require(creator != address(0), "Invalid creator address");
         require(subCode != bytes32(0), "Invalid subCode");
@@ -113,23 +128,30 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
         address token = creatorToAcceptedToken[creator];
         require(token != address(0), "No accepted token for creator");
 
-        IERC20(token).safeTransferFrom(msg.sender, creator, amount);
+        creatorBalances[creator][token] += amount;
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         userSubscriptions[msg.sender][creator] = subCode;
         emit Subscribed(msg.sender, creator, subCode, token, amount);
     }
 
-    function fundSubscriptionBalance(address token, address creator, uint256 amount) external nonReentrant {
+    /// @notice Funds the subscription balance for the caller by transferring tokens to the contract
+    /// @param onBehalfOf The address of the user for whom the subscription balance is being funded
+    /// @param token The address of the token contract to fund the subscription
+    /// @param amount The amount of tokens to be transferred to the subscription balance
+    function fundSubscriptionBalance(address onBehalfOf, address token, uint256 amount) external nonReentrant {
         require(token != address(0), "Invalid token address");
         require(amount > 0, "Amount must be greater than zero");
-        require(creator != address(0), "Invalid creator address");
-        require(creatorToAcceptedToken[creator] == token, "Token not accepted by creator");
+
+        userTokenBalances[onBehalfOf][token] += amount;
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-        userTokenBalances[msg.sender][token] += amount;
 
         emit Funded(msg.sender, token, amount);
     }
 
+    /// @notice Withdraws a specified amount of tokens from the user's subscription balance
+    /// @param token The address of the token contract from which the balance will be withdrawn
+    /// @param amount The amount of tokens to withdraw
     function withdrawSubscriptionBalance(address token, uint256 amount) external nonReentrant {
         require(token != address(0), "Invalid token address");
         require(amount > 0, "Amount must be greater than zero");
@@ -141,7 +163,33 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
         emit Funded(msg.sender, token, amount);
     }
 
-    function renewSubscription(address creator, bytes32 subCode, uint256 amount) external nonReentrant {
+    /// @notice Renews a subscription for a user to a specific creator and transfers tokens for the
+    /// renewal from the user's subscription balance to the creator's balance.
+    /// @param creator The address of the creator to whom the subscription is renewed
+    /// @param subCode A unique identifier for the subscription
+    /// @param amount The amount of tokens to be transferred for the renewal
+    function renewSubscription(address creator, bytes32 subCode, uint256 amount, bytes calldata signature)
+        external
+        nonReentrant
+        onlyOwner
+    {
+        // Increment the nonce for unique request identification
+        uint256 nonce = ++currentNonce;
+        // Convert parameters to bytes for signature verification
+        (, bytes memory messageAsG1Bytes,) = renewSubscriptionParamsToBytes(creator, subCode, amount, nonce);
+
+        // Validate the BLS signature against the generated message
+        require(
+            blsValidator.verifySignature(messageAsG1Bytes, signature, blsValidator.getPublicKeyBytes()),
+            "Invalid BLS signature"
+        );
+
+        // Validate the BLS signature against the generated message
+        require(
+            blsValidator.verifySignature(messageAsG1Bytes, signature, blsValidator.getPublicKeyBytes()),
+            "Invalid BLS signature"
+        );
+
         require(creator != address(0), "Invalid creator address");
         require(subCode != bytes32(0), "Invalid subCode");
         require(amount > 0, "Amount must be greater than zero");
@@ -153,30 +201,14 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
         require(balance >= amount, "Insufficient balance for renewal");
 
         userTokenBalances[msg.sender][token] -= amount;
+        creatorBalances[creator][token] += amount;
 
-        // Assuming the subscription is valid and exists
+        // Emit an event indicating the subscription has been renewed
         emit SubscriptionRenewed(msg.sender, creator, subCode, amount);
     }
 
-    function closeSubscription(address creator, bytes32 subCode, address recipient) external nonReentrant {
-        require(creator != address(0), "Invalid creator address");
-        require(subCode != bytes32(0), "Invalid subCode");
-        require(recipient != address(0), "Invalid recipient address");
-
-        // Assuming the subscription exists and is valid
-        uint256 balance = userTokenBalances[msg.sender][creatorToAcceptedToken[creator]];
-        require(balance > 0, "No balance to withdraw");
-
-        // Reset user subscription
-        delete userSubscriptions[msg.sender][creator];
-
-        // Transfer the balance to the nominated recipient
-        IERC20 token = IERC20(creatorToAcceptedToken[creator]);
-        token.safeTransfer(recipient, balance);
-
-        emit Closed(msg.sender, creator, subCode);
-    }
-
+    /// @notice Adds a consumer to the caller's subscription
+    /// @param consumer The address of the consumer to be added
     function addConsumer(address consumer) external {
         require(consumer != address(0), "Invalid consumer address");
 
@@ -184,16 +216,27 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
         emit SubscriptionConsumerAdded(msg.sender, consumer);
     }
 
+    /// @notice Removes a consumer from the caller's subscription
+    /// @param consumer The address of the consumer to be removed
     function removeConsumer(address consumer) external {
         require(consumer != address(0), "Invalid consumer address");
 
-        // Ensure the consumer is added
+        // Ensure the consumer is added to the caller's subscription
         require(consumerToPrimary[consumer] == msg.sender, "Consumer not added");
 
         delete consumerToPrimary[consumer];
         emit SubscriptionConsumerRemoved(msg.sender, consumer);
     }
 
+    /// @dev Requests a cross-chain token swap.
+    /// This function allows the threshold network initiate a token swap across different blockchain networks
+    /// for a creator.
+    /// @param token The address of the token to be swapped.
+    /// @param amount The amount of tokens to be swapped.
+    /// @param fee The fee associated with the swap.
+    /// @param dstChainId The identifier of the destination blockchain.
+    /// @param creator The address of the user initiating the swap.
+    /// @param signature The signature of the transaction for verification purposes.
     function requestCrossChainSwap(
         address token,
         uint256 amount,
@@ -202,41 +245,60 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
         address creator,
         bytes calldata signature
     ) external nonReentrant onlyOwner returns (bytes32 requestId) {
-        // Validate the BLS signature
+        // Increment the nonce for unique request identification
         uint256 nonce = ++currentNonce;
+        // Convert parameters to bytes for signature verification
         (, bytes memory messageAsG1Bytes,) =
             crossChainTransferParamsToBytes(token, amount, fee, dstChainId, creator, nonce);
+        // Validate the BLS signature against the generated message
         require(
             blsValidator.verifySignature(messageAsG1Bytes, signature, blsValidator.getPublicKeyBytes()),
             "Invalid BLS signature"
         );
+        // Ensure the amount is greater than zero
         require(amount > 0, "Amount must be greater than zero");
+        // Ensure the creator address is valid
         require(creator != address(0), "Invalid recipient address");
 
-        // Approve the token transfer if not already approved
-        // todo - map creator to accepted token to recipient to destination chain id for full validation
+        // Check if the token is accepted by the creator
         address acceptedToken = creatorToAcceptedToken[creator];
-        // Ensure the token is accepted by the creator
         require(token == acceptedToken, "Token not accepted by creator");
+        // Approve the token transfer to the router if not already approved
         if (IERC20(token).allowance(address(this), address(router)) < amount) {
             IERC20(token).approve(address(router), amount);
         }
-        // Ensure the contract has enough balance to cover the swap
+        // Ensure the contract has sufficient token balance for the swap
         require(IERC20(token).balanceOf(address(this)) >= amount, "Insufficient token balance");
-        // Ensure the destination chain ID is valid
+        // Validate the destination chain ID
         require(dstChainId > 0, "Invalid destination chain ID");
-        // Ensure the fee is non-zero
+        // Ensure the fee is greater than zero
         require(fee > 0, "Fee must be greater than zero");
+
+        // Check if the creator has enough balance to cover the swap
+        require(creatorBalances[creator][token] >= amount, "Insufficient creator balance");
+        // Deduct the amount from the creator's balance
+        creatorBalances[creator][token] -= amount;
 
         // Transfer the specified amount of tokens from the contract to the router
         IERC20(token).safeTransferFrom(address(this), address(router), amount);
 
-        // Call the router function to initiate the cross-chain swap
+        // Initiate the cross-chain swap through the router
         requestId = router.requestCrossChainSwap(token, amount, fee, dstChainId, creator);
 
+        // Emit an event for the cross-chain swap request
         emit CrossChainSwapRequested(msg.sender, token, amount, fee, getChainID(), dstChainId, creator);
     }
 
+    /// @notice Encodes parameters for cross-chain transfer into bytes
+    /// @param token The address of the token to be transferred
+    /// @param amount The amount of tokens to be transferred
+    /// @param fee The fee associated with the transfer
+    /// @param dstChainId The identifier of the destination blockchain
+    /// @param creator The address of the user initiating the transfer
+    /// @param nextNonce The next nonce for the transaction
+    /// @return message The encoded message as bytes
+    /// @return messageAsG1Bytes The message encoded as G1 bytes
+    /// @return messageAsG1Point The message represented as a G1 point
     function crossChainTransferParamsToBytes(
         address token,
         uint256 amount,
@@ -245,42 +307,94 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
         address creator,
         uint256 nextNonce
     ) public view returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point) {
+        // Encode the parameters into a message
         message = abi.encode(token, amount, fee, dstChainId, creator, getChainID(), blsValidator.SCHEME_ID(), nextNonce);
+        // Hash the message to a point in G1
         (uint256 x, uint256 y) = blsValidator.hashToPoint(message);
         messageAsG1Point = BLS.PointG1({x: x, y: y});
+        // Convert the message to bytes in G1 format
         messageAsG1Bytes = blsValidator.hashToBytes(message);
     }
 
+    /// @notice Encodes parameters for renewing a subscription into bytes
+    /// @param creator The address of the creator to whom the subscription is renewed
+    /// @param subCode A unique identifier for the subscription
+    /// @param amount The amount of tokens to be transferred for the renewal
+    /// @param nextNonce The next nonce for the transaction
+    /// @return message The encoded message as bytes
+    /// @return messageAsG1Bytes The message encoded as G1 bytes
+    /// @return messageAsG1Point The message represented as a G1 point
+    function renewSubscriptionParamsToBytes(address creator, bytes32 subCode, uint256 amount, uint256 nextNonce)
+        public
+        view
+        returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point)
+    {
+        // Encode the parameters into a message
+        message = abi.encode(creator, subCode, amount, getChainID(), blsValidator.SCHEME_ID(), nextNonce);
+        // Hash the message to a point in G1
+        (uint256 x, uint256 y) = blsValidator.hashToPoint(message);
+        messageAsG1Point = BLS.PointG1({x: x, y: y});
+        // Convert the message to bytes in G1 format
+        messageAsG1Bytes = blsValidator.hashToBytes(message);
+    }
+
+    /// @notice Checks if a user is subscribed to a specific creator
+    /// @param creator The address of the creator
+    /// @param user The address of the user
+    /// @return bool True if the user is subscribed, false otherwise
     function isSubscribed(address creator, address user) external view returns (bool) {
         bytes32 subCode = userSubscriptions[user][creator];
         return subCode != bytes32(0);
     }
 
+    /// @notice Retrieves the subscription code for a user and creator
+    /// @param creator The address of the creator
+    /// @param user The address of the user
+    /// @return bytes32 The subscription code
     function getSubscription(address creator, address user) external view returns (bytes32) {
         return userSubscriptions[user][creator];
     }
 
+    /// @notice Gets the subscription balance for a user and token
+    /// @param user The address of the user
+    /// @param token The address of the token
+    /// @return uint256 The subscription balance
     function getSubscriptionBalance(address user, address token) external view returns (uint256) {
         return userTokenBalances[user][token];
     }
 
+    /// @notice Retrieves the accepted token for a creator
+    /// @param creator The address of the creator
+    /// @return address The accepted token address
     function getAcceptedToken(address creator) external view returns (address) {
         return creatorToAcceptedToken[creator];
     }
 
+    /// @notice Gets the creator's balance for a specific token
+    /// @param creator The address of the creator
+    /// @param token The address of the token
+    /// @return uint256 The creator's balance
     function getCreatorBalance(address creator, address token) external view returns (uint256) {
         return creatorBalances[creator][token];
     }
 
+    /// @notice Retrieves the primary creator for a consumer
+    /// @param consumer The address of the consumer
+    /// @return address The primary creator's address
     function getConsumerPrimary(address consumer) external view returns (address) {
         return consumerToPrimary[consumer];
     }
 
+    /// @notice Gets the subscription code for a user and creator
+    /// @param user The address of the user
+    /// @param creator The address of the creator
+    /// @return bytes32 The subscription code
     function getUserSubscriptionCode(address user, address creator) external view returns (bytes32) {
         return userSubscriptions[user][creator];
     }
 
     /// @notice Returns the current EVM chain ID
+    /// @return uint256 The current chain ID
     function getChainID() public view returns (uint256) {
         return block.chainid;
     }

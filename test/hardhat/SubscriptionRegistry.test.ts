@@ -42,6 +42,7 @@ describe("SubscriptionRegistry", function () {
 
   let privKeyBytes: Uint8Array;
   let ownerAddr: string, solverAddr: string, userAddr: string, recipientAddr: string, creatorAddr: string;
+  let subRegistryAddr: string, srcTokenAddr: string, routerAddr: string, bn254SigSchemeAddr: string;
 
   beforeEach(async () => {
     [owner, user, solver, recipient, creator] = await ethers.getSigners();
@@ -73,6 +74,11 @@ describe("SubscriptionRegistry", function () {
       await bn254SigScheme.getAddress(),
       await router.getAddress(),
     );
+
+    routerAddr = await router.getAddress();
+    bn254SigSchemeAddr = await bn254SigScheme.getAddress();
+    srcTokenAddr = await srcToken.getAddress();
+    subRegistryAddr = await subscriptionRegistry.getAddress();
 
     // Router contract configuration
     await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
