@@ -6,7 +6,10 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+import {BLS} from "./libraries/BLS.sol";
+
 import {IRouter} from "./interfaces/IRouter.sol";
+import {ISignatureScheme} from "./interfaces/ISignatureScheme.sol";
 
 /// @title SubscriptionRegistry
 /// @notice This contract manages user-creator subscriptions.
@@ -25,16 +28,26 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     IRouter public immutable router;
+    /// @notice BLS validator used for signature verification
+    ISignatureScheme public blsValidator;
+    /// @notice Unique nonce for each swap request and user
+    uint256 public currentNonce;
 
     /// @notice Maps user to creator to subCode
     /// @dev subCode is a unique identifier for the subscription, generated off-chain.
     /// It is expected to be a hash of the user address, creator address, tier ID, and duration.
     /// It is used to identify the subscription and manage its state.
     /// Inactive or closed subscriptions are deleted from storage.
+    /// todo - subCode is expected to encode cross-chain metadata (e.g., source chain ID, destination chain ID),
+    //  but this is not currently explicitly enforced or validated.
     mapping(address => mapping(address => bytes32)) public userSubscriptions;
     /// @notice Maps user to token balance
     mapping(address => mapping(address => uint256)) public userTokenBalances;
     /// @notice Maps user to creator to accepted token
+    /// @dev This mapping allows the contract to know which token a user can use to pay for a subscription to a specific creator.
+    /// @dev There could be cases where a creator might want to accept multiple tokens at the same time.
+    /// @dev But for simplicity, we assume each creator has a single accepted token.
+    /// @dev We can use a set or a list to manage multiple accepted tokens per creator in the future if needed.
     mapping(address => address) public creatorToAcceptedToken;
     mapping(address => address) public consumerToPrimary;
     mapping(address => mapping(address => uint256)) public creatorBalances;
@@ -69,17 +82,18 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     event AcceptedTokenSet(address indexed creator, address indexed token);
 
     event CrossChainSwapRequested(
-        address indexed user,
+        address indexed caller,
         address indexed token,
         uint256 amount,
         uint256 fee,
+        uint256 srcChainId,
         uint256 dstChainId,
-        address recipient,
-        bytes32 requestId
+        address recipient
     );
 
-    constructor(address _owner, IRouter _routerContract) Ownable(_owner) {
+    constructor(address _owner, address _blsValidator, IRouter _routerContract) Ownable(_owner) {
         require(_owner != address(0), "Invalid owner address");
+        blsValidator = ISignatureScheme(_blsValidator);
         require(address(_routerContract) != address(0), "Invalid router contract address");
         router = _routerContract;
     }
@@ -180,23 +194,60 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
         emit SubscriptionConsumerRemoved(msg.sender, consumer);
     }
 
-    function requestCrossChainSwap(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient)
-        external
-        nonReentrant
-        onlyOwner
-        returns (bytes32 requestId)
-    {
-        // todo add bn254 signature validation
+    function requestCrossChainSwap(
+        address token,
+        uint256 amount,
+        uint256 fee,
+        uint256 dstChainId,
+        address creator,
+        bytes calldata signature
+    ) external nonReentrant onlyOwner returns (bytes32 requestId) {
+        // Validate the BLS signature
+        uint256 nonce = ++currentNonce;
+        (, bytes memory messageAsG1Bytes,) = crossChainTransferParamsToBytes(token, amount, fee, dstChainId, creator, nonce);
+        require(
+            blsValidator.verifySignature(messageAsG1Bytes, signature, blsValidator.getPublicKeyBytes()),
+            "Invalid BLS signature"
+        );
         require(amount > 0, "Amount must be greater than zero");
-        require(recipient != address(0), "Invalid recipient address");
+        require(creator != address(0), "Invalid recipient address");
+
+        // Approve the token transfer if not already approved
+        // todo - map creator to accepted token to recipient to destination chain id for full validation
+        address acceptedToken = creatorToAcceptedToken[creator];
+        // Ensure the token is accepted by the creator
+        require(token == acceptedToken, "Token not accepted by creator");
+        if (IERC20(token).allowance(address(this), address(router)) < amount) {
+            IERC20(token).approve(address(router), amount);
+        }
+        // Ensure the contract has enough balance to cover the swap
+        require(IERC20(token).balanceOf(address(this)) >= amount, "Insufficient token balance");
+        // Ensure the destination chain ID is valid
+        require(dstChainId > 0, "Invalid destination chain ID");
+        // Ensure the fee is non-zero
+        require(fee > 0, "Fee must be greater than zero");
 
         // Transfer the specified amount of tokens from the contract to the router
         IERC20(token).safeTransferFrom(address(this), address(router), amount);
 
         // Call the router function to initiate the cross-chain swap
-        requestId = router.requestCrossChainSwap(token, amount, fee, dstChainId, recipient);
+        requestId = router.requestCrossChainSwap(token, amount, fee, dstChainId, creator);
 
-        emit CrossChainSwapRequested(msg.sender, token, amount, fee, dstChainId, recipient, requestId);
+        emit CrossChainSwapRequested(msg.sender, token, amount, fee, getChainID(), dstChainId, creator);
+    }
+
+    function crossChainTransferParamsToBytes(
+        address token,
+        uint256 amount,
+        uint256 fee,
+        uint256 dstChainId,
+        address creator,
+        uint256 nextNonce
+    ) public view returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point) {
+        message = abi.encode(token, amount, fee, dstChainId, creator, getChainID(), blsValidator.SCHEME_ID(), nextNonce);
+        (uint256 x, uint256 y) = blsValidator.hashToPoint(message);
+        messageAsG1Point = BLS.PointG1({x: x, y: y});
+        messageAsG1Bytes = blsValidator.hashToBytes(message);
     }
 
     function isSubscribed(address creator, address user) external view returns (bool) {
@@ -226,5 +277,10 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
 
     function getUserSubscriptionCode(address user, address creator) external view returns (bytes32) {
         return userSubscriptions[user][creator];
+    }
+
+    /// @notice Returns the current EVM chain ID
+    function getChainID() public view returns (uint256) {
+        return block.chainid;
     }
 }

@@ -27,9 +27,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     uint256 public constant MAX_FEE_BPS = 5_000;
     uint256 public swapFeeBps = 500;
 
-    /// @notice Current chain ID (immutable)
-    uint256 public immutable thisChainId;
-
     /// @notice BLS validator used for signature verification
     ISignatureScheme public blsValidator;
 
@@ -65,7 +62,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param _blsValidator BLS validator address
     constructor(address _owner, address _blsValidator) Ownable(_owner) {
         blsValidator = ISignatureScheme(_blsValidator);
-        thisChainId = getChainID();
     }
 
     // ---------------------- Core Transfer Logic ----------------------
@@ -176,7 +172,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         TransferParams storage params = transferParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         /// @dev rebalancing of solvers happens on the source chain router
-        require(params.srcChainId == thisChainId, ErrorsLib.SourceChainIdMismatch(params.srcChainId, thisChainId));
+        require(params.srcChainId == getChainID(), ErrorsLib.SourceChainIdMismatch(params.srcChainId, getChainID()));
 
         (, bytes memory messageAsG1Bytes,) = transferParamsToBytes(params);
         require(
@@ -235,7 +231,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             recipient: recipient,
             token: token,
             amount: amount,
-            srcChainId: thisChainId,
+            srcChainId: getChainID(),
             dstChainId: dstChainId,
             swapFee: swapFeeAmount,
             solverFee: solverFeeAmount,
@@ -288,10 +284,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
     function getSwapFeeBps() external view returns (uint256) {
         return swapFeeBps;
-    }
-
-    function getThisChainId() external view returns (uint256) {
-        return thisChainId;
     }
 
     function getBlsValidator() external view returns (address) {

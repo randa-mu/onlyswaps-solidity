@@ -94,7 +94,6 @@ interface IRouter {
     function getChainID() external view returns (uint256);
     function getBlsValidator() external view returns (address);
     function getSwapFeeBps() external view returns (uint256);
-    function getThisChainId() external view returns (uint256);
     function getTotalSwapFeesBalance(address token) external view returns (uint256);
     function getAllowedDstChainId(uint256 chainId) external view returns (bool);
     function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address);
