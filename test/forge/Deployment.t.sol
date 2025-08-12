@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 import {Router} from "../../src/Router.sol";
+import {SubscriptionRegistry} from "../../src/SubscriptionRegistry.sol";
 import {BN254SignatureScheme} from "../../src/signature-scheme/BN254SignatureScheme.sol";
 import {ERC20Token} from "../../src/mocks/ERC20Token.sol";
 import {BLS} from "../../src/libraries/BLS.sol";
@@ -14,6 +15,7 @@ contract DeploymentTest is Test {
     ERC20Token public dstToken;
     BN254SignatureScheme public srcBLSSigVerifier;
     BN254SignatureScheme public dstBLSSigVerifier;
+    SubscriptionRegistry public srcSubscriptionRegistry;
 
     uint256 srcChainId = 1;
     uint256 dstChainId = 31337;
@@ -35,6 +37,7 @@ contract DeploymentTest is Test {
         srcBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
         srcToken = new ERC20Token("Source Token", "ST", tokenDecimals);
         srcRouter = new Router(owner, address(srcBLSSigVerifier));
+        srcSubscriptionRegistry = new SubscriptionRegistry(owner, address(srcBLSSigVerifier), srcRouter);
 
         /// @dev dst chain deployment
         dstBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
@@ -67,5 +70,8 @@ contract DeploymentTest is Test {
         assertEq(dstRouter.getBlsValidator(), address(dstBLSSigVerifier));
         assertEq(srcRouter.owner(), owner);
         assertEq(dstRouter.owner(), owner);
+        assertEq(srcSubscriptionRegistry.owner(), owner);
+        assertEq(address(srcSubscriptionRegistry.blsValidator()), address(srcBLSSigVerifier));
+        assertEq(address(srcSubscriptionRegistry.router()), address(srcRouter));
     }
 }

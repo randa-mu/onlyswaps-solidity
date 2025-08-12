@@ -204,7 +204,8 @@ contract SubscriptionRegistry is Ownable, ReentrancyGuard {
     ) external nonReentrant onlyOwner returns (bytes32 requestId) {
         // Validate the BLS signature
         uint256 nonce = ++currentNonce;
-        (, bytes memory messageAsG1Bytes,) = crossChainTransferParamsToBytes(token, amount, fee, dstChainId, creator, nonce);
+        (, bytes memory messageAsG1Bytes,) =
+            crossChainTransferParamsToBytes(token, amount, fee, dstChainId, creator, nonce);
         require(
             blsValidator.verifySignature(messageAsG1Bytes, signature, blsValidator.getPublicKeyBytes()),
             "Invalid BLS signature"
