@@ -295,7 +295,9 @@ describe("Router", function () {
     // Mint tokens for user
     await srcToken.mint(userAddr, amount);
     await srcToken.connect(user).approve(await router.getAddress(), amount);
-    const tx = await router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+    const tx = await router
+      .connect(user)
+      .relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
     const receipt = await tx.wait();
     const blockNumber = await ethers.provider.getBlock(receipt!.blockNumber);
     const timestamp = blockNumber!.timestamp;
