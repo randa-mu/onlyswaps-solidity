@@ -21,6 +21,7 @@ interface IRouter {
     struct TransferReceipt {
         bytes32 requestId; // Reference to the original request on the source chain
         uint256 srcChainId; // Source chain ID from which the request originated
+        address token; // Token being transferred
         bool fulfilled; // Whether the transfer has been delivered
         address solver; // Address that fulfilled the request
         uint256 amountOut; // Amount delivered to the recipient (after fees)
@@ -105,7 +106,10 @@ interface IRouter {
     /// @notice View a transfer receipt by requestId
     /// @param requestId The request ID of the transfer
     /// @return receipt The stored TransferReceipt struct
-    function getReceipt(bytes32 requestId) external view returns (bytes32, uint256, bool, address, uint256, uint256);
+    function getReceipt(bytes32 requestId)
+        external
+        view
+        returns (bytes32, uint256, address, bool, address, uint256, uint256);
 
     // -------- Admin Functions --------
 

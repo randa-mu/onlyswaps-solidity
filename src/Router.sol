@@ -139,7 +139,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param amount The net amount delivered (after fees)
     /// @param requestId The original request ID from the source chain
     /// @param srcChainId The ID of the source chain where the request originated
-
     function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
         external
         nonReentrant
@@ -155,6 +154,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         receipts[requestId] = TransferReceipt({
             requestId: requestId,
             srcChainId: srcChainId,
+            token: token,
             fulfilled: true,
             solver: msg.sender,
             amountOut: amount,
@@ -380,11 +380,16 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @notice Gets a transfer receipt for a given requestID
     /// @param requestId The request ID to check
     /// @return all the values from the TransferReceipt struct
-    function getReceipt(bytes32 requestId) external view returns (bytes32, uint256, bool, address, uint256, uint256) {
+    function getReceipt(bytes32 requestId)
+        external
+        view
+        returns (bytes32, uint256, address, bool, address, uint256, uint256)
+    {
         TransferReceipt storage receipt = receipts[requestId];
         return (
             receipt.requestId,
             receipt.srcChainId,
+            receipt.token,
             receipt.fulfilled,
             receipt.solver,
             receipt.amountOut,
