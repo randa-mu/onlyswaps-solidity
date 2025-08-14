@@ -293,11 +293,11 @@ describe("Router", function () {
     const srcChainId = 100;
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.mint(userAddr, amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
     const tx = await router
       .connect(user)
-      .relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+      .relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
     const receipt = await tx.wait();
     const blockNumber = await ethers.provider.getBlock(receipt!.blockNumber);
     const timestamp = blockNumber!.timestamp;
@@ -308,16 +308,16 @@ describe("Router", function () {
     const transferReceipt = await router.getReceipt(requestId);
     expect(transferReceipt[0]).to.equal(requestId);
     expect(transferReceipt[1]).to.equal(srcChainId);
-    expect(transferReceipt[2]).to.equal(await srcToken.getAddress());
+    expect(transferReceipt[2]).to.equal(await dstToken.getAddress());
     expect(transferReceipt[3]).to.be.true;
     expect(transferReceipt[5]).to.equal(amount);
     expect(transferReceipt[4]).to.equal(userAddr);
     expect(transferReceipt[6]).to.equal(timestamp);
 
     // Try again with same requestId
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
     await expect(
-      router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+      router.connect(user).relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
     ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
