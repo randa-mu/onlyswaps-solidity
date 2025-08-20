@@ -287,7 +287,47 @@ describe("Router", function () {
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
   });
 
-  it.only("should not allow double fulfillment", async () => {
+  it("should not allow double fulfillment", async () => {
+    const amount = parseEther("5");
+    const requestId = keccak256(toUtf8Bytes("duplicate"));
+    const srcChainId = 100;
+
+    // Mint tokens for user
+    await dstToken.mint(userAddr, amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
+    const tx = await router
+      .connect(user)
+      .relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+    const receipt = await tx.wait();
+    const blockNumber = await ethers.provider.getBlock(receipt!.blockNumber);
+    const timestamp = blockNumber!.timestamp;
+
+    if (!receipt) {
+      throw new Error("transaction has not been mined");
+    }
+
+    const routerInterface = Router__factory.createInterface();
+    const [reqId, sourceChainId, token, solver, recipient, amountOut, fulfilledAt] = extractSingleLog(
+      routerInterface,
+      receipt,
+      await router.getAddress(),
+      routerInterface.getEvent("BridgeReceipt"),
+    );
+
+    expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
+    expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+
+    // Try again with same requestId
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
+    await expect(
+      router.connect(user).relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+    ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
+
+    expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
+    expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+  });
+
+  it("relay receipt parameters should match event parameters", async () => {
     const amount = parseEther("5");
     const requestId = keccak256(toUtf8Bytes("duplicate"));
     const srcChainId = 100;
@@ -336,15 +376,6 @@ describe("Router", function () {
     expect(recipient).to.equal(recipientAddr);
     expect(amountOut).to.equal(amount);
     expect(fulfilledAt).to.equal(timestamp);
-
-    // Try again with same requestId
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
-    await expect(
-      router.connect(user).relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
-    ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
-
-    expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
-    expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
   });
 
   it("should return correct isFulfilled status", async () => {
