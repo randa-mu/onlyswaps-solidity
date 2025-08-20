@@ -302,17 +302,20 @@ describe("Router", function () {
     const blockNumber = await ethers.provider.getBlock(receipt!.blockNumber);
     const timestamp = blockNumber!.timestamp;
 
+    if (!receipt) {
+      throw new Error("transaction has not been mined");
+    }
+
+    const routerInterface = Router__factory.createInterface();
+    const [reqId, sourceChainId, token, solver, recipient, amountOut, fulfilledAt] = extractSingleLog(
+      routerInterface,
+      receipt,
+      await router.getAddress(),
+      routerInterface.getEvent("BridgeReceipt"),
+    );
+
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
-
-    const transferReceipt = await router.getReceipt(requestId);
-    expect(transferReceipt[0]).to.equal(requestId);
-    expect(transferReceipt[1]).to.equal(srcChainId);
-    expect(transferReceipt[2]).to.equal(await dstToken.getAddress());
-    expect(transferReceipt[3]).to.be.true;
-    expect(transferReceipt[5]).to.equal(amount);
-    expect(transferReceipt[4]).to.equal(userAddr);
-    expect(transferReceipt[6]).to.equal(timestamp);
 
     // Try again with same requestId
     await dstToken.connect(user).approve(await router.getAddress(), amount);
@@ -322,6 +325,57 @@ describe("Router", function () {
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+  });
+
+  it("relay receipt parameters should match event parameters", async () => {
+    const amount = parseEther("5");
+    const requestId = keccak256(toUtf8Bytes("duplicate"));
+    const srcChainId = 100;
+
+    // Mint tokens for user
+    await dstToken.mint(userAddr, amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
+    const tx = await router
+      .connect(user)
+      .relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+    const receipt = await tx.wait();
+    const blockNumber = await ethers.provider.getBlock(receipt!.blockNumber);
+    const timestamp = blockNumber!.timestamp;
+
+    if (!receipt) {
+      throw new Error("transaction has not been mined");
+    }
+
+    const routerInterface = Router__factory.createInterface();
+    const [reqId, sourceChainId, token, solver, recipient, amountOut, fulfilledAt] = extractSingleLog(
+      routerInterface,
+      receipt,
+      await router.getAddress(),
+      routerInterface.getEvent("BridgeReceipt"),
+    );
+
+    expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
+    expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+
+    const transferReceipt = await router.getReceipt(requestId);
+    // Check receipt values
+    expect(transferReceipt[0]).to.equal(requestId);
+    expect(transferReceipt[1]).to.equal(srcChainId);
+    expect(transferReceipt[2]).to.equal(await dstToken.getAddress());
+    expect(transferReceipt[3]).to.be.true;
+    expect(transferReceipt[4]).to.equal(userAddr);
+    expect(transferReceipt[5]).to.equal(recipientAddr);
+    expect(transferReceipt[6]).to.equal(amount);
+    expect(transferReceipt[7]).to.equal(timestamp);
+
+    // Check receipt values compared to emitted event
+    expect(reqId).to.equal(transferReceipt[0]);
+    expect(sourceChainId).to.equal(transferReceipt[1]);
+    expect(token).to.equal(await dstToken.getAddress());
+    expect(solver).to.equal(userAddr);
+    expect(recipient).to.equal(recipientAddr);
+    expect(amountOut).to.equal(amount);
+    expect(fulfilledAt).to.equal(timestamp);
   });
 
   it("should return correct isFulfilled status", async () => {

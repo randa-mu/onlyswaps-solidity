@@ -155,13 +155,14 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             requestId: requestId,
             srcChainId: srcChainId,
             token: token,
-            fulfilled: true,
+            fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
             solver: msg.sender,
+            recipient: recipient,
             amountOut: amount,
             fulfilledAt: block.timestamp
         });
 
-        emit BridgeReceipt(requestId, srcChainId, msg.sender, amount);
+        emit BridgeReceipt(requestId, srcChainId, token, msg.sender, recipient, amount, block.timestamp);
     }
 
     /// @notice Called with dcipher signature to approve a solver’s fulfillment of a swap request
@@ -384,6 +385,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @return token The address of the token involved in the transfer
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
+    /// @return recipient The address that received the tokens on the destination chain
     /// @return amountOut The amount of tokens transferred to the recipient
     /// @return fulfilledAt The timestamp when the transfer was fulfilled
     function getReceipt(bytes32 _requestId)
@@ -395,6 +397,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             address token,
             bool fulfilled,
             address solver,
+            address recipient,
             uint256 amountOut,
             uint256 fulfilledAt
         )
@@ -405,6 +408,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         token = receipt.token;
         fulfilled = receipt.fulfilled;
         solver = receipt.solver;
+        recipient = receipt.recipient;
         amountOut = receipt.amountOut;
         fulfilledAt = receipt.fulfilledAt;
     }

@@ -24,6 +24,7 @@ interface IRouter {
         address token; // Token being transferred
         bool fulfilled; // Whether the transfer has been delivered
         address solver; // Address that fulfilled the request
+        address recipient; // Recipient of the tokens on the destination chain
         uint256 amountOut; // Amount delivered to the recipient (after fees)
         uint256 fulfilledAt; // Timestamp when the request was fulfilled
     }
@@ -32,9 +33,17 @@ interface IRouter {
     /// @param requestId The unique ID of the bridge transfer request
     /// @param srcChainId The source chain ID
     /// @param solver The address that fulfilled the transfer
+    /// @param recipient The address that received the tokens on the destination chain
     /// @param amountOut The amount transferred to the recipient
+    /// @param fulfilledAt The timestamp when the transfer was fulfilled
     event BridgeReceipt(
-        bytes32 indexed requestId, uint256 indexed srcChainId, address indexed solver, uint256 amountOut
+        bytes32 indexed requestId,
+        uint256 indexed srcChainId,
+        address indexed token,
+        address solver,
+        address recipient,
+        uint256 amountOut,
+        uint256 fulfilledAt
     );
 
     // -------- Events --------
@@ -112,6 +121,7 @@ interface IRouter {
             address token,
             bool fulfilled,
             address solver,
+            address recipient,
             uint256 amountOut,
             uint256 fulfilledAt
         );
