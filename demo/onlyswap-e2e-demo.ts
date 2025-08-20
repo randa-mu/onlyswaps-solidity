@@ -5,6 +5,8 @@ import { deployContracts } from "./utilities/deploy-contracts";
 import { executeSwap } from "./utilities/swap";
 import { extractSingleLog } from "./utilities/ethers-utils";
 
+// Usage: npx ts-node demo/onlyswap-e2e-demo.ts
+
 const SRC_CHAIN_ID = 31337;
 const DST_CHAIN_ID = 31338;
 
