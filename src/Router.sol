@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {AccessControlEnumerableUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import {BLS} from "./libraries/BLS.sol";
@@ -16,9 +20,12 @@ import {IRouter} from "./interfaces/IRouter.sol";
 /// @title Cross-Chain Token Router
 /// @notice Handles token bridging logic, fee distribution, and transfer request verification using BLS signatures
 /// @dev Integrates with off-chain solvers and a destination Swap contract
-contract Router is Ownable, ReentrancyGuard, IRouter {
+contract Router is IRouter, Initializable, UUPSUpgradeable, AccessControlEnumerableUpgradeable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
+
+    /// @notice Role identifier for the contract administrator.
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     /// @notice Basis points divisor
     uint256 public constant BPS_DIVISOR = 10_000;
@@ -28,7 +35,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     uint256 public swapFeeBps = 500;
 
     /// @notice Current chain ID (immutable)
-    uint256 public immutable thisChainId;
+    uint256 public thisChainId;
 
     /// @notice BLS validator used for signature verification
     ISignatureScheme public blsValidator;
@@ -61,12 +68,33 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @dev Mapping of requestId to transfer receipt
     mapping(bytes32 => TransferReceipt) public receipts;
 
+    /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
+    modifier onlyAdmin() {
+        _checkRole(ADMIN_ROLE);
+        _;
+    }
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initializes the contract with a signature sender and owner.
     /// @param _owner Initial contract owner
     /// @param _blsValidator BLS validator address
-    constructor(address _owner, address _blsValidator) Ownable(_owner) {
+    function initialize(address _owner, address _blsValidator) public initializer {
+        __UUPSUpgradeable_init();
+        __AccessControlEnumerable_init();
+
+        require(_grantRole(ADMIN_ROLE, _owner), "Grant role failed");
+        require(_grantRole(DEFAULT_ADMIN_ROLE, _owner), "Grant role failed");
+
         blsValidator = ISignatureScheme(_blsValidator);
         thisChainId = getChainID();
     }
+
+    /// @notice Authorizes contract upgrades.
+    function _authorizeUpgrade(address newImplementation) internal override onlyAdmin {}
 
     // ---------------------- Core Transfer Logic ----------------------
 
@@ -171,7 +199,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param signature BLS signature of the message
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature)
         external
-        onlyOwner
+        onlyAdmin
         nonReentrant
     {
         TransferParams storage params = transferParameters[requestId];
@@ -331,7 +359,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
     /// @notice Sets the swap fee in BPS
     /// @param _swapFeeBps New swap fee
-    function setSwapFeeBps(uint256 _swapFeeBps) external onlyOwner {
+    function setSwapFeeBps(uint256 _swapFeeBps) external onlyAdmin {
         require(_swapFeeBps <= MAX_FEE_BPS, ErrorsLib.FeeBpsExceedsThreshold(MAX_FEE_BPS));
         swapFeeBps = _swapFeeBps;
         emit SwapFeeBpsUpdated(swapFeeBps);
@@ -339,21 +367,21 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
     /// @notice Updates the BLS signature validator
     /// @param _blsValidator New validator address
-    function setBlsValidator(address _blsValidator) external onlyOwner {
+    function setBlsValidator(address _blsValidator) external onlyAdmin {
         blsValidator = ISignatureScheme(_blsValidator);
         emit BLSValidatorUpdated(address(blsValidator));
     }
 
     /// @notice Permits swap requests to a destination chain ID
     /// @param chainId Chain ID to permit
-    function permitDestinationChainId(uint256 chainId) external onlyOwner {
+    function permitDestinationChainId(uint256 chainId) external onlyAdmin {
         allowedDstChainIds[chainId] = true;
         emit DestinationChainIdPermitted(chainId);
     }
 
     /// @notice Blocks swap requests to a destination chain ID
     /// @param chainId Chain ID to permit
-    function blockDestinationChainId(uint256 chainId) external onlyOwner {
+    function blockDestinationChainId(uint256 chainId) external onlyAdmin {
         allowedDstChainIds[chainId] = false;
         emit DestinationChainIdBlocked(chainId);
     }
@@ -362,7 +390,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param dstChainId Destination chain ID
     /// @param dstToken Token address on the destination chain
     /// @param srcToken Token address on the source chain
-    function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external onlyOwner {
+    function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external onlyAdmin {
         require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
         tokenMappings[srcToken][dstChainId] = dstToken;
         emit TokenMappingUpdated(dstChainId, dstToken, srcToken);
@@ -371,7 +399,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @notice Withdraws accumulated swap fees
     /// @param token Token address to withdraw
     /// @param to Recipient address
-    function withdrawSwapFees(address token, address to) external onlyOwner nonReentrant {
+    function withdrawSwapFees(address token, address to) external onlyAdmin nonReentrant {
         uint256 amount = totalSwapFeesBalance[token];
         totalSwapFeesBalance[token] = 0;
         IERC20(token).safeTransfer(to, amount);
