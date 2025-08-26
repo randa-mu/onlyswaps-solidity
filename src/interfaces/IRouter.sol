@@ -48,6 +48,15 @@ interface IRouter {
 
     // -------- Events --------
 
+    /// @notice Emitted when an upgrade is scheduled
+    event UpgradeScheduled(address indexed newImplementation, uint256 executeAfter);
+
+    /// @notice Emitted when an upgrade is cancelled
+    event UpgradeCancelled(address indexed cancelledImplementation);
+
+    /// @notice Emitted when an upgrade is executed
+    event UpgradeExecuted(address indexed newImplementation);
+
     /// @notice Emitted when a new swap (request) is created
     /// @param requestId Hash of transfer parameters
     /// @param message Encoded payload for off-chain solver

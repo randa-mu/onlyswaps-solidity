@@ -24,6 +24,13 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, AccessControlEnumera
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
+    /// @notice Storage for pending upgrade
+    address public pendingImplementation;
+    uint256 public pendingTimestamp;
+
+    /// @notice Minimum delay for upgrade operations
+    uint256 public minimumDelay = 2 days;
+
     /// @notice Role identifier for the contract administrator.
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
@@ -96,7 +103,7 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, AccessControlEnumera
     /// @notice Authorizes contract upgrades.
     function _authorizeUpgrade(address newImplementation) internal override onlyAdmin {}
 
-    // ---------------------- Core Transfer Logic ----------------------
+    // ---------------------- Core Logic ----------------------
 
     /// @notice Initiates a swap request
     /// @param token Address of the ERC20 token to swap
@@ -134,6 +141,11 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, AccessControlEnumera
         emit SwapRequested(requestId, message);
     }
 
+    /// @notice Updates the fees for a swap request if it has not been fulfilled.
+    /// @param requestId The unique ID of the swap request.
+    /// @param newFee The new fee amount to be set for the swap request.
+    /// @dev This function can only be called by the original sender of the request.
+    /// Emits a SwapRequestFeeUpdated event upon successful fee update.
     function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external nonReentrant {
         TransferParams storage params = transferParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
@@ -161,12 +173,14 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, AccessControlEnumera
         emit SwapRequestFeeUpdated(requestId, params.token, newSwapFeeAmount, newSolverFee);
     }
 
-    /// @notice Relays tokens to the recipient and stores a receipt
-    /// @param token The token being relayed
-    /// @param recipient The target recipient of the tokens
-    /// @param amount The net amount delivered (after fees)
-    /// @param requestId The original request ID from the source chain
-    /// @param srcChainId The ID of the source chain where the request originated
+    /// @notice Relays tokens to the recipient and stores a receipt for the transfer.
+    /// @param token The address of the token being relayed.
+    /// @param recipient The address of the recipient of the tokens.
+    /// @param amount The net amount delivered (after fees).
+    /// @param requestId The original request ID from the source chain.
+    /// @param srcChainId The ID of the source chain where the request originated.
+    /// @dev This function ensures that the transfer has not been fulfilled before proceeding.
+    /// Emits a BridgeReceipt event upon successful token relay.
     function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
         external
         nonReentrant
@@ -193,10 +207,198 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, AccessControlEnumera
         emit BridgeReceipt(requestId, srcChainId, token, msg.sender, recipient, amount, block.timestamp);
     }
 
-    /// @notice Called with dcipher signature to approve a solver’s fulfillment of a swap request
-    /// @param solver Address of the solver being paid
-    /// @param requestId Unique ID of the request
-    /// @param signature BLS signature of the message
+    // ---------------------- Utility and View Functions ----------------------
+
+    /// @notice Converts transfer parameters to a message and BLS format.
+    /// @param params The transfer parameters to be converted.
+    /// @return message The encoded message containing transfer parameters.
+    /// @return messageAsG1Bytes The message in G1 byte format.
+    /// @return messageAsG1Point The message as a G1 point.
+    function transferParamsToBytes(TransferParams memory params)
+        public
+        view
+        returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point)
+    {
+        message = abi.encode(
+            params.sender,
+            params.recipient,
+            params.token,
+            params.amount,
+            params.srcChainId,
+            params.dstChainId,
+            params.swapFee,
+            params.solverFee,
+            params.nonce,
+            params.executed
+        );
+        (uint256 x, uint256 y) = blsValidator.hashToPoint(message);
+        messageAsG1Point = BLS.PointG1({x: x, y: y});
+        messageAsG1Bytes = blsValidator.hashToBytes(message);
+    }
+
+    /// @notice Builds a new transfer parameter object.
+    /// @param token The address of the token to be transferred.
+    /// @param amount The amount of tokens to be transferred.
+    /// @param swapFeeAmount The amount of the swap fee.
+    /// @param solverFeeAmount The amount of the solver fee.
+    /// @param dstChainId The ID of the destination chain.
+    /// @param recipient The address of the recipient.
+    /// @param nonce A unique nonce for the transfer.
+    /// @return params The constructed TransferParams object.
+    function buildTransferParams(
+        address token,
+        uint256 amount,
+        uint256 swapFeeAmount,
+        uint256 solverFeeAmount,
+        uint256 dstChainId,
+        address recipient,
+        uint256 nonce
+    ) public view returns (TransferParams memory params) {
+        params = TransferParams({
+            sender: msg.sender,
+            recipient: recipient,
+            token: token,
+            amount: amount,
+            srcChainId: thisChainId,
+            dstChainId: dstChainId,
+            swapFee: swapFeeAmount,
+            solverFee: solverFeeAmount,
+            nonce: nonce,
+            executed: false
+        });
+    }
+
+    /// @notice Stores a transfer request and marks it as unfulfilled.
+    /// @param requestId The unique ID of the transfer request.
+    /// @param params The transfer parameters to be stored.
+    /// @dev This function is called internally to keep track of unfulfilled requests.
+    function storeTransferRequest(bytes32 requestId, TransferParams memory params) internal {
+        transferParameters[requestId] = params;
+        unfulfilledSolverRefunds.add(requestId);
+    }
+
+    /// @notice Gets the current minimum delay for upgrade operations
+    /// @return The current minimum delay
+    function getMinimumDelay() external view returns (uint256) {
+        return minimumDelay;
+    }
+
+    /// @notice Compares two transfer parameter structs for equality.
+    /// @param a The first transfer parameter struct to compare.
+    /// @param b The second transfer parameter struct to compare.
+    /// @return True if both structs are equal, false otherwise.
+    function isEqual(TransferParams memory a, TransferParams memory b) internal pure returns (bool) {
+        return a.sender == b.sender && a.recipient == b.recipient && a.token == b.token && a.amount == b.amount
+            && a.srcChainId == b.srcChainId && a.dstChainId == b.dstChainId && a.swapFee == b.swapFee
+            && a.solverFee == b.solverFee && a.nonce == b.nonce && a.executed == b.executed;
+    }
+
+    /// @notice Computes the swap fee in underlying token units based on the specified amount.
+    /// @param amount The amount of tokens to calculate the swap fee for.
+    /// @return The calculated swap fee in token units.
+    function getSwapFeeAmount(uint256 amount) public view returns (uint256) {
+        if (swapFeeBps == 0) return 0;
+        return (amount * swapFeeBps) / BPS_DIVISOR;
+    }
+
+    /// @notice Computes the unique request ID by hashing the transfer parameters.
+    /// @param p The transfer parameters for which to compute the request ID.
+    /// @return The unique request ID as a bytes32 hash.
+    function getRequestId(TransferParams memory p) public view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                p.sender,
+                p.recipient,
+                p.token,
+                p.amount,
+                getChainID(),
+                p.dstChainId,
+                p.swapFee,
+                p.solverFee,
+                p.nonce,
+                p.executed
+            )
+        );
+    }
+
+    /// @notice Returns the current EVM chain ID
+    function getChainID() public view returns (uint256) {
+        return block.chainid;
+    }
+
+    /// @notice Gets the current swap fee in basis points
+    /// @return The current swap fee in BPS
+    function getSwapFeeBps() external view returns (uint256) {
+        return swapFeeBps;
+    }
+
+    /// @notice Gets the current chain ID
+    /// @return The current chain ID
+    function getThisChainId() external view returns (uint256) {
+        return thisChainId;
+    }
+
+    /// @notice Gets the address of the BLS validator
+    /// @return The address of the BLS validator
+    function getBlsValidator() external view returns (address) {
+        return address(blsValidator);
+    }
+
+    /// @notice Retrieves the transfer parameters for a given request ID
+    /// @param requestId The unique ID of the transfer request
+    /// @return transferParams The transfer parameters associated with the request ID
+    function getTransferParameters(bytes32 requestId) external view returns (TransferParams memory transferParams) {
+        transferParams = transferParameters[requestId];
+    }
+
+    /// @notice Checks if a destination chain ID is allowed
+    /// @param chainId The chain ID to check
+    /// @return True if the chain ID is allowed, false otherwise
+    function getAllowedDstChainId(uint256 chainId) external view returns (bool) {
+        return allowedDstChainIds[chainId];
+    }
+
+    /// @notice Retrieves the token mapping for a given source token and destination chain ID
+    /// @param srcToken The address of the source token
+    /// @param dstChainId The destination chain ID
+    /// @return The address of the destination token
+    function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address) {
+        return tokenMappings[srcToken][dstChainId];
+    }
+
+    /// @notice Gets the total accumulated swap fees for a specific token
+    /// @param token The address of the token to check
+    /// @return The total swap fees balance for the specified token
+    function getTotalSwapFeesBalance(address token) external view returns (uint256) {
+        return totalSwapFeesBalance[token];
+    }
+
+    /// @notice Retrieves all fulfilled transfer request IDs
+    /// @return An array of fulfilled transfer request IDs
+    function getFulfilledTransfers() external view returns (bytes32[] memory) {
+        return fulfilledTransfers.values();
+    }
+
+    /// @notice Retrieves all unfulfilled solver refund request IDs
+    /// @return An array of unfulfilled solver refund request IDs
+    function getUnfulfilledSolverRefunds() external view returns (bytes32[] memory) {
+        return unfulfilledSolverRefunds.values();
+    }
+
+    /// @notice Retrieves all fulfilled solver refund request IDs
+    /// @return An array of fulfilled solver refund request IDs
+    function getFulfilledSolverRefunds() external view returns (bytes32[] memory) {
+        return fulfilledSolverRefunds.values();
+    }
+
+    // ---------------------- Admin Functions ----------------------
+
+    /// @notice Approves a solver’s fulfillment of a swap request using a dcipher signature.
+    /// @param solver The address of the solver being paid.
+    /// @param requestId The unique ID of the request.
+    /// @param signature The BLS signature of the message.
+    /// @dev This function can only be called by an admin and ensures that the request has not been executed.
+    /// Emits a SwapRequestFulfilled event upon successful approval.
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature)
         external
         onlyAdmin
@@ -224,138 +426,11 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, AccessControlEnumera
         emit SwapRequestFulfilled(requestId);
     }
 
-    // ---------------------- Utility & View ----------------------
-
-    /// @notice Converts transfer params to message and BLS format
-    function transferParamsToBytes(TransferParams memory params)
-        public
-        view
-        returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point)
-    {
-        message = abi.encode(
-            params.sender,
-            params.recipient,
-            params.token,
-            params.amount,
-            params.srcChainId,
-            params.dstChainId,
-            params.swapFee,
-            params.solverFee,
-            params.nonce,
-            params.executed
-        );
-        (uint256 x, uint256 y) = blsValidator.hashToPoint(message);
-        messageAsG1Point = BLS.PointG1({x: x, y: y});
-        messageAsG1Bytes = blsValidator.hashToBytes(message);
+    /// @notice Sets the minimum delay for upgrade operations
+    /// @param _minimumDelay New minimum delay
+    function setMinimumDelay(uint256 _minimumDelay) external onlyAdmin {
+        minimumDelay = _minimumDelay;
     }
-
-    /// @notice Builds a new transfer parameter object
-    function buildTransferParams(
-        address token,
-        uint256 amount,
-        uint256 swapFeeAmount,
-        uint256 solverFeeAmount,
-        uint256 dstChainId,
-        address recipient,
-        uint256 nonce
-    ) public view returns (TransferParams memory params) {
-        params = TransferParams({
-            sender: msg.sender,
-            recipient: recipient,
-            token: token,
-            amount: amount,
-            srcChainId: thisChainId,
-            dstChainId: dstChainId,
-            swapFee: swapFeeAmount,
-            solverFee: solverFeeAmount,
-            nonce: nonce,
-            executed: false
-        });
-    }
-
-    /// @notice Stores a transfer request and marks as unfulfilled
-    function storeTransferRequest(bytes32 requestId, TransferParams memory params) internal {
-        transferParameters[requestId] = params;
-        unfulfilledSolverRefunds.add(requestId);
-    }
-
-    /// @notice Compares two transfer parameter structs
-    function isEqual(TransferParams memory a, TransferParams memory b) internal pure returns (bool) {
-        return a.sender == b.sender && a.recipient == b.recipient && a.token == b.token && a.amount == b.amount
-            && a.srcChainId == b.srcChainId && a.dstChainId == b.dstChainId && a.swapFee == b.swapFee
-            && a.solverFee == b.solverFee && a.nonce == b.nonce && a.executed == b.executed;
-    }
-
-    /// @notice Computes the swap fee in underlying token units
-    function getSwapFeeAmount(uint256 amount) public view returns (uint256) {
-        if (swapFeeBps == 0) return 0;
-        return (amount * swapFeeBps) / BPS_DIVISOR;
-    }
-
-    /// @notice Computes the unique request ID (hash of transfer parameters)
-    function getRequestId(TransferParams memory p) public view returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                p.sender,
-                p.recipient,
-                p.token,
-                p.amount,
-                getChainID(),
-                p.dstChainId,
-                p.swapFee,
-                p.solverFee,
-                p.nonce,
-                p.executed
-            )
-        );
-    }
-
-    /// @notice Returns the current EVM chain ID
-    function getChainID() public view returns (uint256) {
-        return block.chainid;
-    }
-
-    function getSwapFeeBps() external view returns (uint256) {
-        return swapFeeBps;
-    }
-
-    function getThisChainId() external view returns (uint256) {
-        return thisChainId;
-    }
-
-    function getBlsValidator() external view returns (address) {
-        return address(blsValidator);
-    }
-
-    function getTransferParameters(bytes32 requestId) external view returns (TransferParams memory transferParams) {
-        transferParams = transferParameters[requestId];
-    }
-
-    function getAllowedDstChainId(uint256 chainId) external view returns (bool) {
-        return allowedDstChainIds[chainId];
-    }
-
-    function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address) {
-        return tokenMappings[srcToken][dstChainId];
-    }
-
-    function getTotalSwapFeesBalance(address token) external view returns (uint256) {
-        return totalSwapFeesBalance[token];
-    }
-
-    function getFulfilledTransfers() external view returns (bytes32[] memory) {
-        return fulfilledTransfers.values();
-    }
-
-    function getUnfulfilledSolverRefunds() external view returns (bytes32[] memory) {
-        return unfulfilledSolverRefunds.values();
-    }
-
-    function getFulfilledSolverRefunds() external view returns (bytes32[] memory) {
-        return fulfilledSolverRefunds.values();
-    }
-
-    // ---------------------- Admin Functions ----------------------
 
     /// @notice Sets the swap fee in BPS
     /// @param _swapFeeBps New swap fee
@@ -439,5 +514,45 @@ contract Router is IRouter, Initializable, UUPSUpgradeable, AccessControlEnumera
         recipient = receipt.recipient;
         amountOut = receipt.amountOut;
         fulfilledAt = receipt.fulfilledAt;
+    }
+
+    // ---------------------- Upgrade Scheduling Functions ----------------------
+
+    function scheduleUpgrade(address newImplementation, uint256 executeAfter) external onlyAdmin {
+        // TODO: add threshold signature validation??
+        require(newImplementation != address(0), "Invalid implementation");
+        require(executeAfter >= block.timestamp + minimumDelay, "Too soon");
+
+        pendingImplementation = newImplementation;
+        pendingTimestamp = executeAfter;
+
+        emit UpgradeScheduled(newImplementation, executeAfter);
+    }
+
+    function cancelUpgrade() external onlyAdmin {
+        // TODO: add threshold signature validation
+        require(pendingImplementation != address(0), "No upgrade pending");
+
+        address cancelledImpl = pendingImplementation;
+        pendingImplementation = address(0);
+        pendingTimestamp = 0;
+
+        emit UpgradeCancelled(cancelledImpl);
+    }
+
+    function executeUpgradeAndCall(bytes memory data) external onlyAdmin {
+        require(pendingImplementation != address(0), "No upgrade pending");
+        require(block.timestamp >= pendingTimestamp, "Too early");
+
+        address newImpl = pendingImplementation;
+
+        // Reset pending upgrade before upgrading
+        pendingImplementation = address(0);
+        pendingTimestamp = 0;
+
+        // Perform upgrade + call
+        upgradeToAndCall(newImpl, data);
+
+        emit UpgradeExecuted(newImpl);
     }
 }
