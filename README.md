@@ -1,15 +1,7 @@
-## onlysubs-solidity
+# OnlySwaps
 
-## Overview
+Solidity smart contract that enables **cross-chain token swap** requests from a source chain to a destination chain. The requests are fulfilled by solvers on the destination chain in exchange for the liquidity and fee / incentive on the source chain.
 
-onlyswaps-solidity is a Solidity-based project enabling **cross-chain token bridging** using Foundry and Hardhat.
-It includes a full test suite, demo scripts, and developer tooling for seamless local development.
-
-## Tech Stack
-- [Foundry](https://getfoundry.sh) — Solidity development & deployment
-- [Hardhat](https://hardhat.org) — Testing & coverage reports
-- [TypeScript](https://www.typescriptlang.org/) — Demo scripts
-- [Anvil](https://book.getfoundry.sh/anvil/) — Local blockchain simulation
 
 ## Usage
 
