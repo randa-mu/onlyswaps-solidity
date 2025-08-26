@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Test} from "@forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {Router} from "../../src/Router.sol";
 import {BN254SignatureScheme} from "../../src/signature-scheme/BN254SignatureScheme.sol";
 import {ERC20Token} from "../../src/mocks/ERC20Token.sol";
