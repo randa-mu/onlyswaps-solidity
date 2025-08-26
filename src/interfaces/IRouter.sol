@@ -5,16 +5,16 @@ interface IRouter {
     // -------- Structs --------
 
     struct TransferParams {
-        address sender;
-        address recipient;
-        address token;
-        uint256 amount; // user receives amount on destination chain
-        uint256 srcChainId;
-        uint256 dstChainId;
-        uint256 swapFee; // deducted from fee parameter specified in swap request function
-        uint256 solverFee; // deducted from the swapFee
-        uint256 nonce;
-        bool executed;
+        address sender;         // Address initiating the swap on the source chain
+        address recipient;      // Address to receive tokens on the destination chain
+        address token;          // Token address being transferred
+        uint256 amount;         // Amount to be received by the recipient on the destination chain
+        uint256 srcChainId;     // Source chain ID where the request originated
+        uint256 dstChainId;     // Destination chain ID where tokens will be delivered
+        uint256 swapFee;        // Total swap fee deducted from the amount
+        uint256 solverFee;      // Portion of swapFee paid to the solver
+        uint256 nonce;          // Unique nonce to prevent replay attacks
+        bool executed;          // Whether the transfer has been executed
     }
 
     /// @notice Structure to store details of a fulfilled transfer request
@@ -25,7 +25,7 @@ interface IRouter {
         bool fulfilled; // Whether the transfer has been delivered
         address solver; // Address that fulfilled the request
         address recipient; // Recipient of the tokens on the destination chain
-        uint256 amountOut; // Amount delivered to the recipient (after fees)
+        uint256 amount; // Amount delivered to the recipient (after fees)
         uint256 fulfilledAt; // Timestamp when the request was fulfilled
     }
 
@@ -34,7 +34,7 @@ interface IRouter {
     /// @param srcChainId The source chain ID
     /// @param solver The address that fulfilled the transfer
     /// @param recipient The address that received the tokens on the destination chain
-    /// @param amountOut The amount transferred to the recipient
+    /// @param amount The amount transferred to the recipient
     /// @param fulfilledAt The timestamp when the transfer was fulfilled
     event BridgeReceipt(
         bytes32 indexed requestId,
@@ -42,7 +42,7 @@ interface IRouter {
         address indexed token,
         address solver,
         address recipient,
-        uint256 amountOut,
+        uint256 amount,
         uint256 fulfilledAt
     );
 
@@ -122,7 +122,7 @@ interface IRouter {
             bool fulfilled,
             address solver,
             address recipient,
-            uint256 amountOut,
+            uint256 amount,
             uint256 fulfilledAt
         );
 
