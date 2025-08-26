@@ -274,7 +274,7 @@ describe("Router", function () {
     // Check receipt
     const receipt = await router.receipts(requestId);
     expect(receipt.fulfilled).to.be.true;
-    expect(receipt.amountOut).to.equal(amount);
+    expect(receipt.amount).to.equal(amount);
     expect(receipt.solver).to.equal(userAddr);
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
@@ -307,7 +307,7 @@ describe("Router", function () {
     }
 
     const routerInterface = Router__factory.createInterface();
-    const [reqId, sourceChainId, token, solver, recipient, amountOut, fulfilledAt] = extractSingleLog(
+    const [reqId, sourceChainId, token, solver, recipient, , fulfilledAt] = extractSingleLog(
       routerInterface,
       receipt,
       await router.getAddress(),
@@ -347,7 +347,7 @@ describe("Router", function () {
     }
 
     const routerInterface = Router__factory.createInterface();
-    const [reqId, sourceChainId, token, solver, recipient, amountOut, fulfilledAt] = extractSingleLog(
+    const [reqId, sourceChainId, token, solver, recipient, , fulfilledAt] = extractSingleLog(
       routerInterface,
       receipt,
       await router.getAddress(),
@@ -374,7 +374,7 @@ describe("Router", function () {
     expect(token).to.equal(await dstToken.getAddress());
     expect(solver).to.equal(userAddr);
     expect(recipient).to.equal(recipientAddr);
-    expect(amountOut).to.equal(amount);
+    expect(amount).to.equal(amount);
     expect(fulfilledAt).to.equal(timestamp);
   });
 

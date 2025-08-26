@@ -158,7 +158,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
             solver: msg.sender,
             recipient: recipient,
-            amountOut: amount,
+            amount: amount,
             fulfilledAt: block.timestamp
         });
 
@@ -386,7 +386,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
     /// @return recipient The address that received the tokens on the destination chain
-    /// @return amountOut The amount of tokens transferred to the recipient
+    /// @return amount The amount of tokens transferred to the recipient
     /// @return fulfilledAt The timestamp when the transfer was fulfilled
     function getReceipt(bytes32 _requestId)
         external
@@ -398,7 +398,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             bool fulfilled,
             address solver,
             address recipient,
-            uint256 amountOut,
+            uint256 amount,
             uint256 fulfilledAt
         )
     {
@@ -409,7 +409,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         fulfilled = receipt.fulfilled;
         solver = receipt.solver;
         recipient = receipt.recipient;
-        amountOut = receipt.amountOut;
+        amount = receipt.amount;
         fulfilledAt = receipt.fulfilledAt;
     }
 }
