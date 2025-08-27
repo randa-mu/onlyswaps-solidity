@@ -12,9 +12,8 @@ import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 import {ISignatureScheme} from "./interfaces/ISignatureScheme.sol";
 import {IRouter, BLS} from "./interfaces/IRouter.sol";
 
-/// @title Cross-Chain Token Router
-/// @notice Handles token bridging logic, fee distribution, and transfer request verification using BLS signatures
-/// @dev Integrates with off-chain solvers and a destination Swap contract
+/// @title Router Contract for Cross-Chain Token Swaps
+/// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
 contract Router is Ownable, ReentrancyGuard, IRouter {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
