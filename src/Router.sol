@@ -352,20 +352,21 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         return totalVerificationFeeBalance[token];
     }
 
-    /// @notice Returns an array of fulfilled transfer request IDs
-    /// @return An array of bytes32 representing fulfilled transfers
+    /// @notice Returns an array of swap request IDs where the tokens have been
+    ///         transferred to the recipient address on the destination chain
+    /// @return An array of bytes32 representing the request IDs
     function getFulfilledTransfers() external view returns (bytes32[] memory) {
         return fulfilledTransfers.values();
     }
 
-    /// @notice Returns an array of unfulfilled solver refund request IDs
-    /// @return An array of bytes32 representing unfulfilled solver refunds
+    /// @notice Returns an array of request IDs with unfulfilled solver refunds
+    /// @return An array of bytes32 representing the request IDs
     function getUnfulfilledSolverRefunds() external view returns (bytes32[] memory) {
         return unfulfilledSolverRefunds.values();
     }
 
-    /// @notice Returns an array of fulfilled solver refund request IDs
-    /// @return An array of bytes32 representing fulfilled solver refunds
+    /// @notice Returns an array of request IDs with fulfilled solver refunds
+    /// @return An array of bytes32 representing the request IDs
     function getFulfilledSolverRefunds() external view returns (bytes32[] memory) {
         return fulfilledSolverRefunds.values();
     }
@@ -378,16 +379,16 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
     // ---------------------- Admin Functions ----------------------
 
-    /// @notice Sets the swap fee in BPS
-    /// @param _verificationFeeBps New swap fee
+    /// @notice Sets the verification fee in basis points
+    /// @param _verificationFeeBps The new verification fee in basis points
     function setVerificationFeeBps(uint256 _verificationFeeBps) external onlyOwner {
         require(_verificationFeeBps <= MAX_FEE_BPS, ErrorsLib.FeeBpsExceedsThreshold(MAX_FEE_BPS));
         verificationFeeBps = _verificationFeeBps;
         emit VerificationFeeBpsUpdated(verificationFeeBps);
     }
 
-    /// @notice Updates the BLS signature validator
-    /// @param _blsValidator New validator address
+    /// @notice Updates the BLS signature validator contract
+    /// @param _blsValidator The new BLS validator contract address
     function setBlsValidator(address _blsValidator) external onlyOwner {
         blsValidator = ISignatureScheme(_blsValidator);
         emit BLSValidatorUpdated(address(blsValidator));

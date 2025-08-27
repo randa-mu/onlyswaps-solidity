@@ -197,16 +197,17 @@ interface IRouter {
         view
         returns (SwapRequestParameters memory swapRequestParams);
 
-    /// @notice Retrieves a list of fulfilled transfer request IDs
-    /// @return An array of fulfilled transfer request IDs
+    /// @notice Returns an array of swap request IDs where the tokens have been
+    ///         transferred to the recipient address on the destination chain
+    /// @return An array of bytes32 representing the request IDs
     function getFulfilledTransfers() external view returns (bytes32[] memory);
 
-    /// @notice Retrieves a list of unfulfilled solver refund request IDs
-    /// @return An array of unfulfilled solver refund request IDs
+    /// @notice Returns an array of request IDs with unfulfilled solver refunds
+    /// @return An array of bytes32 representing the request IDs
     function getUnfulfilledSolverRefunds() external view returns (bytes32[] memory);
 
-    /// @notice Retrieves a list of fulfilled solver refund request IDs
-    /// @return An array of fulfilled solver refund request IDs
+    /// @notice Returns an array of request IDs with fulfilled solver refunds
+    /// @return An array of bytes32 representing the request IDs
     function getFulfilledSolverRefunds() external view returns (bytes32[] memory);
 
     /// @notice Retrieves the receipt for a specific request ID
