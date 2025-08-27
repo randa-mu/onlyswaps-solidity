@@ -38,7 +38,6 @@ jobs:
         id: test
 
   hardhat:
-    # Remove "needs: foundry" unless Hardhat actually depends on Foundry artifacts
     runs-on: ubuntu-latest
     name: Hardhat tests
     steps:
