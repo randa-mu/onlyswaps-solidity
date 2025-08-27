@@ -19,7 +19,7 @@ interface IRouter {
         bool executed; // Whether the transfer has been executed
     }
 
-    /// @notice Structure to store details of a fulfilled transfer request
+    /// @notice Structure to store details of a fulfilled swap request
     struct SwapRequestReceipt {
         bytes32 requestId; // Reference to the original request on the source chain
         uint256 srcChainId; // Source chain ID from which the request originated
@@ -212,7 +212,7 @@ interface IRouter {
 
     /// @notice Retrieves the receipt for a specific request ID
     /// @param requestId The request ID to check
-    /// @return requestId The unique ID of the transfer request
+    /// @return requestId The unique ID of the swap request
     /// @return srcChainId The source chain ID from which the request originated
     /// @return dstChainId The destination chain ID where the tokens were delivered
     /// @return token The address of the token involved in the transfer

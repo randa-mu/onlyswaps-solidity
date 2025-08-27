@@ -28,7 +28,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @notice BLS validator used for signature verification
     ISignatureScheme public blsValidator;
 
-    /// @dev Stores all fulfilled transfer request IDs
+    /// @dev Stores all fulfilled swap request IDs
     EnumerableSet.Bytes32Set private fulfilledTransfers;
 
     /// @dev Stores all unfulfilled solver refunds by request IDs
@@ -102,7 +102,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
         requestId = getRequestId(params);
 
-        storeTransferRequest(requestId, params);
+        storeSwapRequest(requestId, params);
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount + fee);
 
@@ -371,8 +371,46 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         return fulfilledSolverRefunds.values();
     }
 
-    /// @notice Stores a transfer request and marks as unfulfilled
-    function storeTransferRequest(bytes32 requestId, SwapRequestParameters memory params) internal {
+    /// @notice Retrieves the receipt for a specific request ID
+    /// @param requestId The request ID to check
+    /// @return requestId The unique ID of the swap request
+    /// @return srcChainId The source chain ID from which the request originated
+    /// @return dstChainId The destination chain ID where the tokens were delivered
+    /// @return token The address of the token involved in the transfer
+    /// @return fulfilled Indicates if the transfer was fulfilled
+    /// @return solver The address of the solver who fulfilled the transfer
+    /// @return recipient The address that received the tokens on the destination chain
+    /// @return amount The amount of tokens transferred to the recipient
+    /// @return fulfilledAt The timestamp when the transfer was fulfilled
+    function getReceipt(bytes32 _requestId)
+        external
+        view
+        returns (
+            bytes32 requestId,
+            uint256 srcChainId,
+            uint256 dstChainId,
+            address token,
+            bool fulfilled,
+            address solver,
+            address recipient,
+            uint256 amount,
+            uint256 fulfilledAt
+        )
+    {
+        SwapRequestReceipt storage receipt = swapRequestReceipts[_requestId];
+        requestId = receipt.requestId;
+        srcChainId = receipt.srcChainId;
+        dstChainId = receipt.dstChainId;
+        token = receipt.token;
+        fulfilled = receipt.fulfilled;
+        solver = receipt.solver;
+        recipient = receipt.recipient;
+        amount = receipt.amount;
+        fulfilledAt = receipt.fulfilledAt;
+    }
+
+    /// @notice Stores a swap request and marks as unfulfilled
+    function storeSwapRequest(bytes32 requestId, SwapRequestParameters memory params) internal {
         swapRequestParameters[requestId] = params;
         unfulfilledSolverRefunds.add(requestId);
     }
@@ -426,43 +464,5 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         totalVerificationFeeBalance[token] = 0;
         IERC20(token).safeTransfer(to, amount);
         emit VerificationFeeWithdrawn(token, to, amount);
-    }
-
-    /// @notice Retrieves the receipt for a specific request ID
-    /// @param requestId The request ID to check
-    /// @return requestId The unique ID of the transfer request
-    /// @return srcChainId The source chain ID from which the request originated
-    /// @return dstChainId The destination chain ID where the tokens were delivered
-    /// @return token The address of the token involved in the transfer
-    /// @return fulfilled Indicates if the transfer was fulfilled
-    /// @return solver The address of the solver who fulfilled the transfer
-    /// @return recipient The address that received the tokens on the destination chain
-    /// @return amount The amount of tokens transferred to the recipient
-    /// @return fulfilledAt The timestamp when the transfer was fulfilled
-    function getReceipt(bytes32 _requestId)
-        external
-        view
-        returns (
-            bytes32 requestId,
-            uint256 srcChainId,
-            uint256 dstChainId,
-            address token,
-            bool fulfilled,
-            address solver,
-            address recipient,
-            uint256 amount,
-            uint256 fulfilledAt
-        )
-    {
-        SwapRequestReceipt storage receipt = swapRequestReceipts[_requestId];
-        requestId = receipt.requestId;
-        srcChainId = receipt.srcChainId;
-        dstChainId = receipt.dstChainId;
-        token = receipt.token;
-        fulfilled = receipt.fulfilled;
-        solver = receipt.solver;
-        recipient = receipt.recipient;
-        amount = receipt.amount;
-        fulfilledAt = receipt.fulfilledAt;
     }
 }
