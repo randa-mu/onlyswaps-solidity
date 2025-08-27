@@ -101,7 +101,7 @@ interface IRouter {
 
     // -------- View Functions --------
 
-    function getSwapFeeAmount(uint256 totalFee) external view returns (uint256);
+    function getSwapFeeAmount(uint256 totalFees) external view returns (uint256);
     function getRequestId(TransferParams memory p) external view returns (bytes32);
     function getChainID() external view returns (uint256);
     function getBlsValidator() external view returns (address);
