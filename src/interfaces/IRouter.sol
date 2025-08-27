@@ -116,12 +116,26 @@ interface IRouter {
 
     // -------- Core Transfer Logic --------
 
+    /// @notice Initiates a cross-chain swap request
+    /// @param token The address of the token to be swapped
+    /// @param amount The amount of tokens to be swapped
+    /// @param fee The fee associated with the swap request
+    /// @param dstChainId The destination chain ID where the tokens will be sent
+    /// @param recipient The address that will receive the tokens on the destination chain
+    /// @return requestId The unique ID of the created swap request
     function requestCrossChainSwap(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient)
         external
         returns (bytes32 requestId);
 
+    /// @notice Updates the fee for an unfulfilled swap request
+    /// @param requestId The unique ID of the swap request to update
+    /// @param newFee The new fee to be set for the swap request
     function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external;
 
+    /// @notice Rebalances the solver for a specific swap request
+    /// @param solver The address of the solver to be rebalanced
+    /// @param requestId The unique ID of the swap request to be rebalanced
+    /// @param signature The signature to validate the rebalance action
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external;
 
     /// @notice Relays tokens to the recipient and stores a receipt
@@ -135,21 +149,67 @@ interface IRouter {
 
     // -------- View Functions --------
 
+    /// @notice Calculates the verification fee amount based on total fees
+    /// @param totalFees The total fees for which the verification fee is to be calculated
+    /// @return The calculated verification fee amount
     function getVerificationFeeAmount(uint256 totalFees) external view returns (uint256);
+
+    /// @notice Generates a unique request ID based on the provided swap request parameters
+    /// @param p The swap request parameters
+    /// @return The generated request ID
     function getRequestId(SwapRequestParameters memory p) external view returns (bytes32);
+
+    /// @notice Retrieves the current chain ID
+    /// @return The current chain ID
     function getChainID() external view returns (uint256);
+
+    /// @notice Retrieves the address of the BLS validator
+    /// @return The address of the BLS validator
     function getBlsValidator() external view returns (address);
+
+    /// @notice Retrieves the current verification fee in basis points
+    /// @return The current verification fee in basis points
     function getVerificationFeeBps() external view returns (uint256);
+
+    /// @notice Retrieves the total verification fee balance for a specific token
+    /// @param token The address of the token
+    /// @return The total verification fee balance for the specified token
     function getTotalVerificationFeeBalance(address token) external view returns (uint256);
+
+    /// @notice Checks if a destination chain ID is allowed
+    /// @param chainId The chain ID to check
+    /// @return True if the chain ID is allowed, false otherwise
     function getAllowedDstChainId(uint256 chainId) external view returns (bool);
+
+    /// @notice Retrieves the token mapping for a given source token and destination chain ID
+    /// @param srcToken The address of the source token
+    /// @param dstChainId The destination chain ID
+    /// @return The address of the mapped destination token
     function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address);
+
+    /// @notice Retrieves the swap request parameters for a given request ID
+    /// @param requestId The unique ID of the swap request
+    /// @return The swap request parameters associated with the request ID
     function getSwapRequestParameters(bytes32 requestId)
         external
         view
         returns (SwapRequestParameters memory transferParams);
+
+    /// @notice Retrieves a list of fulfilled transfer request IDs
+    /// @return An array of fulfilled transfer request IDs
     function getFulfilledTransfers() external view returns (bytes32[] memory);
+
+    /// @notice Retrieves a list of unfulfilled solver refund request IDs
+    /// @return An array of unfulfilled solver refund request IDs
     function getUnfulfilledSolverRefunds() external view returns (bytes32[] memory);
+
+    /// @notice Retrieves a list of fulfilled solver refund request IDs
+    /// @return An array of fulfilled solver refund request IDs
     function getFulfilledSolverRefunds() external view returns (bytes32[] memory);
+
+    /// @notice Retrieves the receipt for a specific request ID
+    /// @param _requestId The unique ID of the request
+    /// @return The details of the receipt associated with the request ID
     function getReceipt(bytes32 _requestId)
         external
         view
@@ -164,6 +224,16 @@ interface IRouter {
             uint256 amount,
             uint256 fulfilledAt
         );
+
+    /// @notice Builds swap request parameters based on the provided details
+    /// @param token The address of the token to be swapped
+    /// @param amount The amount of tokens to be swapped
+    /// @param verificationFeeAmount The verification fee amount
+    /// @param solverFeeAmount The solver fee amount
+    /// @param dstChainId The destination chain ID
+    /// @param recipient The address that will receive the tokens
+    /// @param nonce A unique nonce for the request
+    /// @return The constructed swap request parameters
     function buildSwapRequestParameters(
         address token,
         uint256 amount,
@@ -174,6 +244,9 @@ interface IRouter {
         uint256 nonce
     ) external view returns (SwapRequestParameters memory params);
 
+    /// @notice Converts swap request parameters to bytes for messaging
+    /// @param requestId The unique ID of the swap request
+    /// @return The message bytes and its representation as G1 bytes and G1 point
     function swapRequestParametersToBytes(bytes32 requestId)
         external
         view
@@ -181,10 +254,30 @@ interface IRouter {
 
     // -------- Admin Functions --------
 
+    /// @notice Sets the verification fee in basis points
+    /// @param _verificationFeeBps The new verification fee in basis points
     function setVerificationFeeBps(uint256 _verificationFeeBps) external;
+
+    /// @notice Updates the address of the BLS validator contract
+    /// @param _blsValidator The new BLS validator contract address
     function setBlsValidator(address _blsValidator) external;
+
+    /// @notice Permits a destination chain ID for swaps
+    /// @param chainId The chain ID to be permitted
     function permitDestinationChainId(uint256 chainId) external;
+
+    /// @notice Blocks a destination chain ID from being used for swaps
+    /// @param chainId The chain ID to be blocked
     function blockDestinationChainId(uint256 chainId) external;
+
+    /// @notice Sets the token mapping for a specific destination chain
+    /// @param dstChainId The destination chain ID
+    /// @param dstToken The address of the destination token
+    /// @param srcToken The address of the source token
     function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external;
+
+    /// @notice Withdraws verification fees to a specified address
+    /// @param token The token address of the withdrawn fees
+    /// @param to The address receiving the withdrawn fees
     function withdrawVerificationFee(address token, address to) external;
 }

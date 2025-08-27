@@ -387,33 +387,33 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         emit BLSValidatorUpdated(address(blsValidator));
     }
 
-    /// @notice Permits swap requests to a destination chain ID
-    /// @param chainId Chain ID to permit
+    /// @notice Permits a destination chain ID for swaps
+    /// @param chainId The chain ID to be permitted
     function permitDestinationChainId(uint256 chainId) external onlyOwner {
         allowedDstChainIds[chainId] = true;
         emit DestinationChainIdPermitted(chainId);
     }
 
-    /// @notice Blocks swap requests to a destination chain ID
-    /// @param chainId Chain ID to permit
+    /// @notice Blocks a destination chain ID from being used for swaps
+    /// @param chainId The chain ID to be blocked
     function blockDestinationChainId(uint256 chainId) external onlyOwner {
         allowedDstChainIds[chainId] = false;
         emit DestinationChainIdBlocked(chainId);
     }
 
-    /// @notice Sets a token mapping for a cross-chain pair
-    /// @param dstChainId Destination chain ID
-    /// @param dstToken Token address on the destination chain
-    /// @param srcToken Token address on the source chain
+    /// @notice Sets the token mapping for a specific destination chain
+    /// @param dstChainId The destination chain ID
+    /// @param dstToken The address of the destination token
+    /// @param srcToken The address of the source token
     function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external onlyOwner {
         require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
         tokenMappings[srcToken][dstChainId] = dstToken;
         emit TokenMappingUpdated(dstChainId, dstToken, srcToken);
     }
 
-    /// @notice Withdraws accumulated swap fees
-    /// @param token Token address to withdraw
-    /// @param to Recipient address
+    /// @notice Withdraws verification fees to a specified address
+    /// @param token The token address of the withdrawn fees
+    /// @param to The address receiving the withdrawn fees
     function withdrawVerificationFee(address token, address to) external onlyOwner nonReentrant {
         uint256 amount = totalVerificationFeeBalance[token];
         totalVerificationFeeBalance[token] = 0;
@@ -421,7 +421,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         emit VerificationFeeWithdrawn(token, to, amount);
     }
 
-    /// @notice Gets a transfer receipt for a given requestID
+    /// @notice Retrieves the receipt for a specific request ID
     /// @param requestId The request ID to check
     /// @return requestId The unique ID of the transfer request
     /// @return srcChainId The source chain ID from which the request originated
