@@ -189,11 +189,11 @@ interface IRouter {
 
     /// @notice Retrieves the swap request parameters for a given request ID
     /// @param requestId The unique ID of the swap request
-    /// @return The swap request parameters associated with the request ID
+    /// @return swapRequestParams The swap request parameters associated with the request ID
     function getSwapRequestParameters(bytes32 requestId)
         external
         view
-        returns (SwapRequestParameters memory transferParams);
+        returns (SwapRequestParameters memory swapRequestParams);
 
     /// @notice Retrieves a list of fulfilled transfer request IDs
     /// @return An array of fulfilled transfer request IDs
@@ -208,8 +208,16 @@ interface IRouter {
     function getFulfilledSolverRefunds() external view returns (bytes32[] memory);
 
     /// @notice Retrieves the receipt for a specific request ID
-    /// @param _requestId The unique ID of the request
-    /// @return The details of the receipt associated with the request ID
+    /// @param requestId The request ID to check
+    /// @return requestId The unique ID of the transfer request
+    /// @return srcChainId The source chain ID from which the request originated
+    /// @return dstChainId The destination chain ID where the tokens were delivered
+    /// @return token The address of the token involved in the transfer
+    /// @return fulfilled Indicates if the transfer was fulfilled
+    /// @return solver The address of the solver who fulfilled the transfer
+    /// @return recipient The address that received the tokens on the destination chain
+    /// @return amount The amount of tokens transferred to the recipient
+    /// @return fulfilledAt The timestamp when the transfer was fulfilled
     function getReceipt(bytes32 _requestId)
         external
         view
@@ -233,7 +241,7 @@ interface IRouter {
     /// @param dstChainId The destination chain ID
     /// @param recipient The address that will receive the tokens
     /// @param nonce A unique nonce for the request
-    /// @return The constructed swap request parameters
+    /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
         address token,
         uint256 amount,
@@ -242,11 +250,13 @@ interface IRouter {
         uint256 dstChainId,
         address recipient,
         uint256 nonce
-    ) external view returns (SwapRequestParameters memory params);
+    ) external view returns (SwapRequestParameters memory swapRequestParams);
 
-    /// @notice Converts swap request parameters to bytes for messaging
-    /// @param requestId The unique ID of the swap request
-    /// @return The message bytes and its representation as G1 bytes and G1 point
+    /// @notice Converts transfer params to message and BLS format
+    /// @param requestId The unique request ID
+    /// @return message The encoded message bytes
+    /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
+    /// @return messageAsG1Point The message hashed to BLS G1 point
     function swapRequestParametersToBytes(bytes32 requestId)
         external
         view

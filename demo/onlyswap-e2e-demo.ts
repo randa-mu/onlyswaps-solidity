@@ -65,23 +65,23 @@ async function main() {
       iface.getEvent("SwapRequested")
     );
 
-    const transferParams = await RouterSrc.getSwapRequestParameters(requestId);
+    const swapRequestParams = await RouterSrc.getSwapRequestParameters(requestId);
 
-    const formattedTransferParams = {
-      sender: transferParams.sender,
-      recipient: transferParams.recipient,
-      token: transferParams.token,
-      amount: formatEther(transferParams.amount),
-      srcChainId: transferParams.srcChainId,
-      dstChainId: transferParams.dstChainId,
-      verificationFee: formatEther(transferParams.verificationFee),
-      solverFee: formatEther(transferParams.solverFee),
-      nonce: transferParams.nonce,
-      executed: transferParams.executed,
+    const formattedSwapRequestParams = {
+      sender: swapRequestParams.sender,
+      recipient: swapRequestParams.recipient,
+      token: swapRequestParams.token,
+      amount: formatEther(swapRequestParams.amount),
+      srcChainId: swapRequestParams.srcChainId,
+      dstChainId: swapRequestParams.dstChainId,
+      verificationFee: formatEther(swapRequestParams.verificationFee),
+      solverFee: formatEther(swapRequestParams.solverFee),
+      nonce: swapRequestParams.nonce,
+      executed: swapRequestParams.executed,
     };
 
     console.log(`Swap request created with requestId ${requestId}`);
-    console.log("Swap request parameters:", formattedTransferParams);
+    console.log("Swap request parameters:", formattedSwapRequestParams);
 
     const [, , messageAsG1Point] = await RouterSrc.swapRequestParametersToBytes(
       requestId

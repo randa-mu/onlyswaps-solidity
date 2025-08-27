@@ -14,5 +14,5 @@ library ErrorsLib {
     error FeeBpsExceedsThreshold(uint256 maxFeeBps);
     error BLSSignatureVerificationFailed();
     error SwapRequestParametersMismatch();
-    error SourceChainIdMismatch(uint256 transferParamsSrcChainId, uint256 contractChainId);
+    error SourceChainIdMismatch(uint256 swapRequestParamsSrcChainId, uint256 contractChainId);
 }

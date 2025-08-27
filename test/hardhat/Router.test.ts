@@ -130,8 +130,8 @@ describe("Router", function () {
 
     expect(await srcToken.balanceOf(userAddr)).to.equal(0);
 
-    const transferParams = await router.getSwapRequestParameters(requestId);
-    expect(transferParams.verificationFee + transferParams.solverFee).to.equal(newFee);
+    const swapRequestParams = await router.getSwapRequestParameters(requestId);
+    expect(swapRequestParams.verificationFee + swapRequestParams.solverFee).to.equal(newFee);
   });
 
   it("should block non-owner from withdrawing fees", async () => {
@@ -177,8 +177,8 @@ describe("Router", function () {
 
     expect(await router.getTotalVerificationFeeBalance(await srcToken.getAddress())).to.equal(0);
 
-    const transferParams = await router.getSwapRequestParameters(requestId);
-    expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + transferParams.solverFee);
+    const swapRequestParams = await router.getSwapRequestParameters(requestId);
+    expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + swapRequestParams.solverFee);
   });
 
   it("should rebalance solver and transfer correct amount", async () => {
@@ -210,7 +210,7 @@ describe("Router", function () {
     // Message signing
 
     // Step 1. Fetch transfer parameters from the chain using the request id
-    const transferParams = await router.getSwapRequestParameters(requestId);
+    const swapRequestParams = await router.getSwapRequestParameters(requestId);
 
     const [, , messageAsG1Point] = await router.swapRequestParametersToBytes(requestId);
 
@@ -232,7 +232,7 @@ describe("Router", function () {
 
     // ensure that the router has enough liquidity to pay solver
     expect(await srcToken.balanceOf(await router.getAddress())).to.be.greaterThanOrEqual(
-      transferParams.amount + transferParams.solverFee,
+      swapRequestParams.amount + swapRequestParams.solverFee,
     );
 
     const before = await srcToken.balanceOf(solverAddr);
@@ -244,8 +244,8 @@ describe("Router", function () {
     await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
 
     const after = await srcToken.balanceOf(solverAddr);
-    expect(after - before).to.equal(amount + transferParams.solverFee);
-    expect(await srcToken.balanceOf(await router.getAddress())).to.be.equal(transferParams.verificationFee);
+    expect(after - before).to.equal(amount + swapRequestParams.solverFee);
+    expect(await srcToken.balanceOf(await router.getAddress())).to.be.equal(swapRequestParams.verificationFee);
 
     expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(1);
     expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(0);

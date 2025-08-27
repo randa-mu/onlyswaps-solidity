@@ -290,7 +290,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
                 p.recipient,
                 p.token,
                 p.amount,
-                getChainID(),
+                getChainID(), // the srcChainId is always the current chain ID
                 p.dstChainId,
                 p.verificationFee,
                 p.solverFee,
