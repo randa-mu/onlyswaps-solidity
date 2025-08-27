@@ -132,10 +132,12 @@ interface IRouter {
     /// @param newFee The new fee to be set for the swap request
     function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external;
 
-    /// @notice Rebalances the solver for a specific swap request
-    /// @param solver The address of the solver to be rebalanced
-    /// @param requestId The unique ID of the swap request to be rebalanced
-    /// @param signature The signature to validate the rebalance action
+    /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
+    /// @notice The solver is sent the amount transferred to the recipient wallet on the destination chain
+    ///         plus the solver fee.
+    /// @param solver The address of the solver being compensated for their service.
+    /// @param requestId The unique ID of the swap request being fulfilled.
+    /// @param signature The BLS signature verifying the authenticity of the request.
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external;
 
     /// @notice Relays tokens to the recipient and stores a receipt
@@ -252,7 +254,7 @@ interface IRouter {
         uint256 nonce
     ) external view returns (SwapRequestParameters memory swapRequestParams);
 
-    /// @notice Converts transfer params to message and BLS format
+    /// @notice Converts swap request parameters to a message as bytes and BLS format for signing
     /// @param requestId The unique request ID
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes

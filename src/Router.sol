@@ -214,7 +214,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
     // ---------------------- Utility & View ----------------------
 
-    /// @notice Converts transfer params to message and BLS format
+    /// @notice Converts swap request parameters to a message as bytes and BLS format for signing
     /// @param requestId The unique request ID
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
@@ -241,14 +241,14 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         messageAsG1Bytes = blsValidator.hashToBytes(message);
     }
 
-    /// @notice Builds a new transfer parameter object
-    /// @param token The address of the token to be transferred.
-    /// @param amount The amount of tokens to be transferred.
-    /// @param verificationFeeAmount The fee amount for the swap.
-    /// @param solverFeeAmount The fee amount for the solver.
-    /// @param dstChainId The ID of the destination chain.
-    /// @param recipient The address of the recipient of the transfer.
-    /// @param nonce A unique identifier to prevent replay attacks.
+    /// @notice Builds swap request parameters based on the provided details
+    /// @param token The address of the token to be swapped
+    /// @param amount The amount of tokens to be swapped
+    /// @param verificationFeeAmount The verification fee amount
+    /// @param solverFeeAmount The solver fee amount
+    /// @param dstChainId The destination chain ID
+    /// @param recipient The address that will receive the tokens
+    /// @param nonce A unique nonce for the request
     /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
         address token,
@@ -273,18 +273,17 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         });
     }
 
-    /// @notice Computes the swap fee in underlying token units
-    /// @dev A percentage of the total fee set by the user is reserved as swap fee for the protocol
-    /// @param totalFees The total fee amount in token units
-    /// @return The calculated swap fee amount in token units
+    /// @notice Calculates the verification fee amount based on total fees
+    /// @param totalFees The total fees for which the verification fee is to be calculated
+    /// @return The calculated verification fee amount
     function getVerificationFeeAmount(uint256 totalFees) public view returns (uint256) {
         if (verificationFeeBps == 0) return 0;
         return (totalFees * verificationFeeBps) / BPS_DIVISOR;
     }
 
-    /// @notice Computes the unique request ID (hash of transfer parameters)
-    /// @param p The transfer parameters used to compute the request ID
-    /// @return requestId The unique request ID as a bytes32 hash
+    /// @notice Generates a unique request ID based on the provided swap request parameters
+    /// @param p The swap request parameters
+    /// @return The generated request ID
     function getRequestId(SwapRequestParameters memory p) public view returns (bytes32) {
         /// @dev The executed parameter is not used in the request ID hash as it is mutable
         return keccak256(
@@ -302,27 +301,27 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         );
     }
 
-    /// @notice Returns the current EVM chain ID
-    /// @return The current chain ID as a uint256
+    /// @notice Retrieves the current chain ID
+    /// @return The current chain ID
     function getChainID() public view returns (uint256) {
         return block.chainid;
     }
 
-    /// @notice Returns the swap fee in basis points
-    /// @return The swap fee as a uint256
+    /// @notice Retrieves the current verification fee in basis points
+    /// @return The current verification fee in basis points
     function getVerificationFeeBps() external view returns (uint256) {
         return verificationFeeBps;
     }
 
-    /// @notice Returns the address of the BLS validator
+    /// @notice Retrieves the address of the BLS validator
     /// @return The address of the BLS validator
     function getBlsValidator() external view returns (address) {
         return address(blsValidator);
     }
 
-    /// @notice Returns the transfer parameters for a given request ID
-    /// @param requestId The ID of the transfer request
-    /// @return swapRequestParams The transfer parameters associated with the request ID
+    /// @notice Retrieves the swap request parameters for a given request ID
+    /// @param requestId The unique ID of the swap request
+    /// @return swapRequestParams The swap request parameters associated with the request ID
     function getSwapRequestParameters(bytes32 requestId)
         public
         view
@@ -338,17 +337,17 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         return allowedDstChainIds[chainId];
     }
 
-    /// @notice Returns the token mapping for a source token and destination chain ID
+    /// @notice Retrieves the token mapping for a given source token and destination chain ID
     /// @param srcToken The address of the source token
     /// @param dstChainId The destination chain ID
-    /// @return The address of the mapped token on the destination chain
+    /// @return The address of the mapped destination token
     function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address) {
         return tokenMappings[srcToken][dstChainId];
     }
 
-    /// @notice Returns the total swap fees balance for a given token
+    /// @notice Retrieves the total verification fee balance for a specific token
     /// @param token The address of the token
-    /// @return The total swap fees balance as a uint256
+    /// @return The total verification fee balance for the specified token
     function getTotalVerificationFeeBalance(address token) external view returns (uint256) {
         return totalVerificationFeeBalance[token];
     }
