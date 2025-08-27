@@ -246,7 +246,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param dstChainId The ID of the destination chain.
     /// @param recipient The address of the recipient of the transfer.
     /// @param nonce A unique identifier to prevent replay attacks.
-    /// @return params A SwapRequestParameters struct containing the transfer parameters.
+    /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
         address token,
         uint256 amount,
@@ -255,8 +255,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         uint256 dstChainId,
         address recipient,
         uint256 nonce
-    ) public view returns (SwapRequestParameters memory params) {
-        params = SwapRequestParameters({
+    ) public view returns (SwapRequestParameters memory swapRequestParams) {
+        swapRequestParams = SwapRequestParameters({
             sender: msg.sender,
             recipient: recipient,
             token: token,
@@ -319,9 +319,13 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
     /// @notice Returns the transfer parameters for a given request ID
     /// @param requestId The ID of the transfer request
-    /// @return params The transfer parameters associated with the request ID
-    function getSwapRequestParameters(bytes32 requestId) public view returns (SwapRequestParameters memory params) {
-        params = swapRequestParameters[requestId];
+    /// @return swapRequestParams The transfer parameters associated with the request ID
+    function getSwapRequestParameters(bytes32 requestId)
+        public
+        view
+        returns (SwapRequestParameters memory swapRequestParams)
+    {
+        swapRequestParams = swapRequestParameters[requestId];
     }
 
     /// @notice Checks if a destination chain ID is allowed
