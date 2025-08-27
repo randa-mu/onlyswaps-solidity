@@ -349,7 +349,7 @@ describe("Router", function () {
     }
 
     const routerInterface = Router__factory.createInterface();
-    const [reqId, sourceChainId, token, solver, recipient, , fulfilledAt] = extractSingleLog(
+    const [reqId, sourceChainId, , token, solver, recipient, , fulfilledAt] = extractSingleLog(
       routerInterface,
       receipt,
       await router.getAddress(),

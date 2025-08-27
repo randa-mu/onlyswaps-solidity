@@ -26,9 +26,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     uint256 public constant MAX_FEE_BPS = 5_000;
     uint256 public verificationFeeBps = 500;
 
-    /// @notice Current chain ID (immutable)
-    uint256 public immutable thisChainId;
-
     /// @notice BLS validator used for signature verification
     ISignatureScheme public blsValidator;
 
@@ -66,7 +63,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param _blsValidator BLS validator address
     constructor(address _owner, address _blsValidator) Ownable(_owner) {
         blsValidator = ISignatureScheme(_blsValidator);
-        thisChainId = getChainID();
     }
 
     // ---------------------- Core Transfer Logic ----------------------
@@ -107,13 +103,13 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
         requestId = getRequestId(params);
 
-        (bytes memory message,,) = swapRequestParametersToBytes(requestId);
-
         storeTransferRequest(requestId, params);
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount + fee);
 
-        emit SwapRequested(requestId, message);
+        emit SwapRequested(
+            requestId, getChainID(), dstChainId, token, msg.sender, recipient, amount, fee, nonce, block.timestamp
+        );
     }
 
     function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external nonReentrant {
@@ -143,7 +139,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         params.solverFee = newSolverFee;
 
         // Emit event if needed for tracking fee updates (optional)
-        emit SwapRequestFeeUpdated(requestId, params.token, newVerificationFeeAmount, newSolverFee);
+        emit SwapRequestFeeUpdated(requestId);
     }
 
     /// @notice Relays tokens to the recipient and stores a receipt
@@ -167,6 +163,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         swapRequestReceipts[requestId] = SwapRequestReceipt({
             requestId: requestId,
             srcChainId: srcChainId,
+            dstChainId: getChainID(),
             token: token,
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
             solver: msg.sender,
@@ -175,7 +172,9 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             fulfilledAt: block.timestamp
         });
 
-        emit SwapRequestFulfilled(requestId, srcChainId, token, msg.sender, recipient, amount, block.timestamp);
+        emit SwapRequestFulfilled(
+            requestId, srcChainId, getChainID(), token, msg.sender, recipient, amount, block.timestamp
+        );
     }
 
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
@@ -192,7 +191,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         SwapRequestParameters storage params = swapRequestParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         /// @dev rebalancing of solvers happens on the source chain router
-        require(params.srcChainId == thisChainId, ErrorsLib.SourceChainIdMismatch(params.srcChainId, thisChainId));
+        require(params.srcChainId == getChainID(), ErrorsLib.SourceChainIdMismatch(params.srcChainId, getChainID()));
 
         (, bytes memory messageAsG1Bytes,) = swapRequestParametersToBytes(requestId);
         require(
@@ -263,7 +262,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             recipient: recipient,
             token: token,
             amount: amount,
-            srcChainId: thisChainId,
+            srcChainId: getChainID(),
             dstChainId: dstChainId,
             verificationFee: verificationFeeAmount,
             solverFee: solverFeeAmount,
@@ -311,12 +310,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @return The swap fee as a uint256
     function getVerificationFeeBps() external view returns (uint256) {
         return verificationFeeBps;
-    }
-
-    /// @notice Returns the chain ID of this contract
-    /// @return The chain ID as a uint256
-    function getThisChainId() external view returns (uint256) {
-        return thisChainId;
     }
 
     /// @notice Returns the address of the BLS validator

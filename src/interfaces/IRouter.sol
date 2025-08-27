@@ -23,6 +23,7 @@ interface IRouter {
     struct SwapRequestReceipt {
         bytes32 requestId; // Reference to the original request on the source chain
         uint256 srcChainId; // Source chain ID from which the request originated
+        uint256 dstChainId; // Destination chain ID where the request was fulfilled
         address token; // Token being transferred
         bool fulfilled; // Whether the transfer has been delivered
         address solver; // Address that fulfilled the request
@@ -31,9 +32,37 @@ interface IRouter {
         uint256 fulfilledAt; // Timestamp when the request was fulfilled
     }
 
+    // -------- Events --------
+
+    /// @notice Emitted when a new swap request is created
+    /// @param requestId Hash of the transfer parameters
+    /// @param srcChainId The source chain ID from which the request originated
+    /// @param dstChainId The destination chain ID where the tokens will be delivered
+    /// @param token The address of the token being transferred
+    /// @param sender The address initiating the swap
+    /// @param recipient The address that will receive the tokens on the destination chain
+    /// @param amount The amount of tokens requested for transfer
+    /// @param fee The fee associated with the swap request
+    /// @param nonce A unique identifier to prevent replay attacks
+    /// @param requestedAt The timestamp when the swap request was created
+    event SwapRequested(
+        bytes32 indexed requestId,
+        uint256 indexed srcChainId,
+        uint256 indexed dstChainId,
+        address token,
+        address sender,
+        address recipient,
+        uint256 amount,
+        uint256 fee,
+        uint256 nonce,
+        uint256 requestedAt
+    );
+
     /// @notice Emitted when a swap request is fulfilled on the destination chain by a solver
     /// @param requestId The unique ID of the swap request
-    /// @param srcChainId The source chain ID
+    /// @param srcChainId The source chain ID from which the request originated
+    /// @param dstChainId The destination chain ID where the tokens were delivered
+    /// @param token The address of the token that was transferred
     /// @param solver The address that fulfilled the transfer
     /// @param recipient The address that received the tokens on the destination chain
     /// @param amount The amount transferred to the recipient
@@ -41,45 +70,48 @@ interface IRouter {
     event SwapRequestFulfilled(
         bytes32 indexed requestId,
         uint256 indexed srcChainId,
-        address indexed token,
+        uint256 indexed dstChainId,
+        address token,
         address solver,
         address recipient,
         uint256 amount,
         uint256 fulfilledAt
     );
 
-    // -------- Events --------
-
-    /// @notice Emitted when a new swap (request) is created
-    /// @param requestId Hash of transfer parameters
-    /// @param message Encoded payload for off-chain solver
-    event SwapRequested(bytes32 indexed requestId, bytes message);
-
     /// @notice Emitted when a message is successfully fulfilled by a solver
     /// @param requestId Hash of the transfer parameters
     event SolverPayoutFulfilled(bytes32 indexed requestId);
 
     /// @notice Emitted when the fee is updated for a request by the sender
-    event SwapRequestFeeUpdated(
-        bytes32 indexed requestId, address token, uint256 newVerificationFee, uint256 newSolverFee
-    );
+    /// @param requestId Hash of the transfer parameters
+    event SwapRequestFeeUpdated(bytes32 indexed requestId);
 
     /// @notice Emitted when the swap fee Bps is updated
+    /// @param newFeeBps The new fee in basis points
     event VerificationFeeBpsUpdated(uint256 newFeeBps);
 
     /// @notice Emitted when the bls validator contract is updated
+    /// @param blsValidator The new BLS validator contract address
     event BLSValidatorUpdated(address indexed blsValidator);
 
     /// @notice Emitted when the destination chain id is permitted
+    /// @param chainId The permitted chain id
     event DestinationChainIdPermitted(uint256 chainId);
 
     /// @notice Emitted when the destination chain id is blocked
+    /// @param chainId The blocked chain id
     event DestinationChainIdBlocked(uint256 chainId);
 
     /// @notice Emitted when a pair of source and destination chain tokens are mapped
+    /// @param dstChainId The destination chain id
+    /// @param dstToken The destination token address
+    /// @param srcToken The source token address
     event TokenMappingUpdated(uint256 dstChainId, address dstToken, address srcToken);
 
     /// @notice Emitted when swap fees have been withdrawn to a recipient address
+    /// @param token The token address of the withdrawn fees
+    /// @param recipient The address receiving the withdrawn fees
+    /// @param amount The amount of fees withdrawn
     event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amount);
 
     // -------- Core Transfer Logic --------
@@ -108,7 +140,6 @@ interface IRouter {
     function getChainID() external view returns (uint256);
     function getBlsValidator() external view returns (address);
     function getVerificationFeeBps() external view returns (uint256);
-    function getThisChainId() external view returns (uint256);
     function getTotalVerificationFeeBalance(address token) external view returns (uint256);
     function getAllowedDstChainId(uint256 chainId) external view returns (bool);
     function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address);
