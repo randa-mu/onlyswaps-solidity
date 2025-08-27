@@ -6,6 +6,7 @@ library ErrorsLib {
     error AlreadyFulfilled();
     error InvalidTokenOrRecipient();
     error ZeroAmount();
+    error FeeTooLow();
     error TokenNotSupported();
     error UnauthorisedCaller();
     error NewFeeTooLow(uint256 newFee, uint256 currentFee);

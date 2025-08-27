@@ -88,6 +88,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         // based on the total fee provided
         uint256 swapFeeAmount = getSwapFeeAmount(fee);
         // Calculate the solver fee by subtracting the swap fee from the total fee
+        require(fee > swapFeeAmount, ErrorsLib.FeeTooLow());
         uint256 solverFee = fee - swapFeeAmount;
 
         // Accumulate the total swap fees balance for the specified token
