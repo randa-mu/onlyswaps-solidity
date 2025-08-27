@@ -111,6 +111,9 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         );
     }
 
+    /// @notice Updates the fee for an unfulfilled swap request
+    /// @param requestId The unique ID of the swap request to update
+    /// @param newFee The new fee to be set for the swap request
     function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external nonReentrant {
         SwapRequestParameters storage params = swapRequestParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
