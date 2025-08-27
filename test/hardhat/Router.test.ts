@@ -66,7 +66,7 @@ describe("Router", function () {
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
 
-  it("should initiate a bridge request and emit message", async () => {
+  it("should initiate a swap request and emit message", async () => {
     const amount = parseEther("10");
     const fee = parseEther("1");
     const amountToMint = amount + fee;
@@ -92,7 +92,7 @@ describe("Router", function () {
     ).to.be.revertedWithCustomError(router, "FeeTooLow");
   });
 
-  it("should update bridge fees for unfulfilled request", async () => {
+  it("should update the total swap request fee for unfulfilled request", async () => {
     const amount = parseEther("5");
     const fee = parseEther("1");
     const amountToMint = amount + fee;
@@ -140,7 +140,7 @@ describe("Router", function () {
       .withArgs(await user.getAddress());
   });
 
-  it("should allow owner to withdraw bridge fees", async () => {
+  it("should allow owner to withdraw verification fees", async () => {
     const amount = parseEther("10");
     const fee = parseEther("1");
     const amountToMint = amount + fee;
@@ -262,7 +262,7 @@ describe("Router", function () {
     // Mint tokens for user
     await srcToken.mint(userAddr, amount);
 
-    // Approve Bridge to spend user's tokens
+    // Approve Router to spend user's tokens
     await srcToken.connect(user).approve(await router.getAddress(), amount);
 
     // Relay tokens
