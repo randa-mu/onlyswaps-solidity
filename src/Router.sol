@@ -204,6 +204,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         view
         returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point)
     {
+        /// @dev The order of parameters is critical for signature verification
+        /// @dev The executed parameter is not used in the message hash
         message = abi.encode(
             params.sender,
             params.recipient,
@@ -213,8 +215,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             params.dstChainId,
             params.swapFee,
             params.solverFee,
-            params.nonce,
-            params.executed
+            params.nonce
         );
         (uint256 x, uint256 y) = blsValidator.hashToPoint(message);
         messageAsG1Point = BLS.PointG1({x: x, y: y});
@@ -266,6 +267,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
     /// @notice Computes the unique request ID (hash of transfer parameters)
     function getRequestId(TransferParams memory p) public view returns (bytes32) {
+        /// @dev The executed parameter is not used in the request ID hash as it is mutable
         return keccak256(
             abi.encode(
                 p.sender,
@@ -276,8 +278,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
                 p.dstChainId,
                 p.swapFee,
                 p.solverFee,
-                p.nonce,
-                p.executed
+                p.nonce
             )
         );
     }
