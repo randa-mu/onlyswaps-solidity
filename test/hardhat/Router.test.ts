@@ -79,7 +79,7 @@ describe("Router", function () {
     ).to.emit(router, "SwapRequested");
   });
 
-  it.only("should revert if fee is too low", async () => {
+  it("should revert if fee is too low", async () => {
     const amount = parseEther("10");
     const fee = parseEther("0"); // Set fee lower than the required swap fee
     const amountToMint = amount + fee;
