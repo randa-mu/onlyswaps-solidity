@@ -131,11 +131,11 @@ describe("Router", function () {
     expect(await srcToken.balanceOf(userAddr)).to.equal(0);
 
     const transferParams = await router.getSwapRequestParameters(requestId);
-    expect(transferParams.swapFee + transferParams.solverFee).to.equal(newFee);
+    expect(transferParams.verificationFee + transferParams.solverFee).to.equal(newFee);
   });
 
   it("should block non-owner from withdrawing fees", async () => {
-    await expect(router.connect(user).withdrawSwapFees(await srcToken.getAddress(), user.address))
+    await expect(router.connect(user).withdrawVerificationFee(await srcToken.getAddress(), user.address))
       .to.be.revertedWithCustomError(router, "OwnableUnauthorizedAccount")
       .withArgs(await user.getAddress());
   });
@@ -167,15 +167,15 @@ describe("Router", function () {
 
     const before = await srcToken.balanceOf(owner.address);
 
-    await expect(router.connect(owner).withdrawSwapFees(await srcToken.getAddress(), ownerAddr)).to.emit(
+    await expect(router.connect(owner).withdrawVerificationFee(await srcToken.getAddress(), ownerAddr)).to.emit(
       router,
-      "SwapFeesWithdrawn",
+      "VerificationFeeWithdrawn",
     );
 
     const after = await srcToken.balanceOf(ownerAddr);
     expect(after).to.be.gt(before);
 
-    expect(await router.getTotalSwapFeesBalance(await srcToken.getAddress())).to.equal(0);
+    expect(await router.getTotalVerificationFeeBalance(await srcToken.getAddress())).to.equal(0);
 
     const transferParams = await router.getSwapRequestParameters(requestId);
     expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + transferParams.solverFee);
@@ -212,7 +212,7 @@ describe("Router", function () {
     // Step 1. Fetch transfer parameters from the chain using the request id
     const transferParams = await router.getSwapRequestParameters(requestId);
 
-    const [, , messageAsG1Point] = await router.transferParamsToBytes(requestId);
+    const [, , messageAsG1Point] = await router.swapRequestParametersToBytes(requestId);
 
     // Step 2: Message from EVM
     const M = bn254.G1.ProjectivePoint.fromAffine({
@@ -245,7 +245,7 @@ describe("Router", function () {
 
     const after = await srcToken.balanceOf(solverAddr);
     expect(after - before).to.equal(amount + transferParams.solverFee);
-    expect(await srcToken.balanceOf(await router.getAddress())).to.be.equal(transferParams.swapFee);
+    expect(await srcToken.balanceOf(await router.getAddress())).to.be.equal(transferParams.verificationFee);
 
     expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(1);
     expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(0);
@@ -274,7 +274,7 @@ describe("Router", function () {
     expect(await srcToken.balanceOf(recipientAddr)).to.equal(amount);
 
     // Check receipt
-    const receipt = await router.receipts(requestId);
+    const receipt = await router.swapRequestReceipts(requestId);
     expect(receipt.fulfilled).to.be.true;
     expect(receipt.amount).to.equal(amount);
     expect(receipt.solver).to.equal(userAddr);

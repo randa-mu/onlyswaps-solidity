@@ -13,8 +13,8 @@ interface IRouter {
         uint256 amount; // Amount to be received by the recipient on the destination chain
         uint256 srcChainId; // Source chain ID where the request originated
         uint256 dstChainId; // Destination chain ID where tokens will be delivered
-        uint256 swapFee; // Total swap fee deducted from the amount
-        uint256 solverFee; // Portion of swapFee paid to the solver
+        uint256 verificationFee; // Total swap fee deducted from the amount
+        uint256 solverFee; // Portion of verificationFee paid to the solver
         uint256 nonce; // Unique nonce to prevent replay attacks
         bool executed; // Whether the transfer has been executed
     }
@@ -60,10 +60,12 @@ interface IRouter {
     event SolverPayoutFulfilled(bytes32 indexed requestId);
 
     /// @notice Emitted when the fee is updated for a request by the sender
-    event SwapRequestFeeUpdated(bytes32 indexed requestId, address token, uint256 newSwapFee, uint256 newSolverFee);
+    event SwapRequestFeeUpdated(
+        bytes32 indexed requestId, address token, uint256 newVerificationFee, uint256 newSolverFee
+    );
 
     /// @notice Emitted when the swap fee Bps is updated
-    event SwapFeeBpsUpdated(uint256 newFeeBps);
+    event VerificationFeeBpsUpdated(uint256 newFeeBps);
 
     /// @notice Emitted when the bls validator contract is updated
     event BLSValidatorUpdated(address indexed blsValidator);
@@ -78,7 +80,7 @@ interface IRouter {
     event TokenMappingUpdated(uint256 dstChainId, address dstToken, address srcToken);
 
     /// @notice Emitted when swap fees have been withdrawn to a recipient address
-    event SwapFeesWithdrawn(address indexed token, address indexed recipient, uint256 amount);
+    event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amount);
 
     // -------- Core Transfer Logic --------
 
@@ -101,16 +103,19 @@ interface IRouter {
 
     // -------- View Functions --------
 
-    function getSwapFeeAmount(uint256 totalFees) external view returns (uint256);
+    function getVerificationFeeAmount(uint256 totalFees) external view returns (uint256);
     function getRequestId(SwapRequestParameters memory p) external view returns (bytes32);
     function getChainID() external view returns (uint256);
     function getBlsValidator() external view returns (address);
-    function getSwapFeeBps() external view returns (uint256);
+    function getVerificationFeeBps() external view returns (uint256);
     function getThisChainId() external view returns (uint256);
-    function getTotalSwapFeesBalance(address token) external view returns (uint256);
+    function getTotalVerificationFeeBalance(address token) external view returns (uint256);
     function getAllowedDstChainId(uint256 chainId) external view returns (bool);
     function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address);
-    function getSwapRequestParameters(bytes32 requestId) external view returns (SwapRequestParameters memory transferParams);
+    function getSwapRequestParameters(bytes32 requestId)
+        external
+        view
+        returns (SwapRequestParameters memory transferParams);
     function getFulfilledTransfers() external view returns (bytes32[] memory);
     function getUnfulfilledSolverRefunds() external view returns (bytes32[] memory);
     function getFulfilledSolverRefunds() external view returns (bytes32[] memory);
@@ -130,7 +135,7 @@ interface IRouter {
     function buildSwapRequestParameters(
         address token,
         uint256 amount,
-        uint256 swapFeeAmount,
+        uint256 verificationFeeAmount,
         uint256 solverFeeAmount,
         uint256 dstChainId,
         address recipient,
@@ -144,10 +149,10 @@ interface IRouter {
 
     // -------- Admin Functions --------
 
-    function setSwapFeeBps(uint256 _swapFeeBps) external;
+    function setVerificationFeeBps(uint256 _verificationFeeBps) external;
     function setBlsValidator(address _blsValidator) external;
     function permitDestinationChainId(uint256 chainId) external;
     function blockDestinationChainId(uint256 chainId) external;
     function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external;
-    function withdrawSwapFees(address token, address to) external;
+    function withdrawVerificationFee(address token, address to) external;
 }
