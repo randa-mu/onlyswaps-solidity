@@ -425,6 +425,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param requestId The request ID to check
     /// @return requestId The unique ID of the transfer request
     /// @return srcChainId The source chain ID from which the request originated
+    /// @return dstChainId The destination chain ID where the tokens were delivered
     /// @return token The address of the token involved in the transfer
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
@@ -437,6 +438,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         returns (
             bytes32 requestId,
             uint256 srcChainId,
+            uint256 dstChainId,
             address token,
             bool fulfilled,
             address solver,
@@ -448,6 +450,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         SwapRequestReceipt storage receipt = swapRequestReceipts[_requestId];
         requestId = receipt.requestId;
         srcChainId = receipt.srcChainId;
+        dstChainId = receipt.dstChainId;
         token = receipt.token;
         fulfilled = receipt.fulfilled;
         solver = receipt.solver;

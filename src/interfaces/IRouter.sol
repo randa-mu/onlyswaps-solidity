@@ -156,6 +156,7 @@ interface IRouter {
         returns (
             bytes32 requestId,
             uint256 srcChainId,
+            uint256 dstChainId,
             address token,
             bool fulfilled,
             address solver,

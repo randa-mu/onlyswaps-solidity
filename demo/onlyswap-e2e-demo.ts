@@ -66,18 +66,6 @@ async function main() {
     );
 
     const transferParams = await RouterSrc.getSwapRequestParameters(requestId);
-    const transferParamsObject = {
-      sender: transferParams.sender,
-      recipient: transferParams.recipient,
-      token: transferParams.token,
-      amount: transferParams.amount,
-      srcChainId: transferParams.srcChainId,
-      dstChainId: transferParams.dstChainId,
-      verificationFee: transferParams.verificationFee,
-      solverFee: transferParams.solverFee,
-      nonce: transferParams.nonce,
-      executed: transferParams.executed,
-    };
 
     const formattedTransferParams = {
       sender: transferParams.sender,
