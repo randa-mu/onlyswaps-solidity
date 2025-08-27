@@ -6,7 +6,7 @@ import {BLS} from "../libraries/BLS.sol";
 interface IRouter {
     // -------- Structs --------
 
-    struct TransferParams {
+    struct SwapRequestParameters {
         address sender; // Address initiating the swap on the source chain
         address recipient; // Address to receive tokens on the destination chain
         address token; // Token address being transferred
@@ -20,7 +20,7 @@ interface IRouter {
     }
 
     /// @notice Structure to store details of a fulfilled transfer request
-    struct TransferReceipt {
+    struct SwapRequestReceipt {
         bytes32 requestId; // Reference to the original request on the source chain
         uint256 srcChainId; // Source chain ID from which the request originated
         address token; // Token being transferred
@@ -31,14 +31,14 @@ interface IRouter {
         uint256 fulfilledAt; // Timestamp when the request was fulfilled
     }
 
-    /// @notice Emitted when a bridge receipt is recorded
-    /// @param requestId The unique ID of the bridge transfer request
+    /// @notice Emitted when a swap request is fulfilled on the destination chain by a solver
+    /// @param requestId The unique ID of the swap request
     /// @param srcChainId The source chain ID
     /// @param solver The address that fulfilled the transfer
     /// @param recipient The address that received the tokens on the destination chain
     /// @param amount The amount transferred to the recipient
     /// @param fulfilledAt The timestamp when the transfer was fulfilled
-    event BridgeReceipt(
+    event SwapRequestFulfilled(
         bytes32 indexed requestId,
         uint256 indexed srcChainId,
         address indexed token,
@@ -57,7 +57,7 @@ interface IRouter {
 
     /// @notice Emitted when a message is successfully fulfilled by a solver
     /// @param requestId Hash of the transfer parameters
-    event SwapRequestFulfilled(bytes32 indexed requestId);
+    event SolverPayoutFulfilled(bytes32 indexed requestId);
 
     /// @notice Emitted when the fee is updated for a request by the sender
     event SwapRequestFeeUpdated(bytes32 indexed requestId, address token, uint256 newSwapFee, uint256 newSolverFee);
@@ -102,7 +102,7 @@ interface IRouter {
     // -------- View Functions --------
 
     function getSwapFeeAmount(uint256 totalFees) external view returns (uint256);
-    function getRequestId(TransferParams memory p) external view returns (bytes32);
+    function getRequestId(SwapRequestParameters memory p) external view returns (bytes32);
     function getChainID() external view returns (uint256);
     function getBlsValidator() external view returns (address);
     function getSwapFeeBps() external view returns (uint256);
@@ -110,7 +110,7 @@ interface IRouter {
     function getTotalSwapFeesBalance(address token) external view returns (uint256);
     function getAllowedDstChainId(uint256 chainId) external view returns (bool);
     function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address);
-    function getTransferParameters(bytes32 requestId) external view returns (TransferParams memory transferParams);
+    function getSwapRequestParameters(bytes32 requestId) external view returns (SwapRequestParameters memory transferParams);
     function getFulfilledTransfers() external view returns (bytes32[] memory);
     function getUnfulfilledSolverRefunds() external view returns (bytes32[] memory);
     function getFulfilledSolverRefunds() external view returns (bytes32[] memory);
@@ -127,7 +127,7 @@ interface IRouter {
             uint256 amount,
             uint256 fulfilledAt
         );
-    function buildTransferParams(
+    function buildSwapRequestParameters(
         address token,
         uint256 amount,
         uint256 swapFeeAmount,
@@ -135,9 +135,9 @@ interface IRouter {
         uint256 dstChainId,
         address recipient,
         uint256 nonce
-    ) external view returns (TransferParams memory params);
+    ) external view returns (SwapRequestParameters memory params);
 
-    function transferParamsToBytes(bytes32 requestId)
+    function swapRequestParametersToBytes(bytes32 requestId)
         external
         view
         returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point);

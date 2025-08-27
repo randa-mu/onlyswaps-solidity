@@ -41,8 +41,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @dev Stores all fulfilled solver refunds by request IDs
     EnumerableSet.Bytes32Set private fulfilledSolverRefunds;
 
-    /// @notice Mapping of requestId => transfer parameters
-    mapping(bytes32 => TransferParams) public transferParameters;
+    /// @notice Mapping of requestId => swap request parameters
+    mapping(bytes32 => SwapRequestParameters) public swapRequestParameters;
 
     /// @notice Whitelisted destination chain IDs
     mapping(uint256 => bool) public allowedDstChainIds;
@@ -55,10 +55,12 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
     /// @notice Unique nonce for each swap request and user
     uint256 public currentNonce;
+
+    /// @dev Mapping of nonce to requester address
     mapping(uint256 => address) public nonceToRequester;
 
     /// @dev Mapping of requestId to transfer receipt
-    mapping(bytes32 => TransferReceipt) public receipts;
+    mapping(bytes32 => SwapRequestReceipt) public swapRequestReceipts;
 
     /// @param _owner Initial contract owner
     /// @param _blsValidator BLS validator address
@@ -100,12 +102,12 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         uint256 nonce = ++currentNonce;
         nonceToRequester[nonce] = msg.sender;
 
-        TransferParams memory params =
-            buildTransferParams(token, amount, swapFeeAmount, solverFee, dstChainId, recipient, nonce);
+        SwapRequestParameters memory params =
+            buildSwapRequestParameters(token, amount, swapFeeAmount, solverFee, dstChainId, recipient, nonce);
 
         requestId = getRequestId(params);
 
-        (bytes memory message,,) = transferParamsToBytes(requestId);
+        (bytes memory message,,) = swapRequestParametersToBytes(requestId);
 
         storeTransferRequest(requestId, params);
 
@@ -115,7 +117,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     }
 
     function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external nonReentrant {
-        TransferParams storage params = transferParameters[requestId];
+        SwapRequestParameters storage params = swapRequestParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
         require(
@@ -151,7 +153,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         external
         nonReentrant
     {
-        require(!receipts[requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
+        require(!swapRequestReceipts[requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
         require(token != address(0) && recipient != address(0), ErrorsLib.InvalidTokenOrRecipient());
         require(amount > 0, ErrorsLib.ZeroAmount());
 
@@ -159,7 +161,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
         IERC20(token).safeTransferFrom(msg.sender, recipient, amount);
 
-        receipts[requestId] = TransferReceipt({
+        swapRequestReceipts[requestId] = SwapRequestReceipt({
             requestId: requestId,
             srcChainId: srcChainId,
             token: token,
@@ -170,7 +172,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             fulfilledAt: block.timestamp
         });
 
-        emit BridgeReceipt(requestId, srcChainId, token, msg.sender, recipient, amount, block.timestamp);
+        emit SwapRequestFulfilled(requestId, srcChainId, token, msg.sender, recipient, amount, block.timestamp);
     }
 
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
@@ -184,12 +186,12 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         onlyOwner
         nonReentrant
     {
-        TransferParams storage params = transferParameters[requestId];
+        SwapRequestParameters storage params = swapRequestParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         /// @dev rebalancing of solvers happens on the source chain router
         require(params.srcChainId == thisChainId, ErrorsLib.SourceChainIdMismatch(params.srcChainId, thisChainId));
 
-        (, bytes memory messageAsG1Bytes,) = transferParamsToBytes(requestId);
+        (, bytes memory messageAsG1Bytes,) = swapRequestParametersToBytes(requestId);
         require(
             blsValidator.verifySignature(messageAsG1Bytes, signature, blsValidator.getPublicKeyBytes()),
             ErrorsLib.BLSSignatureVerificationFailed()
@@ -203,7 +205,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
         IERC20(params.token).safeTransfer(solver, solverRefund);
 
-        emit SwapRequestFulfilled(requestId);
+        emit SolverPayoutFulfilled(requestId);
     }
 
     // ---------------------- Utility & View ----------------------
@@ -213,12 +215,12 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
     /// @return messageAsG1Point The message hashed to BLS G1 point
-    function transferParamsToBytes(bytes32 requestId)
+    function swapRequestParametersToBytes(bytes32 requestId)
         public
         view
         returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point)
     {
-        TransferParams memory params = getTransferParameters(requestId);
+        SwapRequestParameters memory params = getSwapRequestParameters(requestId);
         /// @dev The order of parameters is critical for signature verification
         /// @dev The executed parameter is not used in the message hash
         message = abi.encode(
@@ -243,8 +245,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param dstChainId The ID of the destination chain.
     /// @param recipient The address of the recipient of the transfer.
     /// @param nonce A unique identifier to prevent replay attacks.
-    /// @return params A TransferParams struct containing the transfer parameters.
-    function buildTransferParams(
+    /// @return params A SwapRequestParameters struct containing the transfer parameters.
+    function buildSwapRequestParameters(
         address token,
         uint256 amount,
         uint256 swapFeeAmount,
@@ -252,8 +254,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         uint256 dstChainId,
         address recipient,
         uint256 nonce
-    ) public view returns (TransferParams memory params) {
-        params = TransferParams({
+    ) public view returns (SwapRequestParameters memory params) {
+        params = SwapRequestParameters({
             sender: msg.sender,
             recipient: recipient,
             token: token,
@@ -279,7 +281,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @notice Computes the unique request ID (hash of transfer parameters)
     /// @param p The transfer parameters used to compute the request ID
     /// @return requestId The unique request ID as a bytes32 hash
-    function getRequestId(TransferParams memory p) public view returns (bytes32) {
+    function getRequestId(SwapRequestParameters memory p) public view returns (bytes32) {
         /// @dev The executed parameter is not used in the request ID hash as it is mutable
         return keccak256(
             abi.encode(
@@ -314,9 +316,9 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
     /// @notice Returns the transfer parameters for a given request ID
     /// @param requestId The ID of the transfer request
-    /// @return transferParams The transfer parameters associated with the request ID
-    function getTransferParameters(bytes32 requestId) public view returns (TransferParams memory transferParams) {
-        transferParams = transferParameters[requestId];
+    /// @return params The transfer parameters associated with the request ID
+    function getSwapRequestParameters(bytes32 requestId) public view returns (SwapRequestParameters memory params) {
+        params = swapRequestParameters[requestId];
     }
 
     /// @notice Checks if a destination chain ID is allowed
@@ -360,8 +362,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     }
 
     /// @notice Stores a transfer request and marks as unfulfilled
-    function storeTransferRequest(bytes32 requestId, TransferParams memory params) internal {
-        transferParameters[requestId] = params;
+    function storeTransferRequest(bytes32 requestId, SwapRequestParameters memory params) internal {
+        swapRequestParameters[requestId] = params;
         unfulfilledSolverRefunds.add(requestId);
     }
 
@@ -440,7 +442,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             uint256 fulfilledAt
         )
     {
-        TransferReceipt storage receipt = receipts[_requestId];
+        SwapRequestReceipt storage receipt = swapRequestReceipts[_requestId];
         requestId = receipt.requestId;
         srcChainId = receipt.srcChainId;
         token = receipt.token;

@@ -65,7 +65,7 @@ async function main() {
       iface.getEvent("SwapRequested")
     );
 
-    const transferParams = await RouterSrc.getTransferParameters(requestId);
+    const transferParams = await RouterSrc.getSwapRequestParameters(requestId);
     const transferParamsObject = {
       sender: transferParams.sender,
       recipient: transferParams.recipient,
@@ -95,7 +95,7 @@ async function main() {
     console.log(`Swap request created with requestId ${requestId}`);
     console.log("Swap request parameters:", formattedTransferParams);
 
-    const [, , messageAsG1Point] = await RouterSrc.transferParamsToBytes(
+    const [, , messageAsG1Point] = await RouterSrc.swapRequestParametersToBytes(
       requestId
     );
 

@@ -130,7 +130,7 @@ describe("Router", function () {
 
     expect(await srcToken.balanceOf(userAddr)).to.equal(0);
 
-    const transferParams = await router.getTransferParameters(requestId);
+    const transferParams = await router.getSwapRequestParameters(requestId);
     expect(transferParams.swapFee + transferParams.solverFee).to.equal(newFee);
   });
 
@@ -177,7 +177,7 @@ describe("Router", function () {
 
     expect(await router.getTotalSwapFeesBalance(await srcToken.getAddress())).to.equal(0);
 
-    const transferParams = await router.getTransferParameters(requestId);
+    const transferParams = await router.getSwapRequestParameters(requestId);
     expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + transferParams.solverFee);
   });
 
@@ -210,7 +210,7 @@ describe("Router", function () {
     // Message signing
 
     // Step 1. Fetch transfer parameters from the chain using the request id
-    const transferParams = await router.getTransferParameters(requestId);
+    const transferParams = await router.getSwapRequestParameters(requestId);
 
     const [, , messageAsG1Point] = await router.transferParamsToBytes(requestId);
 
@@ -268,7 +268,7 @@ describe("Router", function () {
     // Relay tokens
     await expect(
       router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
-    ).to.emit(router, "BridgeReceipt");
+    ).to.emit(router, "SwapRequestFulfilled");
 
     // Check recipient balance after transfer
     expect(await srcToken.balanceOf(recipientAddr)).to.equal(amount);
@@ -313,7 +313,7 @@ describe("Router", function () {
       routerInterface,
       receipt,
       await router.getAddress(),
-      routerInterface.getEvent("BridgeReceipt"),
+      routerInterface.getEvent("SwapRequestFulfilled"),
     );
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
@@ -353,26 +353,26 @@ describe("Router", function () {
       routerInterface,
       receipt,
       await router.getAddress(),
-      routerInterface.getEvent("BridgeReceipt"),
+      routerInterface.getEvent("SwapRequestFulfilled"),
     );
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
 
-    const transferReceipt = await router.getReceipt(requestId);
+    const swapRequestReceipt = await router.getReceipt(requestId);
     // Check receipt values
-    expect(transferReceipt[0]).to.equal(requestId);
-    expect(transferReceipt[1]).to.equal(srcChainId);
-    expect(transferReceipt[2]).to.equal(await dstToken.getAddress());
-    expect(transferReceipt[3]).to.be.true;
-    expect(transferReceipt[4]).to.equal(userAddr);
-    expect(transferReceipt[5]).to.equal(recipientAddr);
-    expect(transferReceipt[6]).to.equal(amount);
-    expect(transferReceipt[7]).to.equal(timestamp);
+    expect(swapRequestReceipt[0]).to.equal(requestId);
+    expect(swapRequestReceipt[1]).to.equal(srcChainId);
+    expect(swapRequestReceipt[2]).to.equal(await dstToken.getAddress());
+    expect(swapRequestReceipt[3]).to.be.true;
+    expect(swapRequestReceipt[4]).to.equal(userAddr);
+    expect(swapRequestReceipt[5]).to.equal(recipientAddr);
+    expect(swapRequestReceipt[6]).to.equal(amount);
+    expect(swapRequestReceipt[7]).to.equal(timestamp);
 
     // Check receipt values compared to emitted event
-    expect(reqId).to.equal(transferReceipt[0]);
-    expect(sourceChainId).to.equal(transferReceipt[1]);
+    expect(reqId).to.equal(swapRequestReceipt[0]);
+    expect(sourceChainId).to.equal(swapRequestReceipt[1]);
     expect(token).to.equal(await dstToken.getAddress());
     expect(solver).to.equal(userAddr);
     expect(recipient).to.equal(recipientAddr);
