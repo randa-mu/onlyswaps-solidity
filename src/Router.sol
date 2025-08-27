@@ -228,8 +228,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             params.amount,
             params.srcChainId,
             params.dstChainId,
-            params.swapFee,
-            params.solverFee,
             params.nonce
         );
         (uint256 x, uint256 y) = blsValidator.hashToPoint(message);
