@@ -38,7 +38,7 @@ jobs:
         id: test
 
   hardhat:
-    needs: foundry
+    # Remove "needs: foundry" unless Hardhat actually depends on Foundry artifacts
     runs-on: ubuntu-latest
     name: Hardhat tests
     steps:
@@ -46,16 +46,14 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build project
         run: npx hardhat compile
