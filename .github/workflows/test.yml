@@ -38,6 +38,7 @@ jobs:
         id: test
 
   hardhat:
+    needs: foundry
     runs-on: ubuntu-latest
     name: Hardhat tests
     steps:
