@@ -17,6 +17,7 @@ import {IRouter, BLS} from "./interfaces/IRouter.sol";
 contract Router is Ownable, ReentrancyGuard, IRouter {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /// @notice Basis points divisor
     uint256 public constant BPS_DIVISOR = 10_000;
@@ -44,7 +45,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     mapping(uint256 => bool) public allowedDstChainIds;
 
     /// @notice Mapping of srcToken => dstChainId => dstToken
-    mapping(address => mapping(uint256 => address)) public tokenMappings;
+    mapping(address => mapping(uint256 => EnumerableSet.AddressSet)) private tokenMappings;
 
     /// @notice Accumulated fees per token
     mapping(address => uint256) public totalVerificationFeeBalance;
@@ -67,48 +68,50 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     // ---------------------- Core Transfer Logic ----------------------
 
     /// @notice Initiates a swap request
-    /// @param token Address of the ERC20 token to swap
+    /// @param tokenIn Address of the input token on the source chain
+    /// @param tokenOut Address of the output token on the destination chain
     /// @param amount Amount of tokens to swap
     /// @param fee Total fee amount (in token units) to be paid by the user
     /// @param dstChainId Target chain ID
     /// @param recipient Address to receive swaped tokens on target chain
     /// @return requestId The unique swap request id
-    function requestCrossChainSwap(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient)
-        external
-        nonReentrant
-        returns (bytes32 requestId)
-    {
+    function requestCrossChainSwap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        uint256 fee,
+        uint256 dstChainId,
+        address recipient
+    ) external nonReentrant returns (bytes32 requestId) {
         require(amount > 0, ErrorsLib.ZeroAmount());
-        require(tokenMappings[token][dstChainId] != address(0), ErrorsLib.TokenNotSupported());
+        require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
 
-        // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
-        // based on the total fee provided
+        // Calculate the verification fee amount (for the protocol) to be deducted from the total fee
         uint256 verificationFeeAmount = getVerificationFeeAmount(fee);
-        // Calculate the solver fee by subtracting the swap fee from the total fee
+        // Calculate the solver fee by subtracting the verification fee from the total fee
         // The solver fee is the remaining portion of the fee
-        // The total fee must be greater than the swap fee to ensure the solver is compensated
+        // The total fee must be greater than the verification fee to ensure the solver is compensated
         require(fee > verificationFeeAmount, ErrorsLib.FeeTooLow());
         uint256 solverFee = fee - verificationFeeAmount;
 
-        // Accumulate the total swap fees balance for the specified token
-        totalVerificationFeeBalance[token] += verificationFeeAmount;
+        // Accumulate the total verification fees balance for the specified token
+        totalVerificationFeeBalance[tokenIn] += verificationFeeAmount;
 
         // Generate unique nonce and map it to sender
         uint256 nonce = ++currentNonce;
         nonceToRequester[nonce] = msg.sender;
 
-        SwapRequestParameters memory params =
-            buildSwapRequestParameters(token, amount, verificationFeeAmount, solverFee, dstChainId, recipient, nonce);
+        SwapRequestParameters memory params = buildSwapRequestParameters(
+            tokenIn, tokenOut, amount, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+        );
 
-        requestId = getRequestId(params);
+        requestId = getSwapRequestId(params);
 
         storeSwapRequest(requestId, params);
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount + fee);
+        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amount + fee);
 
-        emit SwapRequested(
-            requestId, getChainID(), dstChainId, token, msg.sender, recipient, amount, fee, nonce, block.timestamp
-        );
+        emit SwapRequested(requestId, getChainID(), dstChainId);
     }
 
     /// @notice Updates the fee for an unfulfilled swap request
@@ -123,18 +126,18 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             ErrorsLib.NewFeeTooLow(newFee, params.verificationFee + params.solverFee)
         );
 
-        IERC20(params.token).safeTransferFrom(
+        IERC20(params.tokenIn).safeTransferFrom(
             msg.sender, address(this), newFee - (params.verificationFee + params.solverFee)
         );
 
-        // Calculate new swap fee and solver fee from newFee
+        // Calculate new verification fee and solver fee from newFee
         uint256 newVerificationFeeAmount = getVerificationFeeAmount(newFee);
         uint256 newSolverFee = newFee - newVerificationFeeAmount;
 
         // Adjust the totalVerificationFeeBalance for the token
-        // Subtract old swap fee, add new swap fee
-        totalVerificationFeeBalance[params.token] =
-            totalVerificationFeeBalance[params.token] - params.verificationFee + newVerificationFeeAmount;
+        // Subtract old verification fee, add new verification fee
+        totalVerificationFeeBalance[params.tokenIn] =
+            totalVerificationFeeBalance[params.tokenIn] - params.verificationFee + newVerificationFeeAmount;
 
         // Update the fees in the stored params
         params.verificationFee = newVerificationFeeAmount;
@@ -174,9 +177,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             fulfilledAt: block.timestamp
         });
 
-        emit SwapRequestFulfilled(
-            requestId, srcChainId, getChainID(), token, msg.sender, recipient, amount, block.timestamp
-        );
+        emit SwapRequestFulfilled(requestId, srcChainId, getChainID());
     }
 
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
@@ -207,7 +208,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
         uint256 solverRefund = params.amount + params.solverFee;
 
-        IERC20(params.token).safeTransfer(solver, solverRefund);
+        IERC20(params.tokenIn).safeTransfer(solver, solverRefund);
 
         emit SolverPayoutFulfilled(requestId);
     }
@@ -230,7 +231,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         message = abi.encode(
             params.sender,
             params.recipient,
-            params.token,
+            params.tokenIn,
+            params.tokenOut,
             params.amount,
             params.srcChainId,
             params.dstChainId,
@@ -242,7 +244,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     }
 
     /// @notice Builds swap request parameters based on the provided details
-    /// @param token The address of the token to be swapped
+    /// @param tokenIn The address of the input token on the source chain
+    /// @param tokenOut The address of the output token on the destination chain
     /// @param amount The amount of tokens to be swapped
     /// @param verificationFeeAmount The verification fee amount
     /// @param solverFeeAmount The solver fee amount
@@ -251,7 +254,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param nonce A unique nonce for the request
     /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
-        address token,
+        address tokenIn,
+        address tokenOut,
         uint256 amount,
         uint256 verificationFeeAmount,
         uint256 solverFeeAmount,
@@ -262,7 +266,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         swapRequestParams = SwapRequestParameters({
             sender: msg.sender,
             recipient: recipient,
-            token: token,
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
             amount: amount,
             srcChainId: getChainID(),
             dstChainId: dstChainId,
@@ -284,13 +289,14 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @notice Generates a unique request ID based on the provided swap request parameters
     /// @param p The swap request parameters
     /// @return The generated request ID
-    function getRequestId(SwapRequestParameters memory p) public view returns (bytes32) {
+    function getSwapRequestId(SwapRequestParameters memory p) public view returns (bytes32) {
         /// @dev The executed parameter is not used in the request ID hash as it is mutable
         return keccak256(
             abi.encode(
                 p.sender,
                 p.recipient,
-                p.token,
+                p.tokenIn,
+                p.tokenOut,
                 p.amount,
                 getChainID(), // the srcChainId is always the current chain ID
                 p.dstChainId,
@@ -340,9 +346,9 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @notice Retrieves the token mapping for a given source token and destination chain ID
     /// @param srcToken The address of the source token
     /// @param dstChainId The destination chain ID
-    /// @return The address of the mapped destination token
-    function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address) {
-        return tokenMappings[srcToken][dstChainId];
+    /// @return The address array of the mapped destination tokens
+    function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address[] memory) {
+        return tokenMappings[srcToken][dstChainId].values();
     }
 
     /// @notice Retrieves the total verification fee balance for a specific token
@@ -381,8 +387,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @return solver The address of the solver who fulfilled the transfer
     /// @return recipient The address that received the tokens on the destination chain
     /// @return amount The amount of tokens transferred to the recipient
-    /// @return fulfilledAt The timestamp when the transfer was fulfilled
-    function getReceipt(bytes32 _requestId)
+    function getSwapRequestReceipt(bytes32 _requestId)
         external
         view
         returns (
@@ -393,8 +398,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             bool fulfilled,
             address solver,
             address recipient,
-            uint256 amount,
-            uint256 fulfilledAt
+            uint256 amount
         )
     {
         SwapRequestReceipt storage receipt = swapRequestReceipts[_requestId];
@@ -406,7 +410,15 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         solver = receipt.solver;
         recipient = receipt.recipient;
         amount = receipt.amount;
-        fulfilledAt = receipt.fulfilledAt;
+    }
+
+    /// @notice Checks if a destination token is mapped for a given source token and destination chain ID
+    /// @param srcToken The address of the source token
+    /// @param dstChainId The destination chain ID
+    /// @param dstToken The address of the destination token
+    /// @return True if the destination token is mapped, false otherwise
+    function isDstTokenMapped(address srcToken, uint256 dstChainId, address dstToken) public view returns (bool) {
+        return tokenMappings[srcToken][dstChainId].contains(dstToken);
     }
 
     /// @notice Stores a swap request and marks as unfulfilled
@@ -452,8 +464,20 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param srcToken The address of the source token
     function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external onlyOwner {
         require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
-        tokenMappings[srcToken][dstChainId] = dstToken;
-        emit TokenMappingUpdated(dstChainId, dstToken, srcToken);
+        require(!tokenMappings[srcToken][dstChainId].contains(dstToken), ErrorsLib.TokenMappingAlreadyExists());
+        tokenMappings[srcToken][dstChainId].add(dstToken);
+        emit TokenMappingAdded(dstChainId, dstToken, srcToken);
+    }
+
+    /// @notice Removes the token mapping for a specific destination chain
+    /// @param dstChainId The destination chain ID
+    /// @param dstToken The address of the destination token
+    /// @param srcToken The address of the source token
+    function removeTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external onlyOwner {
+        require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
+        require(isDstTokenMapped(srcToken, dstChainId, dstToken), ErrorsLib.TokenNotSupported());
+        tokenMappings[srcToken][dstChainId].remove(dstToken);
+        emit TokenMappingRemoved(dstChainId, dstToken, srcToken);
     }
 
     /// @notice Withdraws verification fees to a specified address
