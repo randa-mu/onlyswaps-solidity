@@ -96,8 +96,9 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         TransferParams memory params =
             buildTransferParams(token, amount, swapFeeAmount, solverFee, dstChainId, recipient, nonce);
 
-        (bytes memory message,,) = transferParamsToBytes(params);
         requestId = getRequestId(params);
+
+        (bytes memory message,,) = transferParamsToBytes(requestId);
 
         storeTransferRequest(requestId, params);
 
@@ -179,7 +180,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         /// @dev rebalancing of solvers happens on the source chain router
         require(params.srcChainId == thisChainId, ErrorsLib.SourceChainIdMismatch(params.srcChainId, thisChainId));
 
-        (, bytes memory messageAsG1Bytes,) = transferParamsToBytes(params);
+        (, bytes memory messageAsG1Bytes,) = transferParamsToBytes(requestId);
         require(
             blsValidator.verifySignature(messageAsG1Bytes, signature, blsValidator.getPublicKeyBytes()),
             ErrorsLib.BLSSignatureVerificationFailed()
@@ -199,11 +200,16 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     // ---------------------- Utility & View ----------------------
 
     /// @notice Converts transfer params to message and BLS format
-    function transferParamsToBytes(TransferParams memory params)
+    /// @param requestId The unique request ID
+    /// @return message The encoded message bytes
+    /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
+    /// @return messageAsG1Point The message hashed to BLS G1 point
+    function transferParamsToBytes(bytes32 requestId)
         public
         view
         returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point)
     {
+        TransferParams memory params = getTransferParameters(requestId);
         /// @dev The order of parameters is critical for signature verification
         /// @dev The executed parameter is not used in the message hash
         message = abi.encode(
@@ -246,19 +252,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         });
     }
 
-    /// @notice Stores a transfer request and marks as unfulfilled
-    function storeTransferRequest(bytes32 requestId, TransferParams memory params) internal {
-        transferParameters[requestId] = params;
-        unfulfilledSolverRefunds.add(requestId);
-    }
-
-    /// @notice Compares two transfer parameter structs
-    function isEqual(TransferParams memory a, TransferParams memory b) internal pure returns (bool) {
-        return a.sender == b.sender && a.recipient == b.recipient && a.token == b.token && a.amount == b.amount
-            && a.srcChainId == b.srcChainId && a.dstChainId == b.dstChainId && a.swapFee == b.swapFee
-            && a.solverFee == b.solverFee && a.nonce == b.nonce && a.executed == b.executed;
-    }
-
     /// @notice Computes the swap fee in underlying token units
     function getSwapFeeAmount(uint256 amount) public view returns (uint256) {
         if (swapFeeBps == 0) return 0;
@@ -270,15 +263,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         /// @dev The executed parameter is not used in the request ID hash as it is mutable
         return keccak256(
             abi.encode(
-                p.sender,
-                p.recipient,
-                p.token,
-                p.amount,
-                getChainID(),
-                p.dstChainId,
-                p.swapFee,
-                p.solverFee,
-                p.nonce
+                p.sender, p.recipient, p.token, p.amount, getChainID(), p.dstChainId, p.swapFee, p.solverFee, p.nonce
             )
         );
     }
@@ -300,7 +285,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         return address(blsValidator);
     }
 
-    function getTransferParameters(bytes32 requestId) external view returns (TransferParams memory transferParams) {
+    function getTransferParameters(bytes32 requestId) public view returns (TransferParams memory transferParams) {
         transferParams = transferParameters[requestId];
     }
 
@@ -326,6 +311,12 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
     function getFulfilledSolverRefunds() external view returns (bytes32[] memory) {
         return fulfilledSolverRefunds.values();
+    }
+
+    /// @notice Stores a transfer request and marks as unfulfilled
+    function storeTransferRequest(bytes32 requestId, TransferParams memory params) internal {
+        transferParameters[requestId] = params;
+        unfulfilledSolverRefunds.add(requestId);
     }
 
     // ---------------------- Admin Functions ----------------------

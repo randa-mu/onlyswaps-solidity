@@ -125,6 +125,15 @@ interface IRouter {
             uint256 amount,
             uint256 fulfilledAt
         );
+    function buildTransferParams(
+        address token,
+        uint256 amount,
+        uint256 swapFeeAmount,
+        uint256 solverFeeAmount,
+        uint256 dstChainId,
+        address recipient,
+        uint256 nonce
+    ) external view returns (TransferParams memory params);
 
     // -------- Admin Functions --------
 
