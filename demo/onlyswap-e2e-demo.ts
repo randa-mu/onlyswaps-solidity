@@ -96,7 +96,7 @@ async function main() {
     console.log("Swap request parameters:", formattedTransferParams);
 
     const [, , messageAsG1Point] = await RouterSrc.transferParamsToBytes(
-      transferParamsObject
+      requestId
     );
 
     const sigAffine = signMessage(

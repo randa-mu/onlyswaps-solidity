@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {BLS} from "../libraries/BLS.sol";
+
 interface IRouter {
     // -------- Structs --------
 
@@ -134,6 +136,11 @@ interface IRouter {
         address recipient,
         uint256 nonce
     ) external view returns (TransferParams memory params);
+
+    function transferParamsToBytes(bytes32 requestId)
+        external
+        view
+        returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point);
 
     // -------- Admin Functions --------
 

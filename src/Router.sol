@@ -7,11 +7,10 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import {BLS} from "./libraries/BLS.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 
 import {ISignatureScheme} from "./interfaces/ISignatureScheme.sol";
-import {IRouter} from "./interfaces/IRouter.sol";
+import {IRouter, BLS} from "./interfaces/IRouter.sol";
 
 /// @title Cross-Chain Token Router
 /// @notice Handles token bridging logic, fee distribution, and transfer request verification using BLS signatures
