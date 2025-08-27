@@ -171,7 +171,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     }
 
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
-    /// @notice The solver is sent the amount transferred to the recipient wallet on the destination chain 
+    /// @notice The solver is sent the amount transferred to the recipient wallet on the destination chain
     ///         plus the solver fee.
     /// @param solver The address of the solver being compensated for their service.
     /// @param requestId The unique ID of the swap request being fulfilled.
