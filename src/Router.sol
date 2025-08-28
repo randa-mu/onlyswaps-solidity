@@ -88,6 +88,10 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         // based on the total fee provided
         uint256 swapFeeAmount = getSwapFeeAmount(fee);
         // Calculate the solver fee by subtracting the swap fee from the total fee
+        // The solver fee is the remaining portion of the fee
+        // The total fee must be greater than the swap fee to ensure the solver is compensated
+        require(fee > swapFeeAmount, ErrorsLib.FeeTooLow());
+
         uint256 solverFee = fee - swapFeeAmount;
 
         // Accumulate the total swap fees balance for the specified token
@@ -225,8 +229,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             params.amount,
             params.srcChainId,
             params.dstChainId,
-            params.swapFee,
-            params.solverFee,
             params.nonce
         );
         (uint256 x, uint256 y) = blsValidator.hashToPoint(message);
