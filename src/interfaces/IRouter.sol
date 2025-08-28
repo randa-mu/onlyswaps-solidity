@@ -7,16 +7,16 @@ interface IRouter {
     // -------- Structs --------
 
     struct TransferParams {
-        address sender;         // Address initiating the swap on the source chain
-        address recipient;      // Address to receive tokens on the destination chain
-        address token;          // Token address being transferred
-        uint256 amount;         // Amount to be received by the recipient on the destination chain
-        uint256 srcChainId;     // Source chain ID where the request originated
-        uint256 dstChainId;     // Destination chain ID where tokens will be delivered
-        uint256 swapFee;        // Total swap fee deducted from the amount
-        uint256 solverFee;      // Portion of swapFee paid to the solver
-        uint256 nonce;          // Unique nonce to prevent replay attacks
-        bool executed;          // Whether the transfer has been executed
+        address sender; // Address initiating the swap on the source chain
+        address recipient; // Address to receive tokens on the destination chain
+        address token; // Token address being transferred
+        uint256 amount; // Amount to be received by the recipient on the destination chain
+        uint256 srcChainId; // Source chain ID where the request originated
+        uint256 dstChainId; // Destination chain ID where tokens will be delivered
+        uint256 swapFee; // Total swap fee deducted from the amount
+        uint256 solverFee; // Portion of swapFee paid to the solver
+        uint256 nonce; // Unique nonce to prevent replay attacks
+        bool executed; // Whether the transfer has been executed
     }
 
     /// @notice Structure to store details of a fulfilled transfer request
