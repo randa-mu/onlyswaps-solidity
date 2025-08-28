@@ -359,7 +359,7 @@ describe("Router", function () {
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
 
-    const swapRequestReceipt = await router.getReceipt(requestId);
+    const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
     // Check receipt values
     expect(swapRequestReceipt[0]).to.equal(requestId);
     expect(swapRequestReceipt[1]).to.equal(srcChainId);

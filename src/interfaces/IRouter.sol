@@ -10,13 +10,14 @@ interface IRouter {
         address sender; // Address initiating the swap on the source chain
         address recipient; // Address to receive tokens on the destination chain
         address token; // Token address being transferred
-        uint256 amount; // Amount to be received by the recipient on the destination chain
+        uint256 amountOut; // Amount to be received by the recipient on the destination chain
         uint256 srcChainId; // Source chain ID where the request originated
         uint256 dstChainId; // Destination chain ID where tokens will be delivered
         uint256 verificationFee; // Total swap fee deducted from the amount
         uint256 solverFee; // Portion of verificationFee paid to the solver
         uint256 nonce; // Unique nonce to prevent replay attacks
         bool executed; // Whether the transfer has been executed
+        uint256 requestedAt; // Timestamp when the request was created
     }
 
     /// @notice Structure to store details of a fulfilled swap request
@@ -28,7 +29,7 @@ interface IRouter {
         bool fulfilled; // Whether the transfer has been delivered
         address solver; // Address that fulfilled the request
         address recipient; // Recipient of the tokens on the destination chain
-        uint256 amount; // Amount delivered to the recipient (after fees)
+        uint256 amountOut; // Amount delivered to the recipient (after fees)
         uint256 fulfilledAt; // Timestamp when the request was fulfilled
     }
 
@@ -41,7 +42,7 @@ interface IRouter {
     /// @param token The address of the token being transferred
     /// @param sender The address initiating the swap
     /// @param recipient The address that will receive the tokens on the destination chain
-    /// @param amount The amount of tokens requested for transfer
+    /// @param amountOut The amount of tokens requested for transfer
     /// @param fee The fee associated with the swap request
     /// @param nonce A unique identifier to prevent replay attacks
     /// @param requestedAt The timestamp when the swap request was created
@@ -52,7 +53,7 @@ interface IRouter {
         address token,
         address sender,
         address recipient,
-        uint256 amount,
+        uint256 amountOut,
         uint256 fee,
         uint256 nonce,
         uint256 requestedAt
@@ -65,7 +66,7 @@ interface IRouter {
     /// @param token The address of the token that was transferred
     /// @param solver The address that fulfilled the transfer
     /// @param recipient The address that received the tokens on the destination chain
-    /// @param amount The amount transferred to the recipient
+    /// @param amountOut The amount transferred to the recipient
     /// @param fulfilledAt The timestamp when the transfer was fulfilled
     event SwapRequestFulfilled(
         bytes32 indexed requestId,
@@ -74,7 +75,7 @@ interface IRouter {
         address token,
         address solver,
         address recipient,
-        uint256 amount,
+        uint256 amountOut,
         uint256 fulfilledAt
     );
 
@@ -111,19 +112,19 @@ interface IRouter {
     /// @notice Emitted when swap fees have been withdrawn to a recipient address
     /// @param token The token address of the withdrawn fees
     /// @param recipient The address receiving the withdrawn fees
-    /// @param amount The amount of fees withdrawn
-    event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amount);
+    /// @param amountOut The amount of fees withdrawn
+    event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amountOut);
 
     // -------- Core Transfer Logic --------
 
     /// @notice Initiates a cross-chain swap request
     /// @param token The address of the token to be swapped
-    /// @param amount The amount of tokens to be swapped
+    /// @param amountOut The amount of tokens to be swapped
     /// @param fee The fee associated with the swap request
     /// @param dstChainId The destination chain ID where the tokens will be sent
     /// @param recipient The address that will receive the tokens on the destination chain
     /// @return requestId The unique ID of the created swap request
-    function requestCrossChainSwap(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient)
+    function requestCrossChainSwap(address token, uint256 amountOut, uint256 fee, uint256 dstChainId, address recipient)
         external
         returns (bytes32 requestId);
 
@@ -143,10 +144,10 @@ interface IRouter {
     /// @notice Relays tokens to the recipient and stores a receipt
     /// @param token The token being relayed
     /// @param recipient The target recipient of the tokens
-    /// @param amount The net amount delivered (after fees)
+    /// @param amountOut The net amount delivered (after fees)
     /// @param requestId The original request ID from the source chain
     /// @param srcChainId The ID of the source chain where the request originated
-    function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
+    function relayTokens(address token, address recipient, uint256 amountOut, bytes32 requestId, uint256 srcChainId)
         external;
 
     // -------- View Functions --------
@@ -159,7 +160,7 @@ interface IRouter {
     /// @notice Generates a unique request ID based on the provided swap request parameters
     /// @param p The swap request parameters
     /// @return The generated request ID
-    function getRequestId(SwapRequestParameters memory p) external view returns (bytes32);
+    function getSwapRequestId(SwapRequestParameters memory p) external view returns (bytes32);
 
     /// @notice Retrieves the current chain ID
     /// @return The current chain ID
@@ -221,7 +222,7 @@ interface IRouter {
     /// @return recipient The address that received the tokens on the destination chain
     /// @return amount The amount of tokens transferred to the recipient
     /// @return fulfilledAt The timestamp when the transfer was fulfilled
-    function getReceipt(bytes32 _requestId)
+    function getSwapRequestReceipt(bytes32 _requestId)
         external
         view
         returns (
@@ -232,13 +233,13 @@ interface IRouter {
             bool fulfilled,
             address solver,
             address recipient,
-            uint256 amount,
+            uint256 amountOut,
             uint256 fulfilledAt
         );
 
     /// @notice Builds swap request parameters based on the provided details
     /// @param token The address of the token to be swapped
-    /// @param amount The amount of tokens to be swapped
+    /// @param amountOut The amount of tokens to be swapped
     /// @param verificationFeeAmount The verification fee amount
     /// @param solverFeeAmount The solver fee amount
     /// @param dstChainId The destination chain ID
@@ -247,7 +248,7 @@ interface IRouter {
     /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
         address token,
-        uint256 amount,
+        uint256 amountOut,
         uint256 verificationFeeAmount,
         uint256 solverFeeAmount,
         uint256 dstChainId,
