@@ -165,3 +165,7 @@ typechain-types
 
 # Deloyments
 script/onlyswaps/json/31337.json
+
+
+# Soldeer
+/dependencies

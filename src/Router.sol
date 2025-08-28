@@ -294,8 +294,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
                 p.amount,
                 getChainID(), // the srcChainId is always the current chain ID
                 p.dstChainId,
-                p.verificationFee,
-                p.solverFee,
                 p.nonce
             )
         );
