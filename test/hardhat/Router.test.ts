@@ -232,7 +232,7 @@ describe("Router", function () {
 
     // ensure that the router has enough liquidity to pay solver
     expect(await srcToken.balanceOf(await router.getAddress())).to.be.greaterThanOrEqual(
-      swapRequestParams.amount + swapRequestParams.solverFee,
+      swapRequestParams.amountOut + swapRequestParams.solverFee,
     );
 
     const before = await srcToken.balanceOf(solverAddr);
@@ -276,7 +276,7 @@ describe("Router", function () {
     // Check receipt
     const receipt = await router.swapRequestReceipts(requestId);
     expect(receipt.fulfilled).to.be.true;
-    expect(receipt.amount).to.equal(amount);
+    expect(receipt.amountOut).to.equal(amount);
     expect(receipt.solver).to.equal(userAddr);
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);

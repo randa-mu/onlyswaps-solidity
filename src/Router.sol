@@ -231,7 +231,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             params.sender,
             params.recipient,
             params.token,
-            params.amount,
+            params.amountOut,
             params.srcChainId,
             params.dstChainId,
             params.nonce
@@ -292,7 +292,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
                 p.sender,
                 p.recipient,
                 p.token,
-                p.amount,
+                p.amountOut,
                 getChainID(), // the srcChainId is always the current chain ID
                 p.dstChainId,
                 p.nonce
@@ -371,7 +371,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     }
 
     /// @notice Retrieves the receipt for a specific request ID
-    /// @param requestId The request ID to check
+    /// @param _requestId The request ID to check
     /// @return requestId The unique ID of the swap request
     /// @return srcChainId The source chain ID from which the request originated
     /// @return dstChainId The destination chain ID where the tokens were delivered
@@ -379,7 +379,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
     /// @return recipient The address that received the tokens on the destination chain
-    /// @return amount The amount of tokens transferred to the recipient
+    /// @return amountOut The amount of tokens transferred to the recipient
     /// @return fulfilledAt The timestamp when the transfer was fulfilled
     function getSwapRequestReceipt(bytes32 _requestId)
         external
