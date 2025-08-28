@@ -30,6 +30,8 @@ git clone https://github.com/randa-mu/onlysubs-solidity
 ### Install dependencies
 ```bash
 npm install
+
+forge soldeer install --recursive-deps
 ```
 
 ### Build
