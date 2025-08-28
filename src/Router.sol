@@ -91,6 +91,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         // The solver fee is the remaining portion of the fee
         // The total fee must be greater than the swap fee to ensure the solver is compensated
         require(fee > swapFeeAmount, ErrorsLib.FeeTooLow());
+
         uint256 solverFee = fee - swapFeeAmount;
 
         // Accumulate the total swap fees balance for the specified token
