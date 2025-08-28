@@ -43,7 +43,7 @@ interface IRouter {
     /// @param sender The address initiating the swap
     /// @param recipient The address that will receive the tokens on the destination chain
     /// @param amountOut The amount of tokens requested for transfer
-    /// @param fee The fee associated with the swap request
+    /// @param solverFee The solver fee associated with the swap request
     /// @param nonce A unique identifier to prevent replay attacks
     /// @param requestedAt The timestamp when the swap request was created
     event SwapRequested(
@@ -54,7 +54,7 @@ interface IRouter {
         address sender,
         address recipient,
         uint256 amountOut,
-        uint256 fee,
+        uint256 solverFee,
         uint256 nonce,
         uint256 requestedAt
     );
@@ -85,7 +85,7 @@ interface IRouter {
 
     /// @notice Emitted when the fee is updated for a request by the sender
     /// @param requestId Hash of the transfer parameters
-    event SwapRequestFeeUpdated(bytes32 indexed requestId);
+    event SwapRequestSolverFeeUpdated(bytes32 indexed requestId);
 
     /// @notice Emitted when the swap fee Bps is updated
     /// @param newFeeBps The new fee in basis points
@@ -119,19 +119,19 @@ interface IRouter {
 
     /// @notice Initiates a cross-chain swap request
     /// @param token The address of the token to be swapped
-    /// @param amountOut The amount of tokens to be swapped
+    /// @param amount The amount of tokens to be swapped (including verification fees)
     /// @param fee The fee associated with the swap request
     /// @param dstChainId The destination chain ID where the tokens will be sent
     /// @param recipient The address that will receive the tokens on the destination chain
     /// @return requestId The unique ID of the created swap request
-    function requestCrossChainSwap(address token, uint256 amountOut, uint256 fee, uint256 dstChainId, address recipient)
+    function requestCrossChainSwap(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient)
         external
         returns (bytes32 requestId);
 
-    /// @notice Updates the fee for an unfulfilled swap request
+    /// @notice Updates the solver fee for an unfulfilled swap request
     /// @param requestId The unique ID of the swap request to update
-    /// @param newFee The new fee to be set for the swap request
-    function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external;
+    /// @param newFee The new solver fee to be set for the swap request
+    function updateSolverFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external;
 
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
     /// @notice The solver is sent the amount transferred to the recipient wallet on the destination chain
@@ -152,10 +152,11 @@ interface IRouter {
 
     // -------- View Functions --------
 
-    /// @notice Calculates the verification fee amount based on total fees
-    /// @param totalFees The total fees for which the verification fee is to be calculated
+    /// @notice Calculates the verification fee amount based on the amount to swap
+    /// @param amountToSwap The amount to swap
     /// @return The calculated verification fee amount
-    function getVerificationFeeAmount(uint256 totalFees) external view returns (uint256);
+    /// @return The amount after deducting the verification fee
+    function getVerificationFeeAmount(uint256 amountToSwap) external view returns (uint256, uint256);
 
     /// @notice Generates a unique request ID based on the provided swap request parameters
     /// @param p The swap request parameters

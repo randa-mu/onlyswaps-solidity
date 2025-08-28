@@ -68,27 +68,28 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
     /// @notice Initiates a swap request
     /// @param token Address of the ERC20 token to swap
-    /// @param amountOut Amount of tokens to swap
-    /// @param fee Total fee amount (in token units) to be paid by the user
+    /// @param amount Amount of tokens to swap (including verification fees)
+    /// @param solverFee Amount of tokens to be paid to the solver
     /// @param dstChainId Target chain ID
     /// @param recipient Address to receive swaped tokens on target chain
     /// @return requestId The unique swap request id
-    function requestCrossChainSwap(address token, uint256 amountOut, uint256 fee, uint256 dstChainId, address recipient)
-        external
-        nonReentrant
-        returns (bytes32 requestId)
-    {
-        require(amountOut > 0, ErrorsLib.ZeroAmount());
+    function requestCrossChainSwap(
+        address token,
+        uint256 amount,
+        uint256 solverFee,
+        uint256 dstChainId,
+        address recipient
+    ) external nonReentrant returns (bytes32 requestId) {
+        require(amount > 0, ErrorsLib.ZeroAmount());
         require(tokenMappings[token][dstChainId] != address(0), ErrorsLib.TokenNotSupported());
 
         // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
         // based on the total fee provided
-        uint256 verificationFeeAmount = getVerificationFeeAmount(fee);
+        (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(amount);
         // Calculate the solver fee by subtracting the swap fee from the total fee
         // The solver fee is the remaining portion of the fee
         // The total fee must be greater than the swap fee to ensure the solver is compensated
-        require(fee > verificationFeeAmount, ErrorsLib.FeeTooLow());
-        uint256 solverFee = fee - verificationFeeAmount;
+        require(solverFee > 0, ErrorsLib.FeeTooLow());
 
         // Accumulate the total swap fees balance for the specified token
         totalVerificationFeeBalance[token] += verificationFeeAmount;
@@ -104,44 +105,38 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
 
         storeSwapRequest(requestId, params);
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amountOut + fee);
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount + solverFee);
 
         emit SwapRequested(
-            requestId, getChainID(), dstChainId, token, msg.sender, recipient, amountOut, fee, nonce, block.timestamp
+            requestId,
+            getChainID(),
+            dstChainId,
+            token,
+            msg.sender,
+            recipient,
+            amountOut,
+            solverFee,
+            nonce,
+            block.timestamp
         );
     }
 
-    /// @notice Updates the fee for an unfulfilled swap request
+    /// @notice Updates the solver fee for an unfulfilled swap request
     /// @param requestId The unique ID of the swap request to update
-    /// @param newFee The new fee to be set for the swap request
-    function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external nonReentrant {
+    /// @param newFee The new solver fee to be set for the swap request
+    function updateSolverFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external nonReentrant {
         SwapRequestParameters storage params = swapRequestParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
-        require(
-            newFee > params.verificationFee + params.solverFee,
-            ErrorsLib.NewFeeTooLow(newFee, params.verificationFee + params.solverFee)
-        );
+        require(newFee > params.solverFee, ErrorsLib.NewFeeTooLow(newFee, params.solverFee));
 
-        IERC20(params.token).safeTransferFrom(
-            msg.sender, address(this), newFee - (params.verificationFee + params.solverFee)
-        );
-
-        // Calculate new swap fee and solver fee from newFee
-        uint256 newVerificationFeeAmount = getVerificationFeeAmount(newFee);
-        uint256 newSolverFee = newFee - newVerificationFeeAmount;
-
-        // Adjust the totalVerificationFeeBalance for the token
-        // Subtract old swap fee, add new swap fee
-        totalVerificationFeeBalance[params.token] =
-            totalVerificationFeeBalance[params.token] - params.verificationFee + newVerificationFeeAmount;
+        IERC20(params.token).safeTransferFrom(msg.sender, address(this), newFee - params.solverFee);
 
         // Update the fees in the stored params
-        params.verificationFee = newVerificationFeeAmount;
-        params.solverFee = newSolverFee;
+        params.solverFee = newFee;
 
         // Emit event if needed for tracking fee updates (optional)
-        emit SwapRequestFeeUpdated(requestId);
+        emit SwapRequestSolverFeeUpdated(requestId);
     }
 
     /// @notice Relays tokens to the recipient and stores a receipt
@@ -274,12 +269,14 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         });
     }
 
-    /// @notice Calculates the verification fee amount based on total fees
-    /// @param totalFees The total fees for which the verification fee is to be calculated
+    /// @notice Calculates the verification fee amount based on the amount to swap
+    /// @param amountToSwap The amount to swap
     /// @return The calculated verification fee amount
-    function getVerificationFeeAmount(uint256 totalFees) public view returns (uint256) {
-        if (verificationFeeBps == 0) return 0;
-        return (totalFees * verificationFeeBps) / BPS_DIVISOR;
+    /// @return The amount after deducting the verification fee
+    function getVerificationFeeAmount(uint256 amountToSwap) public view returns (uint256, uint256) {
+        require(verificationFeeBps > 0, ErrorsLib.InvalidFeeBps());
+        uint256 verificationFee = (amountToSwap * verificationFeeBps) / BPS_DIVISOR;
+        return (verificationFee, amountToSwap - verificationFee);
     }
 
     /// @notice Generates a unique request ID based on the provided swap request parameters
@@ -420,6 +417,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param _verificationFeeBps The new verification fee in basis points
     function setVerificationFeeBps(uint256 _verificationFeeBps) external onlyOwner {
         require(_verificationFeeBps <= MAX_FEE_BPS, ErrorsLib.FeeBpsExceedsThreshold(MAX_FEE_BPS));
+        require(_verificationFeeBps > 0, ErrorsLib.InvalidFeeBps());
         verificationFeeBps = _verificationFeeBps;
         emit VerificationFeeBpsUpdated(verificationFeeBps);
     }

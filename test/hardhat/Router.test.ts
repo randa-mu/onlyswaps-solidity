@@ -123,15 +123,15 @@ describe("Router", function () {
 
     expect(await srcToken.balanceOf(userAddr)).to.equal(newFee - fee);
 
-    await expect(router.connect(user).updateFeesIfUnfulfilled(requestId, newFee)).to.emit(
+    await expect(router.connect(user).updateSolverFeesIfUnfulfilled(requestId, newFee)).to.emit(
       router,
-      "SwapRequestFeeUpdated",
+      "SwapRequestSolverFeeUpdated",
     );
 
     expect(await srcToken.balanceOf(userAddr)).to.equal(0);
 
     const swapRequestParams = await router.getSwapRequestParameters(requestId);
-    expect(swapRequestParams.verificationFee + swapRequestParams.solverFee).to.equal(newFee);
+    expect(swapRequestParams.solverFee).to.equal(newFee);
   });
 
   it("should block non-owner from withdrawing fees", async () => {
@@ -178,7 +178,7 @@ describe("Router", function () {
     expect(await router.getTotalVerificationFeeBalance(await srcToken.getAddress())).to.equal(0);
 
     const swapRequestParams = await router.getSwapRequestParameters(requestId);
-    expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + swapRequestParams.solverFee);
+    expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + swapRequestParams.solverFee - swapRequestParams.verificationFee);
   });
 
   it("should rebalance solver and transfer correct amount", async () => {
@@ -244,7 +244,7 @@ describe("Router", function () {
     await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
 
     const after = await srcToken.balanceOf(solverAddr);
-    expect(after - before).to.equal(amount + swapRequestParams.solverFee);
+    expect(after - before).to.equal(amount + swapRequestParams.solverFee - swapRequestParams.verificationFee);
     expect(await srcToken.balanceOf(await router.getAddress())).to.be.equal(swapRequestParams.verificationFee);
 
     expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(1);
