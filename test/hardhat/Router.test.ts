@@ -199,18 +199,7 @@ describe("Router", function () {
     // Step 1. Fetch transfer parameters from the chain using the request id
     const transferParams = await router.getTransferParameters(requestId);
 
-    const [, , messageAsG1Point] = await router.transferParamsToBytes({
-      sender: transferParams.sender,
-      recipient: transferParams.recipient,
-      token: transferParams.token,
-      amount: transferParams.amount,
-      srcChainId: transferParams.srcChainId,
-      dstChainId: transferParams.dstChainId,
-      swapFee: transferParams.swapFee,
-      solverFee: transferParams.solverFee,
-      nonce: transferParams.nonce,
-      executed: transferParams.executed,
-    });
+    const [, , messageAsG1Point] = await router.transferParamsToBytes(requestId);
 
     // Step 2: Message from EVM
     const M = bn254.G1.ProjectivePoint.fromAffine({

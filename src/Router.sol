@@ -7,11 +7,10 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import {BLS} from "./libraries/BLS.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 
 import {ISignatureScheme} from "./interfaces/ISignatureScheme.sol";
-import {IRouter} from "./interfaces/IRouter.sol";
+import {IRouter, BLS} from "./interfaces/IRouter.sol";
 
 /// @title Cross-Chain Token Router
 /// @notice Handles token bridging logic, fee distribution, and transfer request verification using BLS signatures
@@ -73,6 +72,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @notice Initiates a swap request
     /// @param token Address of the ERC20 token to swap
     /// @param amount Amount of tokens to swap
+    /// @param fee Total fee amount (in token units) to be paid by the user
     /// @param dstChainId Target chain ID
     /// @param recipient Address to receive swaped tokens on target chain
     /// @return requestId The unique swap request id
@@ -84,9 +84,13 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         require(amount > 0, ErrorsLib.ZeroAmount());
         require(tokenMappings[token][dstChainId] != address(0), ErrorsLib.TokenNotSupported());
 
+        // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
+        // based on the total fee provided
         uint256 swapFeeAmount = getSwapFeeAmount(fee);
+        // Calculate the solver fee by subtracting the swap fee from the total fee
         uint256 solverFee = fee - swapFeeAmount;
 
+        // Accumulate the total swap fees balance for the specified token
         totalSwapFeesBalance[token] += swapFeeAmount;
 
         // Generate unique nonce and map it to sender
@@ -96,8 +100,9 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         TransferParams memory params =
             buildTransferParams(token, amount, swapFeeAmount, solverFee, dstChainId, recipient, nonce);
 
-        (bytes memory message,,) = transferParamsToBytes(params);
         requestId = getRequestId(params);
+
+        (bytes memory message,,) = transferParamsToBytes(requestId);
 
         storeTransferRequest(requestId, params);
 
@@ -165,10 +170,12 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         emit BridgeReceipt(requestId, srcChainId, token, msg.sender, recipient, amount, block.timestamp);
     }
 
-    /// @notice Called with dcipher signature to approve a solver’s fulfillment of a swap request
-    /// @param solver Address of the solver being paid
-    /// @param requestId Unique ID of the request
-    /// @param signature BLS signature of the message
+    /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
+    /// @notice The solver is sent the amount transferred to the recipient wallet on the destination chain
+    ///         plus the solver fee.
+    /// @param solver The address of the solver being compensated for their service.
+    /// @param requestId The unique ID of the swap request being fulfilled.
+    /// @param signature The BLS signature verifying the authenticity of the request.
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature)
         external
         onlyOwner
@@ -179,7 +186,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         /// @dev rebalancing of solvers happens on the source chain router
         require(params.srcChainId == thisChainId, ErrorsLib.SourceChainIdMismatch(params.srcChainId, thisChainId));
 
-        (, bytes memory messageAsG1Bytes,) = transferParamsToBytes(params);
+        (, bytes memory messageAsG1Bytes,) = transferParamsToBytes(requestId);
         require(
             blsValidator.verifySignature(messageAsG1Bytes, signature, blsValidator.getPublicKeyBytes()),
             ErrorsLib.BLSSignatureVerificationFailed()
@@ -199,11 +206,18 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     // ---------------------- Utility & View ----------------------
 
     /// @notice Converts transfer params to message and BLS format
-    function transferParamsToBytes(TransferParams memory params)
+    /// @param requestId The unique request ID
+    /// @return message The encoded message bytes
+    /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
+    /// @return messageAsG1Point The message hashed to BLS G1 point
+    function transferParamsToBytes(bytes32 requestId)
         public
         view
         returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point)
     {
+        TransferParams memory params = getTransferParameters(requestId);
+        /// @dev The order of parameters is critical for signature verification
+        /// @dev The executed parameter is not used in the message hash
         message = abi.encode(
             params.sender,
             params.recipient,
@@ -213,8 +227,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             params.dstChainId,
             params.swapFee,
             params.solverFee,
-            params.nonce,
-            params.executed
+            params.nonce
         );
         (uint256 x, uint256 y) = blsValidator.hashToPoint(message);
         messageAsG1Point = BLS.PointG1({x: x, y: y});
@@ -222,6 +235,14 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     }
 
     /// @notice Builds a new transfer parameter object
+    /// @param token The address of the token to be transferred.
+    /// @param amount The amount of tokens to be transferred.
+    /// @param swapFeeAmount The fee amount for the swap.
+    /// @param solverFeeAmount The fee amount for the solver.
+    /// @param dstChainId The ID of the destination chain.
+    /// @param recipient The address of the recipient of the transfer.
+    /// @param nonce A unique identifier to prevent replay attacks.
+    /// @return params A TransferParams struct containing the transfer parameters.
     function buildTransferParams(
         address token,
         uint256 amount,
@@ -245,86 +266,102 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         });
     }
 
-    /// @notice Stores a transfer request and marks as unfulfilled
-    function storeTransferRequest(bytes32 requestId, TransferParams memory params) internal {
-        transferParameters[requestId] = params;
-        unfulfilledSolverRefunds.add(requestId);
-    }
-
-    /// @notice Compares two transfer parameter structs
-    function isEqual(TransferParams memory a, TransferParams memory b) internal pure returns (bool) {
-        return a.sender == b.sender && a.recipient == b.recipient && a.token == b.token && a.amount == b.amount
-            && a.srcChainId == b.srcChainId && a.dstChainId == b.dstChainId && a.swapFee == b.swapFee
-            && a.solverFee == b.solverFee && a.nonce == b.nonce && a.executed == b.executed;
-    }
-
     /// @notice Computes the swap fee in underlying token units
-    function getSwapFeeAmount(uint256 amount) public view returns (uint256) {
+    /// @dev A percentage of the total fee set by the user is reserved as swap fee for the protocol
+    /// @param totalFees The total fee amount in token units
+    /// @return The calculated swap fee amount in token units
+    function getSwapFeeAmount(uint256 totalFees) public view returns (uint256) {
         if (swapFeeBps == 0) return 0;
-        return (amount * swapFeeBps) / BPS_DIVISOR;
+        return (totalFees * swapFeeBps) / BPS_DIVISOR;
     }
 
     /// @notice Computes the unique request ID (hash of transfer parameters)
+    /// @param p The transfer parameters used to compute the request ID
+    /// @return requestId The unique request ID as a bytes32 hash
     function getRequestId(TransferParams memory p) public view returns (bytes32) {
+        /// @dev The executed parameter is not used in the request ID hash as it is mutable
         return keccak256(
             abi.encode(
-                p.sender,
-                p.recipient,
-                p.token,
-                p.amount,
-                getChainID(),
-                p.dstChainId,
-                p.swapFee,
-                p.solverFee,
-                p.nonce,
-                p.executed
+                p.sender, p.recipient, p.token, p.amount, getChainID(), p.dstChainId, p.swapFee, p.solverFee, p.nonce
             )
         );
     }
 
     /// @notice Returns the current EVM chain ID
+    /// @return The current chain ID as a uint256
     function getChainID() public view returns (uint256) {
         return block.chainid;
     }
 
+    /// @notice Returns the swap fee in basis points
+    /// @return The swap fee as a uint256
     function getSwapFeeBps() external view returns (uint256) {
         return swapFeeBps;
     }
 
+    /// @notice Returns the chain ID of this contract
+    /// @return The chain ID as a uint256
     function getThisChainId() external view returns (uint256) {
         return thisChainId;
     }
 
+    /// @notice Returns the address of the BLS validator
+    /// @return The address of the BLS validator
     function getBlsValidator() external view returns (address) {
         return address(blsValidator);
     }
 
-    function getTransferParameters(bytes32 requestId) external view returns (TransferParams memory transferParams) {
+    /// @notice Returns the transfer parameters for a given request ID
+    /// @param requestId The ID of the transfer request
+    /// @return transferParams The transfer parameters associated with the request ID
+    function getTransferParameters(bytes32 requestId) public view returns (TransferParams memory transferParams) {
         transferParams = transferParameters[requestId];
     }
 
+    /// @notice Checks if a destination chain ID is allowed
+    /// @param chainId The chain ID to check
+    /// @return True if the chain ID is allowed, false otherwise
     function getAllowedDstChainId(uint256 chainId) external view returns (bool) {
         return allowedDstChainIds[chainId];
     }
 
+    /// @notice Returns the token mapping for a source token and destination chain ID
+    /// @param srcToken The address of the source token
+    /// @param dstChainId The destination chain ID
+    /// @return The address of the mapped token on the destination chain
     function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address) {
         return tokenMappings[srcToken][dstChainId];
     }
 
+    /// @notice Returns the total swap fees balance for a given token
+    /// @param token The address of the token
+    /// @return The total swap fees balance as a uint256
     function getTotalSwapFeesBalance(address token) external view returns (uint256) {
         return totalSwapFeesBalance[token];
     }
 
+    /// @notice Returns an array of fulfilled transfer request IDs
+    /// @return An array of bytes32 representing fulfilled transfers
     function getFulfilledTransfers() external view returns (bytes32[] memory) {
         return fulfilledTransfers.values();
     }
 
+    /// @notice Returns an array of unfulfilled solver refund request IDs
+    /// @return An array of bytes32 representing unfulfilled solver refunds
     function getUnfulfilledSolverRefunds() external view returns (bytes32[] memory) {
         return unfulfilledSolverRefunds.values();
     }
 
+    /// @notice Returns an array of fulfilled solver refund request IDs
+    /// @return An array of bytes32 representing fulfilled solver refunds
     function getFulfilledSolverRefunds() external view returns (bytes32[] memory) {
         return fulfilledSolverRefunds.values();
+    }
+
+    /// @notice Stores a transfer request and marks as unfulfilled
+    function storeTransferRequest(bytes32 requestId, TransferParams memory params) internal {
+        transferParameters[requestId] = params;
+        unfulfilledSolverRefunds.add(requestId);
     }
 
     // ---------------------- Admin Functions ----------------------
