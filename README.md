@@ -1,6 +1,7 @@
-## onlysubs-solidity
+# OnlySwaps
 
-## Overview
+Solidity smart contract that enables **cross-chain token swap** requests from a source chain to a destination chain. The requests are fulfilled by solvers on the destination chain in exchange for the liquidity and fee / incentive on the source chain.
+
 
 ## Usage
 
@@ -29,8 +30,9 @@ git clone https://github.com/randa-mu/onlysubs-solidity
 ### Install dependencies
 ```bash
 npm install
-```
 
+forge soldeer install --recursive-deps
+```
 
 ### Build
 ```bash
@@ -51,9 +53,8 @@ npx hardhat coverage
 
 After running coverage, you can optionally open the generated report to see detailed info:
 ```bash
-open coverage/index.html
-# or on Linux
-xdg-open coverage/index.html
+open coverage/index.html # macOS
+xdg-open coverage/index.html # Linux
 ```
 
 
@@ -76,11 +77,36 @@ The script automatically spawns two Anvil blockchains at port 8545 (with chain i
 To run the demo script, run the following command: 
 
 ```bash
+npx hardhat compile
 npx ts-node demo/onlyswap-e2e-demo.ts
 ```
 
 The script will then deploy contracts on both chains, perform a cross-chain token swap, and display logs including chain IDs, transfer parameters, and balances.
 
+Example output:
+
+```bash
+Anvil instances ready...
+Configuring routers...
+Recipient balance before swap request: 0.0 RUSD
+Swap request created with requestId 0x2d0d7b3ffeaa37b249923f2bd6679462d018572c30760af2867f1a8c9db65793
+Swap request parameters: {
+  sender: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+  recipient: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+  token: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+  amount: '10.0',
+  srcChainId: 31337n,
+  dstChainId: 31338n,
+  swapFee: '0.05',
+  solverFee: '0.95',
+  nonce: 1n,
+  executed: false
+}
+Recipient balance after relay: 10.0 RUSD
+Solver balance before rebalance: 0.0 RUSD
+Solver balance after rebalance: 10.95 RUSD
+Anvil instances stopped.
+```
 
 ## Licensing
 

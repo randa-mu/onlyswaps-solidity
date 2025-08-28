@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {BLS} from "../libraries/BLS.sol";
+
 interface IRouter {
     // -------- Structs --------
 
@@ -99,7 +101,7 @@ interface IRouter {
 
     // -------- View Functions --------
 
-    function getSwapFeeAmount(uint256 amount) external view returns (uint256);
+    function getSwapFeeAmount(uint256 totalFees) external view returns (uint256);
     function getRequestId(TransferParams memory p) external view returns (bytes32);
     function getChainID() external view returns (uint256);
     function getBlsValidator() external view returns (address);
@@ -125,6 +127,20 @@ interface IRouter {
             uint256 amount,
             uint256 fulfilledAt
         );
+    function buildTransferParams(
+        address token,
+        uint256 amount,
+        uint256 swapFeeAmount,
+        uint256 solverFeeAmount,
+        uint256 dstChainId,
+        address recipient,
+        uint256 nonce
+    ) external view returns (TransferParams memory params);
+
+    function transferParamsToBytes(bytes32 requestId)
+        external
+        view
+        returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point);
 
     // -------- Admin Functions --------
 

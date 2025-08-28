@@ -79,6 +79,19 @@ describe("Router", function () {
     ).to.emit(router, "SwapRequested");
   });
 
+  it("should revert if fee is too low", async () => {
+    const amount = parseEther("10");
+    const fee = parseEther("0"); // Set fee lower than the required swap fee
+    const amountToMint = amount + fee;
+
+    await srcToken.mint(userAddr, amountToMint);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+    await expect(
+      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr),
+    ).to.be.revertedWithCustomError(router, "FeeTooLow");
+  });
+
   it("should update bridge fees for unfulfilled request", async () => {
     const amount = parseEther("5");
     const fee = parseEther("1");
@@ -199,18 +212,7 @@ describe("Router", function () {
     // Step 1. Fetch transfer parameters from the chain using the request id
     const transferParams = await router.getTransferParameters(requestId);
 
-    const [, , messageAsG1Point] = await router.transferParamsToBytes({
-      sender: transferParams.sender,
-      recipient: transferParams.recipient,
-      token: transferParams.token,
-      amount: transferParams.amount,
-      srcChainId: transferParams.srcChainId,
-      dstChainId: transferParams.dstChainId,
-      swapFee: transferParams.swapFee,
-      solverFee: transferParams.solverFee,
-      nonce: transferParams.nonce,
-      executed: transferParams.executed,
-    });
+    const [, , messageAsG1Point] = await router.transferParamsToBytes(requestId);
 
     // Step 2: Message from EVM
     const M = bn254.G1.ProjectivePoint.fromAffine({
