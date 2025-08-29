@@ -6,12 +6,13 @@ library ErrorsLib {
     error AlreadyFulfilled();
     error InvalidTokenOrRecipient();
     error ZeroAmount();
+    error FeeTooLow();
     error TokenNotSupported();
     error UnauthorisedCaller();
     error NewFeeTooLow(uint256 newFee, uint256 currentFee);
     error DestinationChainIdNotSupported(uint256 dstChainId);
     error FeeBpsExceedsThreshold(uint256 maxFeeBps);
     error BLSSignatureVerificationFailed();
-    error TransferParametersMismatch();
-    error SourceChainIdMismatch(uint256 transferParamsSrcChainId, uint256 contractChainId);
+    error SwapRequestParametersMismatch();
+    error SourceChainIdMismatch(uint256 swapRequestParamsSrcChainId, uint256 contractChainId);
 }
