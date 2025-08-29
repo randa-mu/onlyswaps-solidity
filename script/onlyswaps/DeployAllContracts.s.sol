@@ -48,12 +48,15 @@ contract DeployAllContracts is
             ERC20FaucetToken rusd
         )
     {
+        // for upgrades, run deployment script for individual contract in single-deployments
+        bool isUpgrade = false;
+
         // BN254SignatureScheme for swap requests
         bn254SwapRequestSignatureScheme = deployBN254SwapRequestSignatureScheme();
         // BN254SignatureScheme for contract upgrades
         bn254ContractUpgradeSignatureScheme = deployBN254ContractUpgradeSignatureScheme();
         // Router
-        router = deployRouter(address(bn254SwapRequestSignatureScheme), address(bn254ContractUpgradeSignatureScheme));
+        router = deployRouterProxy(isUpgrade, address(bn254SwapRequestSignatureScheme), address(bn254ContractUpgradeSignatureScheme));
         // RUSD
         rusd = deployRUSD();
     }

@@ -25,6 +25,7 @@ import {BN254SignatureScheme} from "src/signature-scheme/BN254SignatureScheme.so
 /// @dev Script for deploying upgradable Router contract using UUPSProxy.
 contract DeployRouter is JsonUtils, EnvReader {
     function run() public virtual {
+        bool isUpgrade = vm.envBool("IS_UPGRADE");
         // Read addresses for BLS signature verifiers from JSON config
         string memory configPath = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
         address swapRequestBLSSigVerifier =
@@ -32,10 +33,10 @@ contract DeployRouter is JsonUtils, EnvReader {
         address contractUpgradeBLSSigVerifier =
             _readAddressFromJsonInput(configPath, Constants.KEY_BN254_CONTRACT_UPGRADE_SIGNATURE_SCHEME);
 
-        deployRouter(swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier);
+        deployRouterProxy(isUpgrade, swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier);
     }
 
-    function deployRouter(address swapRequestBLSSigVerifier, address contractUpgradeBLSSigVerifier)
+    function deployRouterProxy(bool isUpgrade, address swapRequestBLSSigVerifier, address contractUpgradeBLSSigVerifier)
         internal
         returns (Router router)
     {
@@ -44,27 +45,84 @@ contract DeployRouter is JsonUtils, EnvReader {
 
         DeploymentParameters memory deploymentParameters = DeploymentParamsSelector.getDeploymentParams(block.chainid);
 
-        address admin = loadContractAdminFromEnv();
+        address implementation = deployRouterImplementation(deploymentParameters);
 
-        // Deploy Router implementation
-        Router routerImplementation;
+        if (isUpgrade) {
+            // Upgrade logic
+            router = executeContractUpgrade(implementation);
+        } else {
+            // Initial deployment logic
+            router = executeInitialDeployment(
+                implementation, swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier, deploymentParameters
+            );
+        }
+    }
+
+    function deployRouterImplementation(
+        DeploymentParameters memory deploymentParameters
+    ) internal returns (address implementation) {
+        bytes memory code = type(Router).creationCode;
+
         vm.broadcast();
-        routerImplementation = new Router();
+        if (deploymentParameters.customCREATE2FactoryContractAddress != DeploymentParamsCore.DEFAULT_CREATE2_DEPLOYER) {
+            implementation =
+                Factory(deploymentParameters.customCREATE2FactoryContractAddress).deploy(Constants.SALT, code);
+        } else {
+            Router router = new Router{salt: Constants.SALT}();
+            implementation = address(router);
+        }
 
-        // Deploy UUPSProxy with Router implementation
-        UUPSProxy proxy;
+        string memory path =
+            string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
+        _storeOnlySwapsAddressInJson(path, Constants.KEY_ROUTER_IMPLEMENTATION, implementation);
+
+        console.log("Router implementation contract deployed at: ", implementation);
+    }
+
+    function executeInitialDeployment(
+        address implementation,
+        address swapRequestBLSSigVerifier,
+        address contractUpgradeBLSSigVerifier,
+        DeploymentParameters memory deploymentParameters
+    ) internal returns (Router router) {
         vm.broadcast();
-        proxy = new UUPSProxy(address(routerImplementation), "");
+        address contractAddress;
 
-        router = Router(address(proxy));
+        if (deploymentParameters.customCREATE2FactoryContractAddress != DeploymentParamsCore.DEFAULT_CREATE2_DEPLOYER) {
+            bytes memory code = abi.encodePacked(type(UUPSProxy).creationCode, abi.encode(implementation, ""));
+            contractAddress =
+                Factory(deploymentParameters.customCREATE2FactoryContractAddress).deploy(Constants.SALT, code);
+            router = Router(contractAddress);
+        } else {
+            UUPSProxy proxy = new UUPSProxy{salt: Constants.SALT}(implementation, "");
+            router = Router(address(proxy));
+            contractAddress = address(proxy);
+        }
 
-        // Initialize the proxy
+        string memory path =
+            string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
+        _storeOnlySwapsAddressInJson(path, Constants.KEY_ROUTER_PROXY, contractAddress);
+
         vm.broadcast();
-        router.initialize(admin, swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier);
+        router.initialize(loadContractAdminFromEnv(), swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier, deploymentParameters.verificationFeeBps);
 
-        console.log("Router (UUPSProxy) deployed at: ", address(router));
+        console.log("Router (UUPSProxy) deployed at: ", contractAddress);
+    }
 
-        string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
-        _storeOnlySwapsAddressInJson(path, Constants.KEY_ROUTER, address(router));
+    function executeContractUpgrade(address implementation)
+        internal
+        returns (Router router)
+    {
+        vm.broadcast();
+        address proxyAddress = _readAddressFromJsonInput(
+            string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),
+            Constants.KEY_ROUTER_PROXY
+        );
+
+        require(proxyAddress != address(0), "proxyAddress must not be zero address");
+
+        Router(proxyAddress).upgradeToAndCall(implementation, "");
+        console.log("Router contract upgraded to new implementation at: ", implementation);
+        router = Router(proxyAddress);
     }
 }

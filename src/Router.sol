@@ -34,13 +34,13 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
     uint256 public minimumContractUpgradeDelay;
 
     /// @notice Role identifier for the contract administrator.
-    bytes32 public ADMIN_ROLE;
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     /// @notice Basis points divisor
-    uint256 public BPS_DIVISOR;
+    uint256 public constant BPS_DIVISOR = 10_000;
 
     /// @notice Max total fee in BPS
-    uint256 public MAX_FEE_BPS;
+    uint256 public constant MAX_FEE_BPS = 5_000;
 
     /// @notice Verification fee in BPS
     uint256 public verificationFeeBps;
@@ -97,18 +97,15 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
     /// @param _owner Initial contract owner
     /// @param _swapRequestBlsValidator BLS validator address for swap request verification
     /// @param _contractUpgradeBlsValidator BLS validator address for contract upgrades
-    function initialize(address _owner, address _swapRequestBlsValidator, address _contractUpgradeBlsValidator)
+    /// @param _verificationFeeBps Verification fee in basis points
+    function initialize(address _owner, address _swapRequestBlsValidator, address _contractUpgradeBlsValidator, uint256 _verificationFeeBps)
         public
         initializer
     {
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
 
-        // todo review setting using input variables
-        verificationFeeBps = 500;
-        MAX_FEE_BPS = 5_000;
-        BPS_DIVISOR = 10_000;
-        ADMIN_ROLE = keccak256("ADMIN_ROLE");
+        verificationFeeBps = _verificationFeeBps;
 
         require(_grantRole(ADMIN_ROLE, _owner), ErrorsLib.GrantRoleFailed());
         require(_grantRole(DEFAULT_ADMIN_ROLE, _owner), ErrorsLib.GrantRoleFailed());

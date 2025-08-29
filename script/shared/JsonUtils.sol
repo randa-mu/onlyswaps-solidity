@@ -32,7 +32,8 @@ contract JsonUtils is Script {
             _readAddressFromJsonInput(filePath, "bn254SwapRequestSignatureSchemeAddress");
         result.bn254ContractUpgradeSignatureSchemeAddress =
             _readAddressFromJsonInput(filePath, "bn254ContractUpgradeSignatureSchemeAddress");
-        result.routerAddress = _readAddressFromJsonInput(filePath, "routerAddress");
+        result.routerProxyAddress = _readAddressFromJsonInput(filePath, "routerProxyAddress");
+        result.routerImplementationAddress = _readAddressFromJsonInput(filePath, "routerImplementationAddress");
         result.rusdFaucet = _readAddressFromJsonInput(filePath, "rusdFaucet");
     }
 
@@ -44,7 +45,8 @@ contract JsonUtils is Script {
         json = vm.serializeAddress(
             "root", "bn254ContractUpgradeSignatureSchemeAddress", data.bn254ContractUpgradeSignatureSchemeAddress
         );
-        json = vm.serializeAddress("root", "routerAddress", data.routerAddress);
+        json = vm.serializeAddress("root", "routerProxyAddress", data.routerProxyAddress);
+        json = vm.serializeAddress("root", "routerImplementationAddress", data.routerImplementationAddress);
         json = vm.serializeAddress("root", "rusdFaucet", data.rusdFaucet);
 
         vm.writeJson(json, _constructJsonFilePath(filePath));
@@ -92,8 +94,10 @@ contract JsonUtils is Script {
 
         if (hashedKey == keccak256(bytes(Constants.KEY_RUSD))) {
             data.rusdFaucet = value;
-        } else if (hashedKey == keccak256(bytes(Constants.KEY_ROUTER))) {
-            data.routerAddress = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_ROUTER_IMPLEMENTATION))) {
+            data.routerImplementationAddress = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_ROUTER_PROXY))) {
+            data.routerProxyAddress = value;
         } else if (hashedKey == keccak256(bytes(Constants.KEY_BN254_SWAP_REQUEST_SIGNATURE_SCHEME))) {
             data.bn254SwapRequestSignatureSchemeAddress = value;
         } else if (hashedKey == keccak256(bytes(Constants.KEY_BN254_CONTRACT_UPGRADE_SIGNATURE_SCHEME))) {

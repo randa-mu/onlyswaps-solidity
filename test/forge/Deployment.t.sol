@@ -23,6 +23,8 @@ contract DeploymentTest is Test {
     uint256 srcChainId = 1;
     uint256 dstChainId = 31337;
 
+    uint256 constant VERIFICATION_FEE_BPS = 500;
+
     bytes internal validPK =
         hex"204a5468e6d01b87c07655eebbb1d43913e197f53281a7d56e2b1a0beac194aa00899f6a3998ecb2f832d35025bf38bef7429005e6b591d9e0ffb10078409f220a6758eec538bb8a511eed78c922a213e4cc06743aeb10ed77f63416fe964c3505d04df1d2daeefa07790b41a9e0ab762e264798bc36340dc3a0cc5654cefa4b";
 
@@ -44,7 +46,7 @@ contract DeploymentTest is Test {
         Router srcRouterImplementation = new Router();
         UUPSProxy srcRouterProxy = new UUPSProxy(address(srcRouterImplementation), "");
         srcRouter = Router(address(srcRouterProxy));
-        srcRouter.initialize(owner, address(srcSwapRequestBLSSigVerifier), address(srcContractUpgradeBLSSigVerifier));
+        srcRouter.initialize(owner, address(srcSwapRequestBLSSigVerifier), address(srcContractUpgradeBLSSigVerifier), VERIFICATION_FEE_BPS);
 
         /// @dev dst chain deployment
         dstSwapRequestBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
@@ -54,7 +56,7 @@ contract DeploymentTest is Test {
         Router dstRouterImplementation = new Router();
         UUPSProxy dstRouterProxy = new UUPSProxy(address(dstRouterImplementation), "");
         dstRouter = Router(address(dstRouterProxy));
-        dstRouter.initialize(owner, address(dstSwapRequestBLSSigVerifier), address(dstContractUpgradeBLSSigVerifier));
+        dstRouter.initialize(owner, address(dstSwapRequestBLSSigVerifier), address(dstContractUpgradeBLSSigVerifier), VERIFICATION_FEE_BPS);
 
         /// @dev configurations
         /// whitelist requests to specific destination chain ids

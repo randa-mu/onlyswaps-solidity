@@ -12,6 +12,7 @@ library DeploymentParamsAnvil {
             tokenSymbol: DeploymentParamsCore.TOKEN_SYMBOL,
             tokenDecimals: DeploymentParamsCore.TOKEN_DECIMALS,
             faucetAmount: DeploymentParamsCore.FAUCET_AMOUNT,
+            verificationFeeBps: DeploymentParamsCore.VERIFICATION_FEE_BPS,
             customCREATE2FactoryContractAddress: DeploymentParamsCore.DEFAULT_CREATE2_DEPLOYER
         });
     }

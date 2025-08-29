@@ -10,6 +10,7 @@ struct DeploymentParameters {
     string tokenSymbol;
     uint8 tokenDecimals;
     uint256 faucetAmount;
+    uint256 verificationFeeBps;
     address customCREATE2FactoryContractAddress;
 }
 
@@ -19,9 +20,11 @@ library DeploymentParamsCore {
 
     uint8 constant TOKEN_DECIMALS = 18;
     uint256 constant FAUCET_AMOUNT = 1000 ether;
+    uint256 constant VERIFICATION_FEE_BPS = 500;
 
     address constant DEFAULT_CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
+    /// @dev To avoid a collision error when deploying, the public keys for each bls signature scheme contract must be unique
     function getBLSSwapRequestPublicKey() internal pure returns (BLS.PointG2 memory) {
         return BLS.PointG2({
             x: [
@@ -35,11 +38,12 @@ library DeploymentParamsCore {
         });
     }
 
+    /// @dev To avoid a collision error when deploying, the public keys for each bls signature scheme contract must be unique
     function getBLSContractUpgradePublicKey() internal pure returns (BLS.PointG2 memory) {
         return BLS.PointG2({
             x: [
                 19466273993852079063924474392378816199685375459664529508122564849204533666468,
-                21131687462638968537850845255670528066014536613738342153553860006061609469324
+                19466273993852079063924474392378816199685375459664529508122564849204533666468
             ],
             y: [
                 7578617840607454142936008614752231508238355116367494353476740252708767858492,

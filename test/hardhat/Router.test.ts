@@ -27,6 +27,8 @@ import { ethers } from "hardhat";
 
 const DST_CHAIN_ID = 137;
 
+const VERIFICATION_FEE_BPS = 500;
+
 describe("Router", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
@@ -78,6 +80,7 @@ describe("Router", function () {
         ownerAddr,
         await bn254SigScheme.getAddress(),
         await bn254SigScheme.getAddress(),
+        VERIFICATION_FEE_BPS
       ]),
     );
     await routerProxy.waitForDeployment();
