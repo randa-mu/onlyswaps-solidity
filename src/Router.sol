@@ -367,6 +367,12 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
         return block.chainid;
     }
 
+    /// @notice Retrieves the current version of the contract
+    /// @return The current version of the contract
+    function getVersion() external pure returns (string memory) {
+        return "1.0.0";
+    }
+
     /// @notice Retrieves the current verification fee in basis points
     /// @return The current verification fee in basis points
     function getVerificationFeeBps() external view returns (uint256) {

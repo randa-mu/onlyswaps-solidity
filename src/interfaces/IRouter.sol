@@ -266,6 +266,10 @@ interface IRouter {
     /// @return The address of the contract upgrade BLS validator
     function getContractUpgradeBlsValidator() external view returns (address);
 
+    /// @notice Retrieves the current version of the contract
+    /// @return The current version of the contract
+    function getVersion() external view returns (string memory);
+
     /// @notice Builds swap request parameters based on the provided details
     /// @param token The address of the token to be swapped
     /// @param amountOut The amount of tokens to be swapped
