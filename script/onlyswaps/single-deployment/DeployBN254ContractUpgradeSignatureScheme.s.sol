@@ -30,7 +30,9 @@ contract DeployBN254ContractUpgradeSignatureScheme is JsonUtils, EnvReader {
 
         bytes memory code = abi.encodePacked(
             type(BN254SignatureScheme).creationCode,
-            abi.encode(deploymentParameters.blsContractUpgradePublicKey.x, deploymentParameters.blsContractUpgradePublicKey.y)
+            abi.encode(
+                deploymentParameters.blsContractUpgradePublicKey.x, deploymentParameters.blsContractUpgradePublicKey.y
+            )
         );
 
         vm.broadcast();
@@ -47,6 +49,8 @@ contract DeployBN254ContractUpgradeSignatureScheme is JsonUtils, EnvReader {
         console.log("Bn254ContractUpgradeSignatureScheme contract deployed at: ", address(bn254SignatureScheme));
 
         string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
-        _storeOnlySwapsAddressInJson(path, Constants.KEY_BN254_CONTRACT_UPGRADE_SIGNATURE_SCHEME, address(bn254SignatureScheme));
+        _storeOnlySwapsAddressInJson(
+            path, Constants.KEY_BN254_CONTRACT_UPGRADE_SIGNATURE_SCHEME, address(bn254SignatureScheme)
+        );
     }
 }

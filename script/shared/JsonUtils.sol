@@ -28,16 +28,22 @@ contract JsonUtils is Script {
         view
         returns (OnlySwapsDeploymentAddresses memory result)
     {
-        result.bn254SwapRequestSignatureSchemeAddress = _readAddressFromJsonInput(filePath, "bn254SwapRequestSignatureSchemeAddress");
-        result.bn254ContractUpgradeSignatureSchemeAddress = _readAddressFromJsonInput(filePath, "bn254ContractUpgradeSignatureSchemeAddress");
+        result.bn254SwapRequestSignatureSchemeAddress =
+            _readAddressFromJsonInput(filePath, "bn254SwapRequestSignatureSchemeAddress");
+        result.bn254ContractUpgradeSignatureSchemeAddress =
+            _readAddressFromJsonInput(filePath, "bn254ContractUpgradeSignatureSchemeAddress");
         result.routerAddress = _readAddressFromJsonInput(filePath, "routerAddress");
         result.rusdFaucet = _readAddressFromJsonInput(filePath, "rusdFaucet");
     }
 
     function _writeOnlySwapsStructToJson(string memory filePath, OnlySwapsDeploymentAddresses memory data) internal {
         string memory json;
-        json = vm.serializeAddress("root", "bn254SwapRequestSignatureSchemeAddress", data.bn254SwapRequestSignatureSchemeAddress);
-        json = vm.serializeAddress("root", "bn254ContractUpgradeSignatureSchemeAddress", data.bn254ContractUpgradeSignatureSchemeAddress);
+        json = vm.serializeAddress(
+            "root", "bn254SwapRequestSignatureSchemeAddress", data.bn254SwapRequestSignatureSchemeAddress
+        );
+        json = vm.serializeAddress(
+            "root", "bn254ContractUpgradeSignatureSchemeAddress", data.bn254ContractUpgradeSignatureSchemeAddress
+        );
         json = vm.serializeAddress("root", "routerAddress", data.routerAddress);
         json = vm.serializeAddress("root", "rusdFaucet", data.rusdFaucet);
 

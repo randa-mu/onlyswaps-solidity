@@ -47,6 +47,8 @@ contract DeployBN254SwapRequestSignatureScheme is JsonUtils, EnvReader {
         console.log("Bn254SwapRequestSignatureScheme contract deployed at: ", address(bn254SignatureScheme));
 
         string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
-        _storeOnlySwapsAddressInJson(path, Constants.KEY_BN254_SWAP_REQUEST_SIGNATURE_SCHEME, address(bn254SignatureScheme));
+        _storeOnlySwapsAddressInJson(
+            path, Constants.KEY_BN254_SWAP_REQUEST_SIGNATURE_SCHEME, address(bn254SignatureScheme)
+        );
     }
 }

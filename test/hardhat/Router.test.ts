@@ -7,7 +7,7 @@ import {
   BN254SignatureScheme__factory,
   UUPSProxy__factory,
   AccessControlEnumerableUpgradeable,
-  AccessControlEnumerableUpgradeable__factory
+  AccessControlEnumerableUpgradeable__factory,
 } from "../../typechain-types";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
@@ -64,11 +64,7 @@ describe("Router", function () {
     // Deploy BLS signature scheme with the public key G2 point swapped around to be compatible with the BLS solidity library
     bn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0]);
 
-    const Router = new ethers.ContractFactory(
-      Router__factory.abi,
-      Router__factory.bytecode,
-      owner,
-    );
+    const Router = new ethers.ContractFactory(Router__factory.abi, Router__factory.bytecode, owner);
 
     // Deploy Router implementation
     const routerImplementation: Router = await new Router__factory(owner).deploy();
@@ -79,9 +75,9 @@ describe("Router", function () {
     const routerProxy = await UUPSProxy.deploy(
       await routerImplementation.getAddress(),
       Router.interface.encodeFunctionData("initialize", [
-      ownerAddr,
-      await bn254SigScheme.getAddress(),
-      await bn254SigScheme.getAddress(),
+        ownerAddr,
+        await bn254SigScheme.getAddress(),
+        await bn254SigScheme.getAddress(),
       ]),
     );
     await routerProxy.waitForDeployment();
@@ -163,9 +159,9 @@ describe("Router", function () {
     expect(swapRequestParams.solverFee).to.equal(newFee);
   });
 
-  it("should block non-owner from withdrawing fees", async () => {
-    await expect(router.connect(user).withdrawVerificationFee(await srcToken.getAddress(), user.address))
-      .to.be.reverted;
+  it("should block non-owner from withdrawing fees and revert with AccessControlUnauthorizedAccount for caller address and ADMIN_ROLE", async () => {
+    await expect(router.connect(user).withdrawVerificationFee(await srcToken.getAddress(), user.address)).to.be
+      .reverted;
   });
 
   it("should allow owner to withdraw verification fees", async () => {
@@ -206,7 +202,9 @@ describe("Router", function () {
     expect(await router.getTotalVerificationFeeBalance(await srcToken.getAddress())).to.equal(0);
 
     const swapRequestParams = await router.getSwapRequestParameters(requestId);
-    expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + swapRequestParams.solverFee - swapRequestParams.verificationFee);
+    expect(await srcToken.balanceOf(await router.getAddress())).to.equal(
+      amount + swapRequestParams.solverFee - swapRequestParams.verificationFee,
+    );
   });
 
   it("should rebalance solver and transfer correct amount", async () => {

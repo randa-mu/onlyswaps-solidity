@@ -27,13 +27,18 @@ contract DeployRouter is JsonUtils, EnvReader {
     function run() public virtual {
         // Read addresses for BLS signature verifiers from JSON config
         string memory configPath = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
-        address swapRequestBLSSigVerifier = _readAddressFromJsonInput(configPath, Constants.KEY_BN254_SWAP_REQUEST_SIGNATURE_SCHEME);
-        address contractUpgradeBLSSigVerifier = _readAddressFromJsonInput(configPath, Constants.KEY_BN254_CONTRACT_UPGRADE_SIGNATURE_SCHEME);
+        address swapRequestBLSSigVerifier =
+            _readAddressFromJsonInput(configPath, Constants.KEY_BN254_SWAP_REQUEST_SIGNATURE_SCHEME);
+        address contractUpgradeBLSSigVerifier =
+            _readAddressFromJsonInput(configPath, Constants.KEY_BN254_CONTRACT_UPGRADE_SIGNATURE_SCHEME);
 
         deployRouter(swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier);
     }
 
-    function deployRouter(address swapRequestBLSSigVerifier, address contractUpgradeBLSSigVerifier) internal returns (Router router) {
+    function deployRouter(address swapRequestBLSSigVerifier, address contractUpgradeBLSSigVerifier)
+        internal
+        returns (Router router)
+    {
         require(swapRequestBLSSigVerifier != address(0), "SwapRequest BLS verifier address must not be zero");
         require(contractUpgradeBLSSigVerifier != address(0), "ContractUpgrade BLS verifier address must not be zero");
 
