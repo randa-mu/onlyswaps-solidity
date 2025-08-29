@@ -323,7 +323,7 @@ describe("Router", function () {
     // Check receipt
     const receipt = await router.swapRequestReceipts(requestId);
     expect(receipt.fulfilled).to.be.true;
-    expect(receipt.amount).to.equal(amount);
+    expect(receipt.amountOut).to.equal(amount);
     expect(receipt.solver).to.equal(userAddr);
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);

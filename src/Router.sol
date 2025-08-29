@@ -150,20 +150,20 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @notice Relays tokens to the recipient and stores a receipt
     /// @param token The token being relayed
     /// @param recipient The target recipient of the tokens
-    /// @param amount The net amount delivered (after fees)
+    /// @param amountOut The net amount delivered (after fees)
     /// @param requestId The original request ID from the source chain
     /// @param srcChainId The ID of the source chain where the request originated
-    function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
+    function relayTokens(address token, address recipient, uint256 amountOut, bytes32 requestId, uint256 srcChainId)
         external
         nonReentrant
     {
         require(!swapRequestReceipts[requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
         require(token != address(0) && recipient != address(0), ErrorsLib.InvalidTokenOrRecipient());
-        require(amount > 0, ErrorsLib.ZeroAmount());
+        require(amountOut > 0, ErrorsLib.ZeroAmount());
 
         fulfilledTransfers.add(requestId);
 
-        IERC20(token).safeTransferFrom(msg.sender, recipient, amount);
+        IERC20(token).safeTransferFrom(msg.sender, recipient, amountOut);
 
         swapRequestReceipts[requestId] = SwapRequestReceipt({
             requestId: requestId,
@@ -173,7 +173,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
             solver: msg.sender,
             recipient: recipient,
-            amount: amount,
+            amountOut: amountOut,
             fulfilledAt: block.timestamp
         });
 
@@ -274,7 +274,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             verificationFee: verificationFeeAmount,
             solverFee: solverFeeAmount,
             nonce: nonce,
-            executed: false
+            executed: false,
+            requestedAt: block.timestamp
         });
     }
 
@@ -300,8 +301,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
                 p.amount,
                 getChainID(), // the srcChainId is always the current chain ID
                 p.dstChainId,
-                p.verificationFee,
-                p.solverFee,
                 p.nonce
             )
         );
@@ -378,7 +377,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     }
 
     /// @notice Retrieves the receipt for a specific request ID
-    /// @param requestId The request ID to check
+    /// @param _requestId The request ID to check
     /// @return requestId The unique ID of the swap request
     /// @return srcChainId The source chain ID from which the request originated
     /// @return dstChainId The destination chain ID where the tokens were delivered
@@ -386,7 +385,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
     /// @return recipient The address that received the tokens on the destination chain
-    /// @return amount The amount of tokens transferred to the recipient
+    /// @return amountOut The amount of tokens transferred to the recipient
+    /// @return fulfilledAt The timestamp when the transfer was fulfilled
     function getSwapRequestReceipt(bytes32 _requestId)
         external
         view
@@ -398,7 +398,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             bool fulfilled,
             address solver,
             address recipient,
-            uint256 amount
+            uint256 amountOut,
+            uint256 fulfilledAt
         )
     {
         SwapRequestReceipt storage receipt = swapRequestReceipts[_requestId];
@@ -409,7 +410,8 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         fulfilled = receipt.fulfilled;
         solver = receipt.solver;
         recipient = receipt.recipient;
-        amount = receipt.amount;
+        amountOut = receipt.amountOut;
+        fulfilledAt = receipt.fulfilledAt;
     }
 
     /// @notice Checks if a destination token is mapped for a given source token and destination chain ID
@@ -484,9 +486,9 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param token The token address of the withdrawn fees
     /// @param to The address receiving the withdrawn fees
     function withdrawVerificationFee(address token, address to) external onlyOwner nonReentrant {
-        uint256 amount = totalVerificationFeeBalance[token];
+        uint256 amountOut = totalVerificationFeeBalance[token];
         totalVerificationFeeBalance[token] = 0;
-        IERC20(token).safeTransfer(to, amount);
-        emit VerificationFeeWithdrawn(token, to, amount);
+        IERC20(token).safeTransfer(to, amountOut);
+        emit VerificationFeeWithdrawn(token, to, amountOut);
     }
 }

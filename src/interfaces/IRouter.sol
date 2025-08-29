@@ -18,6 +18,7 @@ interface IRouter {
         uint256 solverFee; // Portion of verificationFee paid to the solver
         uint256 nonce; // Unique nonce to prevent replay attacks
         bool executed; // Whether the transfer has been executed
+        uint256 requestedAt; // Timestamp when the request was created
     }
 
     /// @notice Structure to store details of a fulfilled swap request
@@ -29,7 +30,7 @@ interface IRouter {
         bool fulfilled; // Whether the transfer has been delivered
         address solver; // Address that fulfilled the request
         address recipient; // Recipient of the tokens on the destination chain
-        uint256 amount; // Amount delivered to the recipient (after fees)
+        uint256 amountOut; // Amount delivered to the recipient (after fees)
         uint256 fulfilledAt; // Timestamp when the request was fulfilled
     }
 
@@ -39,13 +40,21 @@ interface IRouter {
     /// @param requestId Hash of the transfer parameters
     /// @param srcChainId The source chain ID from which the request originated
     /// @param dstChainId The destination chain ID where the tokens will be delivered
-    event SwapRequested(bytes32 indexed requestId, uint256 indexed srcChainId, uint256 indexed dstChainId);
+    event SwapRequested(
+        bytes32 indexed requestId,
+        uint256 indexed srcChainId,
+        uint256 indexed dstChainId
+    );
 
     /// @notice Emitted when a swap request is fulfilled on the destination chain by a solver
     /// @param requestId The unique ID of the swap request
     /// @param srcChainId The source chain ID from which the request originated
     /// @param dstChainId The destination chain ID where the tokens were delivered
-    event SwapRequestFulfilled(bytes32 indexed requestId, uint256 indexed srcChainId, uint256 indexed dstChainId);
+    event SwapRequestFulfilled(
+        bytes32 indexed requestId,
+        uint256 indexed srcChainId,
+        uint256 indexed dstChainId
+    );
 
     /// @notice Emitted when a message is successfully fulfilled by a solver
     /// @param requestId Hash of the transfer parameters
@@ -82,8 +91,8 @@ interface IRouter {
     /// @notice Emitted when swap fees have been withdrawn to a recipient address
     /// @param token The token address of the withdrawn fees
     /// @param recipient The address receiving the withdrawn fees
-    /// @param amount The amount of fees withdrawn
-    event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amount);
+    /// @param amountOut The amount of fees withdrawn
+    event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amountOut);
 
     // -------- Core Transfer Logic --------
 
@@ -120,10 +129,10 @@ interface IRouter {
     /// @notice Relays tokens to the recipient and stores a receipt
     /// @param token The token being relayed
     /// @param recipient The target recipient of the tokens
-    /// @param amount The net amount delivered (after fees)
+    /// @param amountOut The net amount delivered (after fees)
     /// @param requestId The original request ID from the source chain
     /// @param srcChainId The ID of the source chain where the request originated
-    function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
+    function relayTokens(address token, address recipient, uint256 amountOut, bytes32 requestId, uint256 srcChainId)
         external;
 
     // -------- View Functions --------
@@ -188,7 +197,7 @@ interface IRouter {
     function getFulfilledSolverRefunds() external view returns (bytes32[] memory);
 
     /// @notice Retrieves the receipt for a specific request ID
-    /// @param requestId The request ID to check
+    /// @param _requestId The request ID to check
     /// @return requestId The unique ID of the swap request
     /// @return srcChainId The source chain ID from which the request originated
     /// @return dstChainId The destination chain ID where the tokens were delivered
@@ -196,7 +205,8 @@ interface IRouter {
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
     /// @return recipient The address that received the tokens on the destination chain
-    /// @return amount The amount of tokens transferred to the recipient
+    /// @return amountOut The amount of tokens transferred to the recipient
+    /// @return fulfilledAt The timestamp when the transfer was fulfilled
     function getSwapRequestReceipt(bytes32 _requestId)
         external
         view
@@ -208,7 +218,8 @@ interface IRouter {
             bool fulfilled,
             address solver,
             address recipient,
-            uint256 amount
+            uint256 amountOut,
+            uint256 fulfilledAt
         );
 
     /// @notice Checks if a destination token is mapped for a given source token and destination chain ID
