@@ -5,7 +5,7 @@ import {
   ERC20Token__factory,
   BN254SignatureScheme,
   BN254SignatureScheme__factory,
-  UUPSProxy__factory
+  UUPSProxy__factory,
 } from "../../typechain-types";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
@@ -78,7 +78,7 @@ describe("Router", function () {
         ownerAddr,
         await bn254SigScheme.getAddress(),
         await bn254SigScheme.getAddress(),
-        VERIFICATION_FEE_BPS
+        VERIFICATION_FEE_BPS,
       ]),
     );
     await routerProxy.waitForDeployment();
@@ -90,7 +90,7 @@ describe("Router", function () {
     // Router contract configuration
     await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
-  }); 
+  });
 
   it("should initiate a swap request and emit message", async () => {
     const amount = parseEther("10");
@@ -446,7 +446,9 @@ describe("Router", function () {
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
 
     await expect(
-      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), amount, fee, invalidChainId, recipientAddr),
+      router
+        .connect(user)
+        .requestCrossChainSwap(await srcToken.getAddress(), amount, fee, invalidChainId, recipientAddr),
     ).to.be.revertedWithCustomError(router, "TokenNotSupported()");
   });
 
@@ -509,15 +511,17 @@ describe("Router", function () {
 
     // Try to update fee after fulfillment
     const newFee = parseEther("2");
-    await expect(
-      router.connect(user).updateSolverFeesIfUnfulfilled(requestId, newFee),
-    ).to.be.revertedWithCustomError(router, "AlreadyFulfilled()");
+    await expect(router.connect(user).updateSolverFeesIfUnfulfilled(requestId, newFee)).to.be.revertedWithCustomError(
+      router,
+      "AlreadyFulfilled()",
+    );
   });
 
   it("should revert if non-owner tries to permit destination chain", async () => {
-    await expect(
-      router.connect(user).permitDestinationChainId(12345),
-    ).to.be.revertedWithCustomError(router, "AccessControlUnauthorizedAccount");
+    await expect(router.connect(user).permitDestinationChainId(12345)).to.be.revertedWithCustomError(
+      router,
+      "AccessControlUnauthorizedAccount",
+    );
   });
 
   it("should revert if non-owner tries to set token mapping", async () => {
@@ -528,7 +532,7 @@ describe("Router", function () {
 
   it("should revert if trying to withdraw verification fee for token with zero balance", async () => {
     await expect(
-      router.connect(owner).withdrawVerificationFee(await dstToken.getAddress(), ownerAddr)
+      router.connect(owner).withdrawVerificationFee(await dstToken.getAddress(), ownerAddr),
     ).to.be.revertedWithCustomError(router, "ZeroAmount()");
   });
 
@@ -598,14 +602,16 @@ describe("Router", function () {
     );
 
     // Use random bytes as invalid signature
-    const invalidSig = AbiCoder.defaultAbiCoder().encode(
-      ["uint256", "uint256"],
-      [123, 456],
-    );
+    const invalidSig = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
 
     await expect(
       router.connect(owner).rebalanceSolver(solver.address, requestId, invalidSig),
     ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed()");
+  });
+
+  it("should return correct contract version", async () => {
+    const version = await router.getVersion();
+    expect(version).to.equal("1.0.0");
   });
 });
 

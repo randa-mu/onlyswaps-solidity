@@ -95,6 +95,8 @@ describe("RouterUpgrade", function () {
   describe("scheduleUpgrade", () => {
     it("should schedule an upgrade with valid params (good path)", async () => {
       // TODO: Implement test for scheduling upgrade successfully
+      const version = await router.getVersion();
+      expect(version).to.equal("1.0.0");
     });
 
     it("should revert if new implementation address is zero (bad path)", async () => {
