@@ -46,7 +46,12 @@ contract DeploymentTest is Test {
         Router srcRouterImplementation = new Router();
         UUPSProxy srcRouterProxy = new UUPSProxy(address(srcRouterImplementation), "");
         srcRouter = Router(address(srcRouterProxy));
-        srcRouter.initialize(owner, address(srcSwapRequestBLSSigVerifier), address(srcContractUpgradeBLSSigVerifier), VERIFICATION_FEE_BPS);
+        srcRouter.initialize(
+            owner,
+            address(srcSwapRequestBLSSigVerifier),
+            address(srcContractUpgradeBLSSigVerifier),
+            VERIFICATION_FEE_BPS
+        );
 
         /// @dev dst chain deployment
         dstSwapRequestBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
@@ -56,7 +61,12 @@ contract DeploymentTest is Test {
         Router dstRouterImplementation = new Router();
         UUPSProxy dstRouterProxy = new UUPSProxy(address(dstRouterImplementation), "");
         dstRouter = Router(address(dstRouterProxy));
-        dstRouter.initialize(owner, address(dstSwapRequestBLSSigVerifier), address(dstContractUpgradeBLSSigVerifier), VERIFICATION_FEE_BPS);
+        dstRouter.initialize(
+            owner,
+            address(dstSwapRequestBLSSigVerifier),
+            address(dstContractUpgradeBLSSigVerifier),
+            VERIFICATION_FEE_BPS
+        );
 
         /// @dev configurations
         /// whitelist requests to specific destination chain ids

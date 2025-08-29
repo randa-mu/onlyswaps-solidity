@@ -56,7 +56,9 @@ contract DeployAllContracts is
         // BN254SignatureScheme for contract upgrades
         bn254ContractUpgradeSignatureScheme = deployBN254ContractUpgradeSignatureScheme();
         // Router
-        router = deployRouterProxy(isUpgrade, address(bn254SwapRequestSignatureScheme), address(bn254ContractUpgradeSignatureScheme));
+        router = deployRouterProxy(
+            isUpgrade, address(bn254SwapRequestSignatureScheme), address(bn254ContractUpgradeSignatureScheme)
+        );
         // RUSD
         rusd = deployRUSD();
     }

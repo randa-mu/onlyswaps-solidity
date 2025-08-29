@@ -58,9 +58,10 @@ contract DeployRouter is JsonUtils, EnvReader {
         }
     }
 
-    function deployRouterImplementation(
-        DeploymentParameters memory deploymentParameters
-    ) internal returns (address implementation) {
+    function deployRouterImplementation(DeploymentParameters memory deploymentParameters)
+        internal
+        returns (address implementation)
+    {
         bytes memory code = type(Router).creationCode;
 
         vm.broadcast();
@@ -72,8 +73,7 @@ contract DeployRouter is JsonUtils, EnvReader {
             implementation = address(router);
         }
 
-        string memory path =
-            string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
+        string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
         _storeOnlySwapsAddressInJson(path, Constants.KEY_ROUTER_IMPLEMENTATION, implementation);
 
         console.log("Router implementation contract deployed at: ", implementation);
@@ -99,20 +99,21 @@ contract DeployRouter is JsonUtils, EnvReader {
             contractAddress = address(proxy);
         }
 
-        string memory path =
-            string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
+        string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
         _storeOnlySwapsAddressInJson(path, Constants.KEY_ROUTER_PROXY, contractAddress);
 
         vm.broadcast();
-        router.initialize(loadContractAdminFromEnv(), swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier, deploymentParameters.verificationFeeBps);
+        router.initialize(
+            loadContractAdminFromEnv(),
+            swapRequestBLSSigVerifier,
+            contractUpgradeBLSSigVerifier,
+            deploymentParameters.verificationFeeBps
+        );
 
         console.log("Router (UUPSProxy) deployed at: ", contractAddress);
     }
 
-    function executeContractUpgrade(address implementation)
-        internal
-        returns (Router router)
-    {
+    function executeContractUpgrade(address implementation) internal returns (Router router) {
         vm.broadcast();
         address proxyAddress = _readAddressFromJsonInput(
             string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),

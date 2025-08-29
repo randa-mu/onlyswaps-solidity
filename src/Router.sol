@@ -98,10 +98,12 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
     /// @param _swapRequestBlsValidator BLS validator address for swap request verification
     /// @param _contractUpgradeBlsValidator BLS validator address for contract upgrades
     /// @param _verificationFeeBps Verification fee in basis points
-    function initialize(address _owner, address _swapRequestBlsValidator, address _contractUpgradeBlsValidator, uint256 _verificationFeeBps)
-        public
-        initializer
-    {
+    function initialize(
+        address _owner,
+        address _swapRequestBlsValidator,
+        address _contractUpgradeBlsValidator,
+        uint256 _verificationFeeBps
+    ) public initializer {
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
 
@@ -527,6 +529,7 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
     /// @param to The address receiving the withdrawn fees
     function withdrawVerificationFee(address token, address to) external onlyAdmin nonReentrant {
         uint256 amount = totalVerificationFeeBalance[token];
+        require(amount > 0, ErrorsLib.ZeroAmount());
         totalVerificationFeeBalance[token] = 0;
         IERC20(token).safeTransfer(to, amount);
         emit VerificationFeeWithdrawn(token, to, amount);

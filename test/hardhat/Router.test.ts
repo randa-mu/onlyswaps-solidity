@@ -5,9 +5,7 @@ import {
   ERC20Token__factory,
   BN254SignatureScheme,
   BN254SignatureScheme__factory,
-  UUPSProxy__factory,
-  AccessControlEnumerableUpgradeable,
-  AccessControlEnumerableUpgradeable__factory,
+  UUPSProxy__factory
 } from "../../typechain-types";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
@@ -92,7 +90,7 @@ describe("Router", function () {
     // Router contract configuration
     await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
-  });
+  }); 
 
   it("should initiate a swap request and emit message", async () => {
     const amount = parseEther("10");
@@ -132,7 +130,7 @@ describe("Router", function () {
       .connect(user)
       .requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
 
-    let receipt = await tx.wait(1);
+    let receipt = await tx.wait();
     if (!receipt) {
       throw new Error("transaction has not been mined");
     }
@@ -179,7 +177,7 @@ describe("Router", function () {
       .connect(user)
       .requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
 
-    let receipt = await tx.wait(1);
+    let receipt = await tx.wait();
     if (!receipt) {
       throw new Error("transaction has not been mined");
     }
@@ -223,7 +221,7 @@ describe("Router", function () {
       .connect(user)
       .requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
 
-    let receipt = await tx.wait(1);
+    let receipt = await tx.wait();
     if (!receipt) {
       throw new Error("transaction has not been mined");
     }
@@ -423,6 +421,191 @@ describe("Router", function () {
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.true;
     const fakeId = keccak256(toUtf8Bytes("non-existent"));
     expect((await router.getFulfilledTransfers()).includes(fakeId)).to.be.false;
+  });
+
+  it("should revert if trying to swap with zero amount", async () => {
+    const amount = parseEther("0");
+    const fee = parseEther("1");
+    const amountToMint = amount + fee;
+
+    await srcToken.mint(userAddr, amountToMint);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+    await expect(
+      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr),
+    ).to.be.revertedWithCustomError(router, "ZeroAmount()");
+  });
+
+  it("should revert if destination chain is not permitted", async () => {
+    const amount = parseEther("10");
+    const fee = parseEther("1");
+    const amountToMint = amount + fee;
+    const invalidChainId = 9999;
+
+    await srcToken.mint(userAddr, amountToMint);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+    await expect(
+      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), amount, fee, invalidChainId, recipientAddr),
+    ).to.be.revertedWithCustomError(router, "TokenNotSupported()");
+  });
+
+  it("should revert if token mapping does not exist", async () => {
+    const amount = parseEther("10");
+    const fee = parseEther("1");
+    const amountToMint = amount + fee;
+    const newChainId = 1234;
+
+    await router.connect(owner).permitDestinationChainId(newChainId);
+
+    await srcToken.mint(userAddr, amountToMint);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+    await expect(
+      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), amount, fee, newChainId, recipientAddr),
+    ).to.be.revertedWithCustomError(router, "TokenNotSupported()");
+  });
+
+  it("should revert if user tries to update solver fee for a fulfilled request", async () => {
+    const amount = parseEther("5");
+    const fee = parseEther("1");
+    const amountToMint = amount + fee;
+
+    await srcToken.mint(userAddr, amountToMint);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+    const tx = await router
+      .connect(user)
+      .requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
+
+    let receipt = await tx.wait();
+
+    if (!receipt) {
+      throw new Error("transaction has not been mined");
+    }
+
+    const routerInterface = Router__factory.createInterface();
+    const [requestId] = extractSingleLog(
+      routerInterface,
+      receipt,
+      await router.getAddress(),
+      routerInterface.getEvent("SwapRequested"),
+    );
+
+    // Fulfill the request
+    const swapRequestParams = await router.getSwapRequestParameters(requestId);
+    const [, , messageAsG1Point] = await router.swapRequestParametersToBytes(requestId);
+    const M = bn254.G1.ProjectivePoint.fromAffine({
+      x: BigInt(messageAsG1Point[0]),
+      y: BigInt(messageAsG1Point[1]),
+    });
+    const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    const sigPointToAffine = sigPoint.toAffine();
+    const sigBytes = AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256"],
+      [sigPointToAffine.x, sigPointToAffine.y],
+    );
+    await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
+
+    // Try to update fee after fulfillment
+    const newFee = parseEther("2");
+    await expect(
+      router.connect(user).updateSolverFeesIfUnfulfilled(requestId, newFee),
+    ).to.be.revertedWithCustomError(router, "AlreadyFulfilled()");
+  });
+
+  it("should revert if non-owner tries to permit destination chain", async () => {
+    await expect(
+      router.connect(user).permitDestinationChainId(12345),
+    ).to.be.revertedWithCustomError(router, "AccessControlUnauthorizedAccount");
+  });
+
+  it("should revert if non-owner tries to set token mapping", async () => {
+    await expect(
+      router.connect(user).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress()),
+    ).to.be.revertedWithCustomError(router, "AccessControlUnauthorizedAccount");
+  });
+
+  it("should revert if trying to withdraw verification fee for token with zero balance", async () => {
+    await expect(
+      router.connect(owner).withdrawVerificationFee(await dstToken.getAddress(), ownerAddr)
+    ).to.be.revertedWithCustomError(router, "ZeroAmount()");
+  });
+
+  it("should revert if relayTokens is called with zero amount", async () => {
+    const amount = parseEther("0");
+    const requestId = keccak256(toUtf8Bytes("zero-amount"));
+    const srcChainId = 1;
+
+    await srcToken.mint(userAddr, amount);
+    await srcToken.connect(user).approve(await router.getAddress(), amount);
+
+    await expect(
+      router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+    ).to.be.revertedWithCustomError(router, "ZeroAmount()");
+  });
+
+  it("should revert if relayTokens is called with zero address as recipient", async () => {
+    const amount = parseEther("1");
+    const requestId = keccak256(toUtf8Bytes("zero-recipient"));
+    const srcChainId = 1;
+
+    await srcToken.mint(userAddr, amount);
+    await srcToken.connect(user).approve(await router.getAddress(), amount);
+
+    await expect(
+      router.connect(user).relayTokens(await srcToken.getAddress(), ethers.ZeroAddress, amount, requestId, srcChainId),
+    ).to.be.revertedWithCustomError(router, "InvalidTokenOrRecipient()");
+  });
+
+  it("should revert if trying to approve more tokens than balance", async () => {
+    const amount = parseEther("10");
+    const fee = parseEther("1");
+    const amountToMint = amount; // Not enough for fee
+
+    await srcToken.mint(userAddr, amountToMint);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint + fee);
+
+    await expect(
+      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr),
+    ).to.be.reverted;
+  });
+
+  it("should revert if rebalanceSolver is called with invalid signature", async () => {
+    const amount = parseEther("10");
+    const fee = parseEther("1");
+    const amountToMint = amount + fee;
+
+    await srcToken.mint(userAddr, amountToMint);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+    const tx = await router
+      .connect(user)
+      .requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
+
+    let receipt = await tx.wait();
+
+    if (!receipt) {
+      throw new Error("transaction has not been mined");
+    }
+
+    const routerInterface = Router__factory.createInterface();
+    const [requestId] = extractSingleLog(
+      routerInterface,
+      receipt,
+      await router.getAddress(),
+      routerInterface.getEvent("SwapRequested"),
+    );
+
+    // Use random bytes as invalid signature
+    const invalidSig = AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256"],
+      [123, 456],
+    );
+
+    await expect(
+      router.connect(owner).rebalanceSolver(solver.address, requestId, invalidSig),
+    ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed()");
   });
 });
 
