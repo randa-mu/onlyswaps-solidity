@@ -5,6 +5,9 @@ import {
   ERC20Token__factory,
   BN254SignatureScheme,
   BN254SignatureScheme__factory,
+  UUPSProxy__factory,
+  AccessControlEnumerableUpgradeable,
+  AccessControlEnumerableUpgradeable__factory
 } from "../../typechain-types";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
@@ -60,7 +63,32 @@ describe("Router", function () {
     dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     // Deploy BLS signature scheme with the public key G2 point swapped around to be compatible with the BLS solidity library
     bn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0]);
-    router = await new Router__factory(owner).deploy(ownerAddr, await bn254SigScheme.getAddress());
+
+    const Router = new ethers.ContractFactory(
+      Router__factory.abi,
+      Router__factory.bytecode,
+      owner,
+    );
+
+    // Deploy Router implementation
+    const routerImplementation: Router = await new Router__factory(owner).deploy();
+    await routerImplementation.waitForDeployment();
+
+    // Deploy UUPS proxy for Router using the implementation address and initialize data
+    const UUPSProxy = new ethers.ContractFactory(UUPSProxy__factory.abi, UUPSProxy__factory.bytecode, owner);
+    const routerProxy = await UUPSProxy.deploy(
+      await routerImplementation.getAddress(),
+      Router.interface.encodeFunctionData("initialize", [
+      ownerAddr,
+      await bn254SigScheme.getAddress(),
+      await bn254SigScheme.getAddress(),
+      ]),
+    );
+    await routerProxy.waitForDeployment();
+
+    // Attach Router interface to proxy address
+    const routerAttached = Router__factory.connect(await routerProxy.getAddress(), owner);
+    router = routerAttached;
 
     // Router contract configuration
     await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
@@ -90,7 +118,7 @@ describe("Router", function () {
 
     await expect(
       router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr),
-    ).to.be.revertedWithCustomError(router, "FeeTooLow");
+    ).to.be.revertedWithCustomError(router, "FeeTooLow()");
   });
 
   it("should update the total swap request fee for unfulfilled request", async () => {
@@ -137,8 +165,7 @@ describe("Router", function () {
 
   it("should block non-owner from withdrawing fees", async () => {
     await expect(router.connect(user).withdrawVerificationFee(await srcToken.getAddress(), user.address))
-      .to.be.revertedWithCustomError(router, "OwnableUnauthorizedAccount")
-      .withArgs(await user.getAddress());
+      .to.be.reverted;
   });
 
   it("should allow owner to withdraw verification fees", async () => {

@@ -31,17 +31,19 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
     uint256 public scheduledTimestampForUpgrade;
 
     /// @notice Minimum delay for upgrade operations
-    uint256 public minimumContractUpgradeDelay = 2 days;
+    uint256 public minimumContractUpgradeDelay;
 
     /// @notice Role identifier for the contract administrator.
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public ADMIN_ROLE;
 
     /// @notice Basis points divisor
-    uint256 public constant BPS_DIVISOR = 10_000;
+    uint256 public BPS_DIVISOR;
 
-    /// @notice Max total fee in BPS (50%)
-    uint256 public constant MAX_FEE_BPS = 5_000;
-    uint256 public verificationFeeBps = 500;
+    /// @notice Max total fee in BPS
+    uint256 public MAX_FEE_BPS;
+
+    /// @notice Verification fee in BPS
+    uint256 public verificationFeeBps;
 
     /// @notice BLS validator used for swap request signature verification
     ISignatureScheme public swapRequestBlsValidator;
@@ -101,6 +103,12 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
     {
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
+
+        // todo review setting using input variables
+        verificationFeeBps = 500;
+        MAX_FEE_BPS = 5_000;
+        BPS_DIVISOR = 10_000;
+        ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
         require(_grantRole(ADMIN_ROLE, _owner), ErrorsLib.GrantRoleFailed());
         require(_grantRole(DEFAULT_ADMIN_ROLE, _owner), ErrorsLib.GrantRoleFailed());
