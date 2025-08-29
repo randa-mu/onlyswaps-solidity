@@ -40,21 +40,13 @@ interface IRouter {
     /// @param requestId Hash of the transfer parameters
     /// @param srcChainId The source chain ID from which the request originated
     /// @param dstChainId The destination chain ID where the tokens will be delivered
-    event SwapRequested(
-        bytes32 indexed requestId,
-        uint256 indexed srcChainId,
-        uint256 indexed dstChainId
-    );
+    event SwapRequested(bytes32 indexed requestId, uint256 indexed srcChainId, uint256 indexed dstChainId);
 
     /// @notice Emitted when a swap request is fulfilled on the destination chain by a solver
     /// @param requestId The unique ID of the swap request
     /// @param srcChainId The source chain ID from which the request originated
     /// @param dstChainId The destination chain ID where the tokens were delivered
-    event SwapRequestFulfilled(
-        bytes32 indexed requestId,
-        uint256 indexed srcChainId,
-        uint256 indexed dstChainId
-    );
+    event SwapRequestFulfilled(bytes32 indexed requestId, uint256 indexed srcChainId, uint256 indexed dstChainId);
 
     /// @notice Emitted when a message is successfully fulfilled by a solver
     /// @param requestId Hash of the transfer parameters
