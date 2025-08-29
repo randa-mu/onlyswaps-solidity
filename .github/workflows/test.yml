@@ -26,7 +26,7 @@ jobs:
         run: forge --version
 
       - name: Install soldeer dependencies
-        run: forge soldeer install --recursive-deps
+        run: forge soldeer install
 
       - name: Run Forge fmt
         run: forge fmt --check
