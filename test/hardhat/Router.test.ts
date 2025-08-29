@@ -58,7 +58,8 @@ describe("Router", function () {
     // Deploy contracts
     srcToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
-    bn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c0, x.c1], [y.c0, y.c1]);
+    // Deploy BLS signature scheme with the public key G2 point swapped around to be compatible with the BLS solidity library
+    bn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0]);
     router = await new Router__factory(owner).deploy(ownerAddr, await bn254SigScheme.getAddress());
 
     // Router contract configuration
@@ -123,15 +124,15 @@ describe("Router", function () {
 
     expect(await srcToken.balanceOf(userAddr)).to.equal(newFee - fee);
 
-    await expect(router.connect(user).updateFeesIfUnfulfilled(requestId, newFee)).to.emit(
+    await expect(router.connect(user).updateSolverFeesIfUnfulfilled(requestId, newFee)).to.emit(
       router,
-      "SwapRequestFeeUpdated",
+      "SwapRequestSolverFeeUpdated",
     );
 
     expect(await srcToken.balanceOf(userAddr)).to.equal(0);
 
     const swapRequestParams = await router.getSwapRequestParameters(requestId);
-    expect(swapRequestParams.verificationFee + swapRequestParams.solverFee).to.equal(newFee);
+    expect(swapRequestParams.solverFee).to.equal(newFee);
   });
 
   it("should block non-owner from withdrawing fees", async () => {
@@ -178,7 +179,7 @@ describe("Router", function () {
     expect(await router.getTotalVerificationFeeBalance(await srcToken.getAddress())).to.equal(0);
 
     const swapRequestParams = await router.getSwapRequestParameters(requestId);
-    expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + swapRequestParams.solverFee);
+    expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + swapRequestParams.solverFee - swapRequestParams.verificationFee);
   });
 
   it("should rebalance solver and transfer correct amount", async () => {
@@ -232,7 +233,7 @@ describe("Router", function () {
 
     // ensure that the router has enough liquidity to pay solver
     expect(await srcToken.balanceOf(await router.getAddress())).to.be.greaterThanOrEqual(
-      swapRequestParams.amount + swapRequestParams.solverFee,
+      swapRequestParams.amountOut + swapRequestParams.solverFee,
     );
 
     const before = await srcToken.balanceOf(solverAddr);
@@ -244,7 +245,7 @@ describe("Router", function () {
     await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
 
     const after = await srcToken.balanceOf(solverAddr);
-    expect(after - before).to.equal(amount + swapRequestParams.solverFee);
+    expect(after - before).to.equal(amount + swapRequestParams.solverFee - swapRequestParams.verificationFee);
     expect(await srcToken.balanceOf(await router.getAddress())).to.be.equal(swapRequestParams.verificationFee);
 
     expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(1);
@@ -276,7 +277,7 @@ describe("Router", function () {
     // Check receipt
     const receipt = await router.swapRequestReceipts(requestId);
     expect(receipt.fulfilled).to.be.true;
-    expect(receipt.amount).to.equal(amount);
+    expect(receipt.amountOut).to.equal(amount);
     expect(receipt.solver).to.equal(userAddr);
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
@@ -359,7 +360,7 @@ describe("Router", function () {
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
 
-    const swapRequestReceipt = await router.getReceipt(requestId);
+    const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
     // Check receipt values
     expect(swapRequestReceipt[0]).to.equal(requestId);
     expect(swapRequestReceipt[1]).to.equal(srcChainId);

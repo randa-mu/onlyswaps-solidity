@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import "forge-std/Script.sol";
+import {console} from "forge-std/console.sol";
 
 import {EnvReader} from "../../shared/EnvReader.sol";
 

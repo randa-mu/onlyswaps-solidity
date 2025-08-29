@@ -71,7 +71,7 @@ async function main() {
       sender: swapRequestParams.sender,
       recipient: swapRequestParams.recipient,
       token: swapRequestParams.token,
-      amount: formatEther(swapRequestParams.amount),
+      amountOut: formatEther(swapRequestParams.amountOut),
       srcChainId: swapRequestParams.srcChainId,
       dstChainId: swapRequestParams.dstChainId,
       verificationFee: formatEther(swapRequestParams.verificationFee),

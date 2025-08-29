@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {BLS} from "../libraries/BLS.sol";
+import {BLS} from "bls-solidity/BLS.sol";
 
 interface IRouter {
     // -------- Structs --------
@@ -10,13 +10,14 @@ interface IRouter {
         address sender; // Address initiating the swap on the source chain
         address recipient; // Address to receive tokens on the destination chain
         address token; // Token address being transferred
-        uint256 amount; // Amount to be received by the recipient on the destination chain
+        uint256 amountOut; // Amount to be received by the recipient on the destination chain
         uint256 srcChainId; // Source chain ID where the request originated
         uint256 dstChainId; // Destination chain ID where tokens will be delivered
         uint256 verificationFee; // Total swap fee deducted from the amount
         uint256 solverFee; // Portion of verificationFee paid to the solver
         uint256 nonce; // Unique nonce to prevent replay attacks
         bool executed; // Whether the transfer has been executed
+        uint256 requestedAt; // Timestamp when the request was created
     }
 
     /// @notice Structure to store details of a fulfilled swap request
@@ -28,7 +29,7 @@ interface IRouter {
         bool fulfilled; // Whether the transfer has been delivered
         address solver; // Address that fulfilled the request
         address recipient; // Recipient of the tokens on the destination chain
-        uint256 amount; // Amount delivered to the recipient (after fees)
+        uint256 amountOut; // Amount delivered to the recipient (after fees)
         uint256 fulfilledAt; // Timestamp when the request was fulfilled
     }
 
@@ -41,8 +42,8 @@ interface IRouter {
     /// @param token The address of the token being transferred
     /// @param sender The address initiating the swap
     /// @param recipient The address that will receive the tokens on the destination chain
-    /// @param amount The amount of tokens requested for transfer
-    /// @param fee The fee associated with the swap request
+    /// @param amountOut The amount of tokens requested for transfer
+    /// @param solverFee The solver fee associated with the swap request
     /// @param nonce A unique identifier to prevent replay attacks
     /// @param requestedAt The timestamp when the swap request was created
     event SwapRequested(
@@ -52,8 +53,8 @@ interface IRouter {
         address token,
         address sender,
         address recipient,
-        uint256 amount,
-        uint256 fee,
+        uint256 amountOut,
+        uint256 solverFee,
         uint256 nonce,
         uint256 requestedAt
     );
@@ -65,7 +66,7 @@ interface IRouter {
     /// @param token The address of the token that was transferred
     /// @param solver The address that fulfilled the transfer
     /// @param recipient The address that received the tokens on the destination chain
-    /// @param amount The amount transferred to the recipient
+    /// @param amountOut The amount transferred to the recipient
     /// @param fulfilledAt The timestamp when the transfer was fulfilled
     event SwapRequestFulfilled(
         bytes32 indexed requestId,
@@ -74,7 +75,7 @@ interface IRouter {
         address token,
         address solver,
         address recipient,
-        uint256 amount,
+        uint256 amountOut,
         uint256 fulfilledAt
     );
 
@@ -84,7 +85,7 @@ interface IRouter {
 
     /// @notice Emitted when the fee is updated for a request by the sender
     /// @param requestId Hash of the transfer parameters
-    event SwapRequestFeeUpdated(bytes32 indexed requestId);
+    event SwapRequestSolverFeeUpdated(bytes32 indexed requestId);
 
     /// @notice Emitted when the swap fee Bps is updated
     /// @param newFeeBps The new fee in basis points
@@ -111,14 +112,31 @@ interface IRouter {
     /// @notice Emitted when swap fees have been withdrawn to a recipient address
     /// @param token The token address of the withdrawn fees
     /// @param recipient The address receiving the withdrawn fees
-    /// @param amount The amount of fees withdrawn
-    event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amount);
+    /// @param amountOut The amount of fees withdrawn
+    event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amountOut);
+
+    /// @notice Emitted when a contract upgrade is scheduled
+    /// @param newImplementation The address of the new implementation contract
+    /// @param executeAfter The timestamp after which the upgrade can be executed
+    event UpgradeScheduled(address indexed newImplementation, uint256 executeAfter);
+
+    /// @notice Emitted when a scheduled upgrade is cancelled
+    /// @param cancelledImplementation The address of the cancelled implementation contract
+    event UpgradeCancelled(address indexed cancelledImplementation);
+
+    /// @notice Emitted when a scheduled upgrade is executed
+    /// @param newImplementation The address of the new implementation contract
+    event UpgradeExecuted(address indexed newImplementation);
+
+    /// @notice Emitted when the BLS validator contract is updated
+    /// @param contractUpgradeBlsValidator The new BLS validator contract address
+    event ContractUpgradeBLSValidatorUpdated(address indexed contractUpgradeBlsValidator);
 
     // -------- Core Transfer Logic --------
 
     /// @notice Initiates a cross-chain swap request
     /// @param token The address of the token to be swapped
-    /// @param amount The amount of tokens to be swapped
+    /// @param amount The amount of tokens to be swapped (including verification fees)
     /// @param fee The fee associated with the swap request
     /// @param dstChainId The destination chain ID where the tokens will be sent
     /// @param recipient The address that will receive the tokens on the destination chain
@@ -127,10 +145,10 @@ interface IRouter {
         external
         returns (bytes32 requestId);
 
-    /// @notice Updates the fee for an unfulfilled swap request
+    /// @notice Updates the solver fee for an unfulfilled swap request
     /// @param requestId The unique ID of the swap request to update
-    /// @param newFee The new fee to be set for the swap request
-    function updateFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external;
+    /// @param newFee The new solver fee to be set for the swap request
+    function updateSolverFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external;
 
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
     /// @notice The solver is sent the amount transferred to the recipient wallet on the destination chain
@@ -143,31 +161,39 @@ interface IRouter {
     /// @notice Relays tokens to the recipient and stores a receipt
     /// @param token The token being relayed
     /// @param recipient The target recipient of the tokens
-    /// @param amount The net amount delivered (after fees)
+    /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param requestId The original request ID from the source chain
     /// @param srcChainId The ID of the source chain where the request originated
-    function relayTokens(address token, address recipient, uint256 amount, bytes32 requestId, uint256 srcChainId)
+    function relayTokens(address token, address recipient, uint256 amountOut, bytes32 requestId, uint256 srcChainId)
         external;
+
+    /// @notice Cancels a scheduled upgrade
+    /// @param signature The BLS signature authorizing the cancellation
+    function cancelUpgrade(bytes calldata signature) external;
+
+    /// @notice Executes a scheduled upgrade
+    function executeUpgrade() external;
 
     // -------- View Functions --------
 
-    /// @notice Calculates the verification fee amount based on total fees
-    /// @param totalFees The total fees for which the verification fee is to be calculated
+    /// @notice Calculates the verification fee amount based on the amount to swap
+    /// @param amountToSwap The amount to swap
     /// @return The calculated verification fee amount
-    function getVerificationFeeAmount(uint256 totalFees) external view returns (uint256);
+    /// @return The amount after deducting the verification fee
+    function getVerificationFeeAmount(uint256 amountToSwap) external view returns (uint256, uint256);
 
     /// @notice Generates a unique request ID based on the provided swap request parameters
     /// @param p The swap request parameters
     /// @return The generated request ID
-    function getRequestId(SwapRequestParameters memory p) external view returns (bytes32);
+    function getSwapRequestId(SwapRequestParameters memory p) external view returns (bytes32);
 
     /// @notice Retrieves the current chain ID
     /// @return The current chain ID
     function getChainID() external view returns (uint256);
 
-    /// @notice Retrieves the address of the BLS validator
-    /// @return The address of the BLS validator
-    function getBlsValidator() external view returns (address);
+    /// @notice Retrieves the address of the swap request BLS validator
+    /// @return The address of the swap request BLS validator
+    function getSwapRequestBlsValidator() external view returns (address);
 
     /// @notice Retrieves the current verification fee in basis points
     /// @return The current verification fee in basis points
@@ -211,7 +237,7 @@ interface IRouter {
     function getFulfilledSolverRefunds() external view returns (bytes32[] memory);
 
     /// @notice Retrieves the receipt for a specific request ID
-    /// @param requestId The request ID to check
+    /// @param _requestId The request ID to check
     /// @return requestId The unique ID of the swap request
     /// @return srcChainId The source chain ID from which the request originated
     /// @return dstChainId The destination chain ID where the tokens were delivered
@@ -219,9 +245,9 @@ interface IRouter {
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
     /// @return recipient The address that received the tokens on the destination chain
-    /// @return amount The amount of tokens transferred to the recipient
+    /// @return amountOut The amount of tokens transferred to the recipient
     /// @return fulfilledAt The timestamp when the transfer was fulfilled
-    function getReceipt(bytes32 _requestId)
+    function getSwapRequestReceipt(bytes32 _requestId)
         external
         view
         returns (
@@ -232,13 +258,17 @@ interface IRouter {
             bool fulfilled,
             address solver,
             address recipient,
-            uint256 amount,
+            uint256 amountOut,
             uint256 fulfilledAt
         );
 
+    /// @notice Retrieves the address of the contract upgrade BLS validator
+    /// @return The address of the contract upgrade BLS validator
+    function getContractUpgradeBlsValidator() external view returns (address);
+
     /// @notice Builds swap request parameters based on the provided details
     /// @param token The address of the token to be swapped
-    /// @param amount The amount of tokens to be swapped
+    /// @param amountOut The amount of tokens to be swapped
     /// @param verificationFeeAmount The verification fee amount
     /// @param solverFeeAmount The solver fee amount
     /// @param dstChainId The destination chain ID
@@ -247,7 +277,7 @@ interface IRouter {
     /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
         address token,
-        uint256 amount,
+        uint256 amountOut,
         uint256 verificationFeeAmount,
         uint256 solverFeeAmount,
         uint256 dstChainId,
@@ -265,15 +295,31 @@ interface IRouter {
         view
         returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point);
 
+    /// @notice Converts contract upgrade parameters to a message as bytes and BLS format for signing
+    /// @return message The encoded message bytes
+    /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
+    /// @return messageAsG1Point The message hashed to BLS G1 point
+    function contractUpgradeParamsToBytes() external view returns (bytes memory, bytes memory, BLS.PointG1 memory);
+
     // -------- Admin Functions --------
 
     /// @notice Sets the verification fee in basis points
     /// @param _verificationFeeBps The new verification fee in basis points
     function setVerificationFeeBps(uint256 _verificationFeeBps) external;
 
-    /// @notice Updates the address of the BLS validator contract
-    /// @param _blsValidator The new BLS validator contract address
-    function setBlsValidator(address _blsValidator) external;
+    /// @notice Updates the swap request BLS signature validator contract
+    /// @param _swapRequestBlsValidator The new swap request BLS validator contract address
+    function setSwapRequestBlsValidator(address _swapRequestBlsValidator) external;
+
+    /// @notice Updates the contract upgrade BLS validator contract
+    /// @param _contractUpgradeBlsValidator The new contract upgrade BLS validator contract address
+    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator) external;
+
+    /// @notice Schedules a contract upgrade
+    /// @param _newImplementation The address of the new implementation contract
+    /// @param _upgradeData The calldata to be sent to the new implementation
+    /// @param _upgradeTime The time at which the upgrade can be executed
+    function scheduleUpgrade(address _newImplementation, bytes calldata _upgradeData, uint256 _upgradeTime) external;
 
     /// @notice Permits a destination chain ID for swaps
     /// @param chainId The chain ID to be permitted

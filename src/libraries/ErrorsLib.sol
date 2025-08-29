@@ -7,6 +7,7 @@ library ErrorsLib {
     error InvalidTokenOrRecipient();
     error ZeroAmount();
     error FeeTooLow();
+    error InvalidFeeBps();
     error TokenNotSupported();
     error UnauthorisedCaller();
     error NewFeeTooLow(uint256 newFee, uint256 currentFee);
@@ -15,4 +16,10 @@ library ErrorsLib {
     error BLSSignatureVerificationFailed();
     error SwapRequestParametersMismatch();
     error SourceChainIdMismatch(uint256 swapRequestParamsSrcChainId, uint256 contractChainId);
+    error NoUpgradePending();
+    error UpgradeTooEarly(uint256 upgradeTime);
+    error TooLateToCancelUpgrade(uint256 upgradeTime);
+    error ZeroAddress();
+    error UpgradeTimeMustBeInTheFuture();
+    error GrantRoleFailed();
 }

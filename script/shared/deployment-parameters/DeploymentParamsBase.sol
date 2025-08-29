@@ -6,7 +6,8 @@ import "./DeploymentParamsCore.sol";
 library DeploymentParamsBase {
     function getDeploymentParams() internal pure returns (DeploymentParameters memory) {
         return DeploymentParameters({
-            blsPublicKey: DeploymentParamsCore.getBLSPublicKey(),
+            blsSwapRequestPublicKey: DeploymentParamsCore.getBLSSwapRequestPublicKey(),
+            blsContractUpgradePublicKey: DeploymentParamsCore.getBLSContractUpgradePublicKey(),
             tokenName: DeploymentParamsCore.TOKEN_NAME,
             tokenSymbol: DeploymentParamsCore.TOKEN_SYMBOL,
             tokenDecimals: DeploymentParamsCore.TOKEN_DECIMALS,

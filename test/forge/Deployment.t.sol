@@ -2,18 +2,23 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
+import {BLS} from "bls-solidity/BLS.sol";
+
 import {Router} from "../../src/Router.sol";
+import {UUPSProxy} from "../../src/proxy/UUPSProxy.sol";
 import {BN254SignatureScheme} from "../../src/signature-scheme/BN254SignatureScheme.sol";
 import {ERC20Token} from "../../src/mocks/ERC20Token.sol";
-import {BLS} from "../../src/libraries/BLS.sol";
 
 contract DeploymentTest is Test {
     Router public srcRouter;
     Router public dstRouter;
     ERC20Token public srcToken;
     ERC20Token public dstToken;
-    BN254SignatureScheme public srcBLSSigVerifier;
-    BN254SignatureScheme public dstBLSSigVerifier;
+    BN254SignatureScheme public srcSwapRequestBLSSigVerifier;
+    BN254SignatureScheme public dstSwapRequestBLSSigVerifier;
+
+    BN254SignatureScheme public srcContractUpgradeBLSSigVerifier;
+    BN254SignatureScheme public dstContractUpgradeBLSSigVerifier;
 
     uint256 srcChainId = 1;
     uint256 dstChainId = 31337;
@@ -32,14 +37,24 @@ contract DeploymentTest is Test {
 
         /// @dev src chain deployment
         /// for each chain, we deploy the following contracts
-        srcBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
+        srcSwapRequestBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
+        srcContractUpgradeBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
         srcToken = new ERC20Token("Source Token", "ST", tokenDecimals);
-        srcRouter = new Router(owner, address(srcBLSSigVerifier));
+        // deploy upgreadable router on src chain
+        Router srcRouterImplementation = new Router();
+        UUPSProxy srcRouterProxy = new UUPSProxy(address(srcRouterImplementation), "");
+        srcRouter = Router(address(srcRouterProxy));
+        srcRouter.initialize(owner, address(srcSwapRequestBLSSigVerifier), address(srcContractUpgradeBLSSigVerifier));
 
         /// @dev dst chain deployment
-        dstBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
+        dstSwapRequestBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
+        dstContractUpgradeBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
         dstToken = new ERC20Token("Destination Token", "DT", tokenDecimals);
-        dstRouter = new Router(owner, address(dstBLSSigVerifier));
+        // deploy upgreadable router on dst chain
+        Router dstRouterImplementation = new Router();
+        UUPSProxy dstRouterProxy = new UUPSProxy(address(dstRouterImplementation), "");
+        dstRouter = Router(address(dstRouterProxy));
+        dstRouter.initialize(owner, address(dstSwapRequestBLSSigVerifier), address(dstContractUpgradeBLSSigVerifier));
 
         /// @dev configurations
         /// whitelist requests to specific destination chain ids
@@ -63,9 +78,9 @@ contract DeploymentTest is Test {
     }
 
     function test_ConstructorArguments() public view {
-        assertEq(srcRouter.getBlsValidator(), address(srcBLSSigVerifier));
-        assertEq(dstRouter.getBlsValidator(), address(dstBLSSigVerifier));
-        assertEq(srcRouter.owner(), owner);
-        assertEq(dstRouter.owner(), owner);
+        assertEq(srcRouter.getSwapRequestBlsValidator(), address(srcSwapRequestBLSSigVerifier));
+        assertEq(dstRouter.getSwapRequestBlsValidator(), address(dstSwapRequestBLSSigVerifier));
+        assertEq(srcRouter.getContractUpgradeBlsValidator(), address(srcContractUpgradeBLSSigVerifier));
+        assertEq(dstRouter.getContractUpgradeBlsValidator(), address(dstContractUpgradeBLSSigVerifier));
     }
 }
