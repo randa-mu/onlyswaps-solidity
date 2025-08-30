@@ -210,7 +210,6 @@ describe("RouterUpgrade", function () {
     });
 
     it("should revert if too late to cancel (bad path)", async () => {
-      // TODO: Implement test for too late to cancel
       const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
@@ -235,10 +234,6 @@ describe("RouterUpgrade", function () {
         router,
         "TooLateToCancelUpgrade",
       ).withArgs(upgradeTime);
-    });
-
-    it("should revert if no upgrade is pending (bad path)", async () => {
-      // TODO: Implement test for no upgrade pending
     });
   });
 

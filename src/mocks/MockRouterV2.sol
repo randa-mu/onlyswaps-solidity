@@ -574,7 +574,6 @@ contract MockRouterV2 is
             block.timestamp < scheduledTimestampForUpgrade,
             ErrorsLib.TooLateToCancelUpgrade(scheduledTimestampForUpgrade)
         );
-        require(scheduledImplementation != address(0), ErrorsLib.NoUpgradePending());
 
         (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes();
 
