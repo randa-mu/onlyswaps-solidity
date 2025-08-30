@@ -146,8 +146,8 @@ describe("RouterUpgrade", function () {
     });
 
     it("should not affect contract storage and token configurations after upgrade (good path)", async () => {
-      // TODO: Implement test to ensure storage and configurations are intact after upgrade 
-      // Including source and destination token mappings
+      // TODO: Implement test to ensure storage and configurations are intact after upgrade, 
+      // including source and destination token mappings
     });
   });
 });
