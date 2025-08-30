@@ -1,6 +1,8 @@
 import {
   Router,
   Router__factory,
+  MockRouterV2,
+  MockRouterV2__factory,
   ERC20Token,
   ERC20Token__factory,
   BN254SignatureScheme,
@@ -141,6 +143,11 @@ describe("RouterUpgrade", function () {
 
     it("should revert if upgrade is called too early (bad path)", async () => {
       // TODO: Implement test for upgrade too early
+    });
+
+    it("should not affect contract storage and token configurations after upgrade (good path)", async () => {
+      // TODO: Implement test to ensure storage and configurations are intact after upgrade 
+      // Including source and destination token mappings
     });
   });
 });
