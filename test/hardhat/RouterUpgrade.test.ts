@@ -187,10 +187,54 @@ describe("RouterUpgrade", function () {
         .withArgs(newImplAddress);
     });
 
-    it("should revert if BLS signature verification fails (bad path)", async () => {});
+    it("should revert if BLS signature verification fails (bad path)", async () => {
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
+
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime);
+
+      // Generate an invalid signature (random bytes)
+      const invalidSigBytes = AbiCoder.defaultAbiCoder().encode(
+        ["uint256", "uint256"],
+        [BigInt(keccak256(toUtf8Bytes("invalid1"))), BigInt(keccak256(toUtf8Bytes("invalid2")))],
+      );
+
+      // Attempt to cancel the upgrade with the invalid signature
+      await expect(router.connect(owner).cancelUpgrade(invalidSigBytes)).to.be.revertedWithCustomError(
+        router,
+        "BLSSignatureVerificationFailed()",
+      );
+    });
 
     it("should revert if too late to cancel (bad path)", async () => {
       // TODO: Implement test for too late to cancel
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 10 : 0; // 10 seconds in the future
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime);
+      await ethers.provider.send("evm_increaseTime", [20]); // Increase time by 20 seconds
+      await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change
+      // Generate the signature for cancellation
+      const [, , messageAsG1Point] = await router.contractUpgradeParamsToBytes();
+      const M = bn254.G1.ProjectivePoint.fromAffine({
+        x: BigInt(messageAsG1Point[0]),
+        y: BigInt(messageAsG1Point[1]),
+      });
+      const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+      const sigPointToAffine = sigPoint.toAffine();
+      const sigBytes = AbiCoder.defaultAbiCoder().encode(
+        ["uint256", "uint256"],
+        [sigPointToAffine.x, sigPointToAffine.y],
+      );
+      await expect(router.connect(owner).cancelUpgrade(sigBytes)).to.be.revertedWithCustomError(
+        router,
+        "TooLateToCancelUpgrade",
+      ).withArgs(upgradeTime);
     });
 
     it("should revert if no upgrade is pending (bad path)", async () => {
