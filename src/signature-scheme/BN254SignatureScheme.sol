@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {BLS} from "bls-solidity-0.1.0/BLS.sol";
+import {BLS} from "bls-solidity/BLS.sol";
 
 import {BytesLib} from "../libraries/BytesLib.sol";
 

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
-import {BLS} from "bls-solidity-0.1.0/BLS.sol";
+import {BLS} from "bls-solidity/BLS.sol";
 
 import {Router} from "../../src/Router.sol";
 import {BN254SignatureScheme} from "../../src/signature-scheme/BN254SignatureScheme.sol";
