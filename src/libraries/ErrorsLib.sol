@@ -23,4 +23,5 @@ library ErrorsLib {
     error UpgradeTimeMustBeInTheFuture();
     error GrantRoleFailed();
     error UpgradeMustGoThroughExecuteUpgrade();
+    error UpgradeFailed();
 }

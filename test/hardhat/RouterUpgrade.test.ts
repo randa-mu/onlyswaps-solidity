@@ -239,24 +239,69 @@ describe("RouterUpgrade", function () {
 
   describe("executeUpgrade", () => {
     it("should execute a scheduled upgrade after scheduled time (good path)", async () => {
-      // TODO: Implement test for successful upgrade execution
+      let version = await router.getVersion();
+      expect(version).to.equal("1.0.0");
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 10 : 0; // 10 seconds in the future
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime);
+      await ethers.provider.send("evm_increaseTime", [15]); // Increase time by 15 seconds
+      await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change
+      // Execute the upgrade. It can be called by anyone
+      await expect(router.connect(user).executeUpgrade()).to.emit(router, "UpgradeExecuted").withArgs(newImplAddress);
+      // Check version after upgrade
+      version = await router.getVersion();
+      expect(version).to.equal("2.0.0");
     });
 
     it("should revert if upgradeToAndCall is called extrenally (bad path)", async () => {
-      // TODO: Implement test for no upgrade pending
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime);
+      await expect(
+        router.connect(user).upgradeToAndCall(newImplAddress, "0x"),
+      ).to.be.revertedWithCustomError(router, "UpgradeMustGoThroughExecuteUpgrade()");
     });
 
-    it("should revert if no upgrade is pending (bad path)", async () => {
-      // TODO: Implement test for no upgrade pending
+    it("should revert if current scheduled implementation address is zero address (bad path)", async () => {
+      await expect(router.connect(user).executeUpgrade()).to.be.revertedWithCustomError(
+        router,
+        "NoUpgradePending()",
+      );
     });
 
     it("should revert if upgrade is called too early (bad path)", async () => {
-      // TODO: Implement test for upgrade too early
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime);
+      await expect(router.connect(user).executeUpgrade()).to.be.revertedWithCustomError(
+        router,
+        "TooEarlyToExecuteUpgrade",
+      ).withArgs(upgradeTime);
     });
 
-    it("should not affect contract storage and token configurations after upgrade (good path)", async () => {
-      // TODO: Implement test to ensure storage and configurations are intact after upgrade,
-      // including source and destination token mappings
+    it.only("should not affect contract storage and token configurations after upgrade (good path)", async () => {
+      const dstTokenAddressBefore = await router.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
+      expect(dstTokenAddressBefore).to.equal(await dstToken.getAddress());
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 10 : 0; // 10 seconds in the future
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime);
+      await ethers.provider.send("evm_increaseTime", [15]); // Increase time by 15 seconds
+      await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change
+      await router.connect(user).executeUpgrade();
+      const dstTokenAddressAfter = await router.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
+      expect(dstTokenAddressAfter).to.equal(await dstToken.getAddress());
     });
 
     it("should have new functionality after upgrade (good path)", async () => {

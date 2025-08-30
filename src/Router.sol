@@ -592,14 +592,30 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
             block.timestamp >= scheduledTimestampForUpgrade, ErrorsLib.UpgradeTooEarly(scheduledTimestampForUpgrade)
         );
 
-        upgradeToAndCall(scheduledImplementation, scheduledImplementationCalldata);
+        address impl = scheduledImplementation;
+        bytes memory callData = scheduledImplementationCalldata;
 
-        // Reset pending upgrade before upgrading
+        // Reset state BEFORE performing upgrade to avoid reentrancy issues
         scheduledImplementation = address(0);
         scheduledTimestampForUpgrade = 0;
         scheduledImplementationCalldata = "";
 
-        emit UpgradeExecuted(scheduledImplementation);
+        // External call to self for msg.sender == address(this) inside _authorizeUpgrade to be valid
+        (bool success, bytes memory ret) =
+            address(this).call(abi.encodeWithSelector(this.upgradeToAndCall.selector, impl, callData));
+
+        if (!success) {
+            // Bubble up revert reason if present
+            if (ret.length > 0) {
+                assembly {
+                    let size := mload(ret)
+                    revert(add(ret, 32), size)
+                }
+            }
+            revert ErrorsLib.UpgradeFailed();
+        }
+
+        emit UpgradeExecuted(impl);
     }
 
     // ---------------------- Internal Functions ----------------------
