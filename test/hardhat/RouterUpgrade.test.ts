@@ -230,10 +230,9 @@ describe("RouterUpgrade", function () {
         ["uint256", "uint256"],
         [sigPointToAffine.x, sigPointToAffine.y],
       );
-      await expect(router.connect(owner).cancelUpgrade(sigBytes)).to.be.revertedWithCustomError(
-        router,
-        "TooLateToCancelUpgrade",
-      ).withArgs(upgradeTime);
+      await expect(router.connect(owner).cancelUpgrade(sigBytes))
+        .to.be.revertedWithCustomError(router, "TooLateToCancelUpgrade")
+        .withArgs(upgradeTime);
     });
   });
 
@@ -263,16 +262,14 @@ describe("RouterUpgrade", function () {
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime);
-      await expect(
-        router.connect(user).upgradeToAndCall(newImplAddress, "0x"),
-      ).to.be.revertedWithCustomError(router, "UpgradeMustGoThroughExecuteUpgrade()");
+      await expect(router.connect(user).upgradeToAndCall(newImplAddress, "0x")).to.be.revertedWithCustomError(
+        router,
+        "UpgradeMustGoThroughExecuteUpgrade()",
+      );
     });
 
     it("should revert if current scheduled implementation address is zero address (bad path)", async () => {
-      await expect(router.connect(user).executeUpgrade()).to.be.revertedWithCustomError(
-        router,
-        "NoUpgradePending()",
-      );
+      await expect(router.connect(user).executeUpgrade()).to.be.revertedWithCustomError(router, "NoUpgradePending()");
     });
 
     it("should revert if upgrade is called too early (bad path)", async () => {
@@ -282,15 +279,20 @@ describe("RouterUpgrade", function () {
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime);
-      await expect(router.connect(user).executeUpgrade()).to.be.revertedWithCustomError(
-        router,
-        "TooEarlyToExecuteUpgrade",
-      ).withArgs(upgradeTime);
+      await expect(router.connect(user).executeUpgrade())
+        .to.be.revertedWithCustomError(router, "UpgradeTooEarly")
+        .withArgs(upgradeTime);
     });
 
     it("should not affect contract storage and token configurations after upgrade (good path)", async () => {
+      // Check ADMIN_ROLE before upgrade
+      const ADMIN_ROLE = keccak256(toUtf8Bytes("ADMIN_ROLE"));
+      const hasAdminRoleBefore = await router.hasRole(ADMIN_ROLE, ownerAddr);
+      expect(hasAdminRoleBefore).to.be.true;
+      // Check token mapping before upgrade
       const dstTokenAddressBefore = await router.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
       expect(dstTokenAddressBefore).to.equal(await dstToken.getAddress());
+
       const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
@@ -300,16 +302,54 @@ describe("RouterUpgrade", function () {
       await ethers.provider.send("evm_increaseTime", [15]); // Increase time by 15 seconds
       await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change
       await router.connect(user).executeUpgrade();
+
+      // Check ADMIN_ROLE after upgrade
+      const hasAdminRoleAfter = await router.hasRole(ADMIN_ROLE, ownerAddr);
+      expect(hasAdminRoleAfter).to.be.true;
+      // Check token mapping after upgrade
       const dstTokenAddressAfter = await router.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
       expect(dstTokenAddressAfter).to.equal(await dstToken.getAddress());
     });
 
-    it.only("should have new functionality after upgrade (good path)", async () => {
-      // TODO: Implement test to ensure new functionality from MockRouterV2 is available after upgrade
+    it("should have new functionality after upgrade (good path)", async () => {
+      // Function testNewFunctionality() external pure returns (bool) should be callable after upgrade to MockRouterV2;
+      let upgradedRouter = MockRouterV2__factory.connect(await router.getAddress(), user);
+      await expect(upgradedRouter.testNewFunctionality()).to.be.reverted; // Should revert since the function doesn't exist yet
+
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime);
+      await ethers.provider.send("evm_increaseTime", [3600]); // Increase time by 1 hour
+      await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change
+      await router.connect(user).executeUpgrade();
+
+      upgradedRouter = MockRouterV2__factory.connect(await router.getAddress(), user);
+      expect(await upgradedRouter.testNewFunctionality()).to.be.true; // Should return true after upgrade
     });
 
-    it.only("should revert if initialize is called again after upgrade (bad path)", async () => {
-      // TODO: Implement test to ensure initialize cannot be called again after upgrade
+    it("should revert if initialize is called again after upgrade (bad path)", async () => {
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime);
+      await ethers.provider.send("evm_increaseTime", [3600]); // Increase time by 1 hour
+      await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change
+      await router.connect(user).executeUpgrade();
+      await expect(
+        router
+          .connect(user)
+          .initialize(
+            ownerAddr,
+            await bn254SigScheme.getAddress(),
+            await bn254SigScheme.getAddress(),
+            VERIFICATION_FEE_BPS,
+          ),
+      ).to.be.revertedWithCustomError(router, "InvalidInitialization()");
     });
   });
 });

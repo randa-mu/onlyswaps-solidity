@@ -637,4 +637,10 @@ contract MockRouterV2 is
         swapRequestParameters[requestId] = params;
         unfulfilledSolverRefunds.add(requestId);
     }
+
+    // ---------------------- Mock Upgrade Test Functions ----------------------
+
+    function testNewFunctionality() external pure returns (bool) {
+        return true;
+    }
 }
