@@ -323,7 +323,8 @@ interface IRouter {
     /// @param _newImplementation The address of the new implementation contract
     /// @param _upgradeCalldata The calldata to be sent to the new implementation
     /// @param _upgradeTime The time at which the upgrade can be executed
-    function scheduleUpgrade(address _newImplementation, bytes calldata _upgradeCalldata, uint256 _upgradeTime) external;
+    function scheduleUpgrade(address _newImplementation, bytes calldata _upgradeCalldata, uint256 _upgradeTime)
+        external;
 
     /// @notice Permits a destination chain ID for swaps
     /// @param chainId The chain ID to be permitted

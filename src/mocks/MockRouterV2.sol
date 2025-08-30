@@ -19,7 +19,13 @@ import {IRouter, BLS} from "../interfaces/IRouter.sol";
 
 /// @title Router Contract for Cross-Chain Token Swaps
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
-contract MockRouterV2 is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, AccessControlEnumerableUpgradeable {
+contract MockRouterV2 is
+    ReentrancyGuard,
+    IRouter,
+    Initializable,
+    UUPSUpgradeable,
+    AccessControlEnumerableUpgradeable
+{
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 

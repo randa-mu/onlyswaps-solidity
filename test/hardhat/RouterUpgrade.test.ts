@@ -22,7 +22,7 @@ import {
   Result,
   keccak256,
   toUtf8Bytes,
-  ZeroAddress
+  ZeroAddress,
 } from "ethers";
 import { ethers } from "hardhat";
 
@@ -111,20 +111,48 @@ describe("RouterUpgrade", function () {
     });
 
     it("should revert if new implementation address is zero (bad path)", async () => {
-      // TODO: Implement test for zero address revert
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
-      await expect(router.connect(owner).scheduleUpgrade(ZeroAddress, "0x", upgradeTime)).to.be.revertedWith(
-        "Router: new implementation is zero address",
+      await expect(router.connect(owner).scheduleUpgrade(ZeroAddress, "0x", upgradeTime)).to.be.revertedWithCustomError(
+        router,
+        "ZeroAddress()",
       );
     });
 
     it("should revert if upgrade time is not in the future (bad path)", async () => {
-      // TODO: Implement test for upgrade time not in the future
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp - 10 : 0; // 10 seconds in the past
+      await expect(router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime)).to.be.revertedWithCustomError(
+        router,
+        "UpgradeTimeMustBeInTheFuture()",
+      );
     });
 
     it("should revert if called by non-admin (bad path)", async () => {
-      // TODO: Implement test for onlyAdmin modifier
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
+      await expect(router.connect(user).scheduleUpgrade(newImplAddress, "0x", upgradeTime)).to.be.reverted;
+    });
+
+    it("should schedule upgrade with non-empty data (good path)", async () => {
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
+
+      // Prepare initialization data for the new implementation
+      const calldata = router.interface.encodeFunctionData("getVersion");
+
+      await expect(router.connect(owner).scheduleUpgrade(newImplAddress, calldata, upgradeTime))
+        .to.emit(router, "UpgradeScheduled")
+        .withArgs(newImplAddress, upgradeTime);
     });
   });
 
@@ -164,8 +192,16 @@ describe("RouterUpgrade", function () {
     });
 
     it("should not affect contract storage and token configurations after upgrade (good path)", async () => {
-      // TODO: Implement test to ensure storage and configurations are intact after upgrade, 
+      // TODO: Implement test to ensure storage and configurations are intact after upgrade,
       // including source and destination token mappings
+    });
+
+    it("should have new functionality after upgrade (good path)", async () => {
+      // TODO: Implement test to ensure new functionality from MockRouterV2 is available after upgrade
+    });
+
+    it("should revert if initialize is called again after upgrade (bad path)", async () => {
+      // TODO: Implement test to ensure initialize cannot be called again after upgrade
     });
   });
 });
