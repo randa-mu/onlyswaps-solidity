@@ -22,6 +22,7 @@ import {
   Result,
   keccak256,
   toUtf8Bytes,
+  ZeroAddress
 } from "ethers";
 import { ethers } from "hardhat";
 
@@ -96,13 +97,26 @@ describe("RouterUpgrade", function () {
 
   describe("scheduleUpgrade", () => {
     it("should schedule an upgrade with valid params (good path)", async () => {
-      // TODO: Implement test for scheduling upgrade successfully
       const version = await router.getVersion();
       expect(version).to.equal("1.0.0");
+
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
+      await expect(router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime))
+        .to.emit(router, "UpgradeScheduled")
+        .withArgs(newImplAddress, upgradeTime);
     });
 
     it("should revert if new implementation address is zero (bad path)", async () => {
       // TODO: Implement test for zero address revert
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 3600 : 0; // 1 hour in the future
+      await expect(router.connect(owner).scheduleUpgrade(ZeroAddress, "0x", upgradeTime)).to.be.revertedWith(
+        "Router: new implementation is zero address",
+      );
     });
 
     it("should revert if upgrade time is not in the future (bad path)", async () => {
@@ -135,6 +149,10 @@ describe("RouterUpgrade", function () {
   describe("executeUpgrade", () => {
     it("should execute a scheduled upgrade after scheduled time (good path)", async () => {
       // TODO: Implement test for successful upgrade execution
+    });
+
+    it("should revert if upgradeToAndCall is called extrenally (bad path)", async () => {
+      // TODO: Implement test for no upgrade pending
     });
 
     it("should revert if no upgrade is pending (bad path)", async () => {
