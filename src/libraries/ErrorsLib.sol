@@ -22,4 +22,5 @@ library ErrorsLib {
     error ZeroAddress();
     error UpgradeTimeMustBeInTheFuture();
     error GrantRoleFailed();
+    error UpgradeMustGoThroughExecuteUpgrade();
 }

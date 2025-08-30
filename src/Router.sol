@@ -604,7 +604,11 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
 
     // ---------------------- Internal Functions ----------------------
 
-    function _authorizeUpgrade(address newImplementation) internal virtual override {}
+    /// @dev Required by UUPS to restrict upgrades.
+    function _authorizeUpgrade(address /* newImplementation */ ) internal view override {
+        // Only allow calls coming from within this contract
+        require(msg.sender == address(this), ErrorsLib.UpgradeMustGoThroughExecuteUpgrade());
+    }
 
     /// @notice Stores a swap request and marks as unfulfilled
     function storeSwapRequest(bytes32 requestId, SwapRequestParameters memory params) internal {
