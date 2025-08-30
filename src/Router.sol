@@ -579,10 +579,11 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
             ErrorsLib.BLSSignatureVerificationFailed()
         );
 
+        address cancelledImplementation = scheduledImplementation;
         scheduledImplementation = address(0);
         scheduledTimestampForUpgrade = 0;
         scheduledImplementationCalldata = "";
-        emit UpgradeCancelled(scheduledImplementation);
+        emit UpgradeCancelled(cancelledImplementation);
     }
 
     /// @notice Executes a scheduled upgrade
