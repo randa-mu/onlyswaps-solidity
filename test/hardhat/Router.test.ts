@@ -615,7 +615,7 @@ describe("Router", function () {
   });
 });
 
-// returns the first instance of an event log from a transaction receipt that matches the address provided
+// Returns the first instance of an event log from a transaction receipt that matches the address provided
 function extractSingleLog<T extends Interface, E extends EventFragment>(
   iface: T,
   receipt: TransactionReceipt,
@@ -629,6 +629,7 @@ function extractSingleLog<T extends Interface, E extends EventFragment>(
   return events[0];
 }
 
+// Returns an array of all event logs from a transaction receipt that match the address provided
 function extractLogs<T extends Interface, E extends EventFragment>(
   iface: T,
   receipt: TransactionReceipt,

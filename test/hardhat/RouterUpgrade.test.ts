@@ -288,7 +288,7 @@ describe("RouterUpgrade", function () {
       ).withArgs(upgradeTime);
     });
 
-    it.only("should not affect contract storage and token configurations after upgrade (good path)", async () => {
+    it("should not affect contract storage and token configurations after upgrade (good path)", async () => {
       const dstTokenAddressBefore = await router.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
       expect(dstTokenAddressBefore).to.equal(await dstToken.getAddress());
       const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
@@ -304,37 +304,12 @@ describe("RouterUpgrade", function () {
       expect(dstTokenAddressAfter).to.equal(await dstToken.getAddress());
     });
 
-    it("should have new functionality after upgrade (good path)", async () => {
+    it.only("should have new functionality after upgrade (good path)", async () => {
       // TODO: Implement test to ensure new functionality from MockRouterV2 is available after upgrade
     });
 
-    it("should revert if initialize is called again after upgrade (bad path)", async () => {
+    it.only("should revert if initialize is called again after upgrade (bad path)", async () => {
       // TODO: Implement test to ensure initialize cannot be called again after upgrade
     });
   });
 });
-
-// returns the first instance of an event log from a transaction receipt that matches the address provided
-function extractSingleLog<T extends Interface, E extends EventFragment>(
-  iface: T,
-  receipt: TransactionReceipt,
-  contractAddress: string,
-  event: E,
-): Result {
-  const events = extractLogs(iface, receipt, contractAddress, event);
-  if (events.length === 0) {
-    throw Error(`contract at ${contractAddress} didn't emit the ${event.name} event`);
-  }
-  return events[0];
-}
-
-function extractLogs<T extends Interface, E extends EventFragment>(
-  iface: T,
-  receipt: TransactionReceipt,
-  contractAddress: string,
-  event: E,
-): Array<Result> {
-  return receipt.logs
-    .filter((log) => log.address.toLowerCase() === contractAddress.toLowerCase())
-    .map((log) => iface.decodeEventLog(event, log.data, log.topics));
-}
