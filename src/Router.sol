@@ -185,11 +185,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param solver The address of the solver being compensated for their service.
     /// @param requestId The unique ID of the swap request being fulfilled.
     /// @param signature The BLS signature verifying the authenticity of the request.
-    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature)
-        external
-        onlyOwner
-        nonReentrant
-    {
+    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external nonReentrant {
         SwapRequestParameters storage params = swapRequestParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         /// @dev rebalancing of solvers happens on the source chain router
