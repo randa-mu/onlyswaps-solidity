@@ -50,6 +50,7 @@ async function main() {
 
     const { tx, amount } = await executeSwap(
       ERC20Src,
+      ERC20Dst,
       RouterSrc,
       recipientAddr,
       DST_CHAIN_ID,
@@ -70,8 +71,9 @@ async function main() {
     const formattedSwapRequestParams = {
       sender: swapRequestParams.sender,
       recipient: swapRequestParams.recipient,
-      token: swapRequestParams.token,
-      amountOut: formatEther(swapRequestParams.amountOut),
+      tokenIn: swapRequestParams.tokenIn,
+      tokenOut: swapRequestParams.tokenOut,
+      amount: formatEther(swapRequestParams.amount),
       srcChainId: swapRequestParams.srcChainId,
       dstChainId: swapRequestParams.dstChainId,
       verificationFee: formatEther(swapRequestParams.verificationFee),
