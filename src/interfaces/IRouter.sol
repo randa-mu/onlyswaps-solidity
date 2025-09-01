@@ -11,7 +11,7 @@ interface IRouter {
         address recipient; // Address to receive tokens on the destination chain
         address tokenIn; // Token address on the source chain
         address tokenOut; // Token address on the destination chain
-        uint256 amount; // Amount to be received by the recipient on the destination chain
+        uint256 amountOut; // Amount to be received by the recipient on the destination chain
         uint256 srcChainId; // Source chain ID where the request originated
         uint256 dstChainId; // Destination chain ID where tokens will be delivered
         uint256 verificationFee; // Total swap fee deducted from the amount

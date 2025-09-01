@@ -70,13 +70,17 @@ describe("Router", function () {
 
   it("should remove the token mapping for a specific destination chain", async () => {
     // Ensure the token mapping exists before removal
-    expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await dstToken.getAddress())).to.be.true;
+    expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await dstToken.getAddress())).to.be
+      .true;
 
     // Remove the token mapping
-    await router.connect(owner).removeTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
+    await router
+      .connect(owner)
+      .removeTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
 
     // Check that the token mapping has been removed
-    expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await dstToken.getAddress())).to.be.false;
+    expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await dstToken.getAddress())).to.be
+      .false;
   });
 
   it("should return false for isDstTokenMapped if the token mapping does not exist", async () => {
@@ -88,13 +92,18 @@ describe("Router", function () {
 
   it("should map two token addresses to a src token on a single dst chain id", async () => {
     const secondDstToken = await new ERC20Token__factory(owner).deploy("RUSD2", "RUSD2", 18);
-    
+
     // First destination token already mapped in beforeEach
-    await expect(router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress())).to.be.revertedWithCustomError(router, "TokenMappingAlreadyExists");
+    await expect(
+      router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress()),
+    ).to.be.revertedWithCustomError(router, "TokenMappingAlreadyExists");
 
     // Map second destination token
-    await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await secondDstToken.getAddress(), await srcToken.getAddress());
-    expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await secondDstToken.getAddress())).to.be.true;
+    await router
+      .connect(owner)
+      .setTokenMapping(DST_CHAIN_ID, await secondDstToken.getAddress(), await srcToken.getAddress());
+    expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await secondDstToken.getAddress()))
+      .to.be.true;
   });
 
   it("should map two tokens on different dst chain ids to a single src token", async () => {
@@ -106,12 +115,19 @@ describe("Router", function () {
     await router.connect(owner).permitDestinationChainId(secondDstChainId);
 
     // Map first destination token
-    await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await thirdDstToken.getAddress(), await srcToken.getAddress());
-    expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await thirdDstToken.getAddress())).to.be.true;
+    await router
+      .connect(owner)
+      .setTokenMapping(DST_CHAIN_ID, await thirdDstToken.getAddress(), await srcToken.getAddress());
+    expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await thirdDstToken.getAddress()))
+      .to.be.true;
 
     // Map second destination token on a different chain ID
-    await router.connect(owner).setTokenMapping(secondDstChainId, await fourthDstToken.getAddress(), await srcToken.getAddress());
-    expect(await router.isDstTokenMapped(await srcToken.getAddress(), secondDstChainId, await fourthDstToken.getAddress())).to.be.true;
+    await router
+      .connect(owner)
+      .setTokenMapping(secondDstChainId, await fourthDstToken.getAddress(), await srcToken.getAddress());
+    expect(
+      await router.isDstTokenMapped(await srcToken.getAddress(), secondDstChainId, await fourthDstToken.getAddress()),
+    ).to.be.true;
   });
 
   it("should initiate a swap request and emit message", async () => {
@@ -123,7 +139,16 @@ describe("Router", function () {
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
 
     await expect(
-      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), await dstToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr),
+      router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          fee,
+          DST_CHAIN_ID,
+          recipientAddr,
+        ),
     ).to.emit(router, "SwapRequested");
   });
 
@@ -136,7 +161,16 @@ describe("Router", function () {
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
 
     await expect(
-      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), await dstToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr),
+      router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          fee,
+          DST_CHAIN_ID,
+          recipientAddr,
+        ),
     ).to.be.revertedWithCustomError(router, "FeeTooLow");
   });
 
@@ -150,7 +184,14 @@ describe("Router", function () {
 
     const tx = await router
       .connect(user)
-      .requestCrossChainSwap(await srcToken.getAddress(), await dstToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
+      .requestCrossChainSwap(
+        await srcToken.getAddress(),
+        await dstToken.getAddress(),
+        amount,
+        fee,
+        DST_CHAIN_ID,
+        recipient.address,
+      );
 
     let receipt = await tx.wait(1);
     if (!receipt) {
@@ -198,7 +239,14 @@ describe("Router", function () {
 
     const tx = await router
       .connect(user)
-      .requestCrossChainSwap(await srcToken.getAddress(), await dstToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
+      .requestCrossChainSwap(
+        await srcToken.getAddress(),
+        await dstToken.getAddress(),
+        amount,
+        fee,
+        DST_CHAIN_ID,
+        recipient.address,
+      );
 
     let receipt = await tx.wait(1);
     if (!receipt) {
@@ -226,7 +274,9 @@ describe("Router", function () {
     expect(await router.getTotalVerificationFeeBalance(await srcToken.getAddress())).to.equal(0);
 
     const swapRequestParams = await router.getSwapRequestParameters(requestId);
-    expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + swapRequestParams.solverFee - swapRequestParams.verificationFee);
+    expect(await srcToken.balanceOf(await router.getAddress())).to.equal(
+      amount + swapRequestParams.solverFee - swapRequestParams.verificationFee,
+    );
   });
 
   it("should rebalance solver and transfer correct amount", async () => {
@@ -240,7 +290,14 @@ describe("Router", function () {
 
     const tx = await router
       .connect(user)
-      .requestCrossChainSwap(await srcToken.getAddress(), await dstToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
+      .requestCrossChainSwap(
+        await srcToken.getAddress(),
+        await dstToken.getAddress(),
+        amount,
+        fee,
+        DST_CHAIN_ID,
+        recipient.address,
+      );
 
     let receipt = await tx.wait(1);
     if (!receipt) {
@@ -280,7 +337,7 @@ describe("Router", function () {
 
     // ensure that the router has enough liquidity to pay solver
     expect(await srcToken.balanceOf(await router.getAddress())).to.be.greaterThanOrEqual(
-      swapRequestParams.amount + swapRequestParams.solverFee,
+      swapRequestParams.amountOut + swapRequestParams.solverFee,
     );
 
     const before = await srcToken.balanceOf(solverAddr);

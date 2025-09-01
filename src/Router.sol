@@ -171,10 +171,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param solver The address of the solver being compensated for their service.
     /// @param requestId The unique ID of the swap request being fulfilled.
     /// @param signature The BLS signature verifying the authenticity of the request.
-    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature)
-        external
-        nonReentrant
-    {
+    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external nonReentrant {
         SwapRequestParameters storage params = swapRequestParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         /// @dev rebalancing of solvers happens on the source chain router
@@ -190,7 +187,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         unfulfilledSolverRefunds.remove(requestId);
         params.executed = true;
 
-        uint256 solverRefund = params.amount + params.solverFee;
+        uint256 solverRefund = params.amountOut + params.solverFee;
 
         IERC20(params.tokenIn).safeTransfer(solver, solverRefund);
 
@@ -217,7 +214,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             params.recipient,
             params.tokenIn,
             params.tokenOut,
-            params.amount,
+            params.amountOut,
             params.srcChainId,
             params.dstChainId,
             params.nonce
@@ -230,7 +227,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @notice Builds swap request parameters based on the provided details
     /// @param tokenIn The address of the input token on the source chain
     /// @param tokenOut The address of the output token on the destination chain
-    /// @param amount The amount of tokens to be swapped
+    /// @param amountOut The amount of tokens to be swapped
     /// @param verificationFeeAmount The verification fee amount
     /// @param solverFeeAmount The solver fee amount
     /// @param dstChainId The destination chain ID
@@ -240,7 +237,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     function buildSwapRequestParameters(
         address tokenIn,
         address tokenOut,
-        uint256 amount,
+        uint256 amountOut,
         uint256 verificationFeeAmount,
         uint256 solverFeeAmount,
         uint256 dstChainId,
@@ -252,7 +249,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
             recipient: recipient,
             tokenIn: tokenIn,
             tokenOut: tokenOut,
-            amount: amount,
+            amountOut: amountOut,
             srcChainId: getChainID(),
             dstChainId: dstChainId,
             verificationFee: verificationFeeAmount,
@@ -284,7 +281,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
                 p.recipient,
                 p.tokenIn,
                 p.tokenOut,
-                p.amount,
+                p.amountOut,
                 getChainID(), // the srcChainId is always the current chain ID
                 p.dstChainId,
                 p.nonce
