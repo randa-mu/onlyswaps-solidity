@@ -19,7 +19,13 @@ import {IRouter, BLS} from "../interfaces/IRouter.sol";
 
 /// @title Mock Version 2 of Router Contract for Cross-Chain Token Swaps
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
-contract MockRouterV2 is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, AccessControlEnumerableUpgradeable {
+contract MockRouterV2 is
+    ReentrancyGuard,
+    IRouter,
+    Initializable,
+    UUPSUpgradeable,
+    AccessControlEnumerableUpgradeable
+{
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -485,7 +491,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeabl
     function isDstTokenMapped(address srcToken, uint256 dstChainId, address dstToken) public view returns (bool) {
         return tokenMappings[srcToken][dstChainId].contains(dstToken);
     }
-    
+
     // ---------------------- Admin Functions ----------------------
 
     /// @notice Sets the verification fee in basis points

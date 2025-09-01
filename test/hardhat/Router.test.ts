@@ -527,7 +527,16 @@ describe("Router", function () {
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
 
     await expect(
-      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), await dstToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr),
+      router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          fee,
+          DST_CHAIN_ID,
+          recipientAddr,
+        ),
     ).to.be.revertedWithCustomError(router, "ZeroAmount()");
   });
 
@@ -543,7 +552,14 @@ describe("Router", function () {
     await expect(
       router
         .connect(user)
-        .requestCrossChainSwap(await srcToken.getAddress(), await dstToken.getAddress(), amount, fee, invalidChainId, recipientAddr),
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          fee,
+          invalidChainId,
+          recipientAddr,
+        ),
     ).to.be.revertedWithCustomError(router, "TokenNotSupported()");
   });
 
@@ -559,7 +575,16 @@ describe("Router", function () {
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
 
     await expect(
-      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), await dstToken.getAddress(), amount, fee, newChainId, recipientAddr),
+      router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          fee,
+          newChainId,
+          recipientAddr,
+        ),
     ).to.be.revertedWithCustomError(router, "TokenNotSupported()");
   });
 
@@ -573,7 +598,14 @@ describe("Router", function () {
 
     const tx = await router
       .connect(user)
-      .requestCrossChainSwap(await srcToken.getAddress(), await dstToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
+      .requestCrossChainSwap(
+        await srcToken.getAddress(),
+        await dstToken.getAddress(),
+        amount,
+        fee,
+        DST_CHAIN_ID,
+        recipient.address,
+      );
 
     let receipt = await tx.wait();
 
@@ -666,7 +698,16 @@ describe("Router", function () {
     await srcToken.connect(user).approve(router.getAddress(), amountToMint + fee);
 
     await expect(
-      router.connect(user).requestCrossChainSwap(await srcToken.getAddress(), await dstToken.getAddress(), amount, fee, DST_CHAIN_ID, recipientAddr),
+      router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          fee,
+          DST_CHAIN_ID,
+          recipientAddr,
+        ),
     ).to.be.reverted;
   });
 
@@ -680,7 +721,14 @@ describe("Router", function () {
 
     const tx = await router
       .connect(user)
-      .requestCrossChainSwap(await srcToken.getAddress(), await dstToken.getAddress(), amount, fee, DST_CHAIN_ID, recipient.address);
+      .requestCrossChainSwap(
+        await srcToken.getAddress(),
+        await dstToken.getAddress(),
+        amount,
+        fee,
+        DST_CHAIN_ID,
+        recipient.address,
+      );
 
     let receipt = await tx.wait();
 

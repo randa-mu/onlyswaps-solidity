@@ -485,7 +485,7 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
     function isDstTokenMapped(address srcToken, uint256 dstChainId, address dstToken) public view returns (bool) {
         return tokenMappings[srcToken][dstChainId].contains(dstToken);
     }
-    
+
     // ---------------------- Admin Functions ----------------------
 
     /// @notice Sets the verification fee in basis points
