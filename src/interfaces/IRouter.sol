@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {BLS} from "../libraries/BLS.sol";
+import {BLS} from "bls-solidity/BLS.sol";
 
 interface IRouter {
     // -------- Structs --------
