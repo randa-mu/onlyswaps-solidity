@@ -173,7 +173,6 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
     /// @param signature The BLS signature verifying the authenticity of the request.
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature)
         external
-        onlyOwner
         nonReentrant
     {
         SwapRequestParameters storage params = swapRequestParameters[requestId];
@@ -191,7 +190,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         unfulfilledSolverRefunds.remove(requestId);
         params.executed = true;
 
-        uint256 solverRefund = params.amountOut + params.solverFee;
+        uint256 solverRefund = params.amount + params.solverFee;
 
         IERC20(params.tokenIn).safeTransfer(solver, solverRefund);
 
