@@ -9,7 +9,8 @@ interface IRouter {
     struct SwapRequestParameters {
         address sender; // Address initiating the swap on the source chain
         address recipient; // Address to receive tokens on the destination chain
-        address token; // Token address being transferred
+        address tokenIn; // Token address on the source chain
+        address tokenOut; // Token address on the destination chain
         uint256 amountOut; // Amount to be received by the recipient on the destination chain
         uint256 srcChainId; // Source chain ID where the request originated
         uint256 dstChainId; // Destination chain ID where tokens will be delivered
@@ -39,45 +40,13 @@ interface IRouter {
     /// @param requestId Hash of the transfer parameters
     /// @param srcChainId The source chain ID from which the request originated
     /// @param dstChainId The destination chain ID where the tokens will be delivered
-    /// @param token The address of the token being transferred
-    /// @param sender The address initiating the swap
-    /// @param recipient The address that will receive the tokens on the destination chain
-    /// @param amountOut The amount of tokens requested for transfer
-    /// @param solverFee The solver fee associated with the swap request
-    /// @param nonce A unique identifier to prevent replay attacks
-    /// @param requestedAt The timestamp when the swap request was created
-    event SwapRequested(
-        bytes32 indexed requestId,
-        uint256 indexed srcChainId,
-        uint256 indexed dstChainId,
-        address token,
-        address sender,
-        address recipient,
-        uint256 amountOut,
-        uint256 solverFee,
-        uint256 nonce,
-        uint256 requestedAt
-    );
+    event SwapRequested(bytes32 indexed requestId, uint256 indexed srcChainId, uint256 indexed dstChainId);
 
     /// @notice Emitted when a swap request is fulfilled on the destination chain by a solver
     /// @param requestId The unique ID of the swap request
     /// @param srcChainId The source chain ID from which the request originated
     /// @param dstChainId The destination chain ID where the tokens were delivered
-    /// @param token The address of the token that was transferred
-    /// @param solver The address that fulfilled the transfer
-    /// @param recipient The address that received the tokens on the destination chain
-    /// @param amountOut The amount transferred to the recipient
-    /// @param fulfilledAt The timestamp when the transfer was fulfilled
-    event SwapRequestFulfilled(
-        bytes32 indexed requestId,
-        uint256 indexed srcChainId,
-        uint256 indexed dstChainId,
-        address token,
-        address solver,
-        address recipient,
-        uint256 amountOut,
-        uint256 fulfilledAt
-    );
+    event SwapRequestFulfilled(bytes32 indexed requestId, uint256 indexed srcChainId, uint256 indexed dstChainId);
 
     /// @notice Emitted when a message is successfully fulfilled by a solver
     /// @param requestId Hash of the transfer parameters
@@ -107,7 +76,9 @@ interface IRouter {
     /// @param dstChainId The destination chain id
     /// @param dstToken The destination token address
     /// @param srcToken The source token address
-    event TokenMappingUpdated(uint256 dstChainId, address dstToken, address srcToken);
+    event TokenMappingAdded(uint256 dstChainId, address dstToken, address srcToken);
+
+    event TokenMappingRemoved(uint256 dstChainId, address dstToken, address srcToken);
 
     /// @notice Emitted when swap fees have been withdrawn to a recipient address
     /// @param token The token address of the withdrawn fees
@@ -134,16 +105,22 @@ interface IRouter {
 
     // -------- Core Transfer Logic --------
 
-    /// @notice Initiates a cross-chain swap request
-    /// @param token The address of the token to be swapped
-    /// @param amount The amount of tokens to be swapped (including verification fees)
-    /// @param fee The fee associated with the swap request
-    /// @param dstChainId The destination chain ID where the tokens will be sent
-    /// @param recipient The address that will receive the tokens on the destination chain
-    /// @return requestId The unique ID of the created swap request
-    function requestCrossChainSwap(address token, uint256 amount, uint256 fee, uint256 dstChainId, address recipient)
-        external
-        returns (bytes32 requestId);
+    /// @notice Initiates a swap request
+    /// @param tokenIn Address of the input token on the source chain
+    /// @param tokenOut Address of the output token on the destination chain
+    /// @param amount Amount of tokens to swap
+    /// @param fee Total fee amount (in token units) to be paid by the user
+    /// @param dstChainId Target chain ID
+    /// @param recipient Address to receive swaped tokens on target chain
+    /// @return requestId The unique swap request id
+    function requestCrossChainSwap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        uint256 fee,
+        uint256 dstChainId,
+        address recipient
+    ) external returns (bytes32 requestId);
 
     /// @notice Updates the solver fee for an unfulfilled swap request
     /// @param requestId The unique ID of the swap request to update
@@ -213,7 +190,7 @@ interface IRouter {
     /// @param srcToken The address of the source token
     /// @param dstChainId The destination chain ID
     /// @return The address of the mapped destination token
-    function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address);
+    function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address[] memory);
 
     /// @notice Retrieves the swap request parameters for a given request ID
     /// @param requestId The unique ID of the swap request
@@ -269,10 +246,17 @@ interface IRouter {
     /// @notice Retrieves the current version of the contract
     /// @return The current version of the contract
     function getVersion() external view returns (string memory);
+    /// @notice Checks if a destination token is mapped for a given source token and destination chain ID
+    /// @param srcToken The address of the source token
+    /// @param dstChainId The destination chain ID
+    /// @param dstToken The address of the destination token
+    /// @return True if the destination token is mapped, false otherwise
+    function isDstTokenMapped(address srcToken, uint256 dstChainId, address dstToken) external view returns (bool);
 
     /// @notice Builds swap request parameters based on the provided details
-    /// @param token The address of the token to be swapped
-    /// @param amountOut The amount of tokens to be swapped
+    /// @param tokenIn The address of the input token on the source chain
+    /// @param tokenOut The address of the output token on the destination chain
+    /// @param amount The amount of tokens to be swapped
     /// @param verificationFeeAmount The verification fee amount
     /// @param solverFeeAmount The solver fee amount
     /// @param dstChainId The destination chain ID
@@ -280,8 +264,9 @@ interface IRouter {
     /// @param nonce A unique nonce for the request
     /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
-        address token,
-        uint256 amountOut,
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
         uint256 verificationFeeAmount,
         uint256 solverFeeAmount,
         uint256 dstChainId,
@@ -339,6 +324,12 @@ interface IRouter {
     /// @param dstToken The address of the destination token
     /// @param srcToken The address of the source token
     function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external;
+
+    /// @notice Removes the token mapping for a specific destination chain
+    /// @param dstChainId The destination chain ID
+    /// @param dstToken The address of the destination token
+    /// @param srcToken The address of the source token
+    function removeTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external;
 
     /// @notice Withdraws verification fees to a specified address
     /// @param token The token address of the withdrawn fees

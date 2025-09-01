@@ -291,7 +291,7 @@ describe("RouterUpgrade", function () {
       expect(hasAdminRoleBefore).to.be.true;
       // Check token mapping before upgrade
       const dstTokenAddressBefore = await router.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
-      expect(dstTokenAddressBefore).to.equal(await dstToken.getAddress());
+      expect(dstTokenAddressBefore[0]).to.equal(await dstToken.getAddress());
 
       const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
@@ -308,7 +308,7 @@ describe("RouterUpgrade", function () {
       expect(hasAdminRoleAfter).to.be.true;
       // Check token mapping after upgrade
       const dstTokenAddressAfter = await router.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
-      expect(dstTokenAddressAfter).to.equal(await dstToken.getAddress());
+      expect(dstTokenAddressAfter[0]).to.equal(await dstToken.getAddress());
     });
 
     it("should have new functionality after upgrade (good path)", async () => {
