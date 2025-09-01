@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {BLS} from "src/libraries/BLS.sol";
+import {BLS} from "bls-solidity/BLS.sol";
 
 struct DeploymentParameters {
     BLS.PointG2 blsPublicKey;

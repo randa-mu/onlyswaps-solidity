@@ -7,6 +7,8 @@ library ErrorsLib {
     error InvalidTokenOrRecipient();
     error ZeroAmount();
     error FeeTooLow();
+    error TokenMappingAlreadyExists();
+    error InvalidFeeBps();
     error TokenNotSupported();
     error UnauthorisedCaller();
     error NewFeeTooLow(uint256 newFee, uint256 currentFee);

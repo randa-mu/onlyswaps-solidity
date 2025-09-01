@@ -6,6 +6,13 @@ checksum = "3dd38f17610dba4602bd008ee2cb551e51e97d7b4ce04e1ffdf853da832942fa"
 integrity = "4eb0ef219d10ab5a5708adaae1132dc0a93ab6a193378486e842d606c989ff3e"
 
 [[dependencies]]
+name = "bls-solidity"
+version = "0.1.0"
+url = "https://github.com/randa-mu/bls-solidity/archive/refs/tags/v0.1.0.zip"
+checksum = "a19123a398dbd8b4bccc88c3910ae40447dde7651756ac93716410da38ac5749"
+integrity = "a2a33599cc0c7d336dfc9501490bc5cfef581e67934b74ac8457e53f9179f887"
+
+[[dependencies]]
 name = "forge-std"
 version = "1.10.0"
 url = "https://soldeer-revisions.s3.amazonaws.com/forge-std/1_10_0_02-08-2025_06:50:35_forge-std-1.10.zip"
