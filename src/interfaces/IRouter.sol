@@ -246,6 +246,7 @@ interface IRouter {
     /// @notice Retrieves the current version of the contract
     /// @return The current version of the contract
     function getVersion() external view returns (string memory);
+
     /// @notice Checks if a destination token is mapped for a given source token and destination chain ID
     /// @param srcToken The address of the source token
     /// @param dstChainId The destination chain ID
