@@ -65,37 +65,25 @@ async function main() {
       iface.getEvent("SwapRequested")
     );
 
-    const transferParams = await RouterSrc.getTransferParameters(requestId);
-    const transferParamsObject = {
-      sender: transferParams.sender,
-      recipient: transferParams.recipient,
-      token: transferParams.token,
-      amount: transferParams.amount,
-      srcChainId: transferParams.srcChainId,
-      dstChainId: transferParams.dstChainId,
-      swapFee: transferParams.swapFee,
-      solverFee: transferParams.solverFee,
-      nonce: transferParams.nonce,
-      executed: transferParams.executed,
-    };
+    const swapRequestParams = await RouterSrc.getSwapRequestParameters(requestId);
 
-    const formattedTransferParams = {
-      sender: transferParams.sender,
-      recipient: transferParams.recipient,
-      token: transferParams.token,
-      amount: formatEther(transferParams.amount),
-      srcChainId: transferParams.srcChainId,
-      dstChainId: transferParams.dstChainId,
-      swapFee: formatEther(transferParams.swapFee),
-      solverFee: formatEther(transferParams.solverFee),
-      nonce: transferParams.nonce,
-      executed: transferParams.executed,
+    const formattedSwapRequestParams = {
+      sender: swapRequestParams.sender,
+      recipient: swapRequestParams.recipient,
+      token: swapRequestParams.token,
+      amountOut: formatEther(swapRequestParams.amountOut),
+      srcChainId: swapRequestParams.srcChainId,
+      dstChainId: swapRequestParams.dstChainId,
+      verificationFee: formatEther(swapRequestParams.verificationFee),
+      solverFee: formatEther(swapRequestParams.solverFee),
+      nonce: swapRequestParams.nonce,
+      executed: swapRequestParams.executed,
     };
 
     console.log(`Swap request created with requestId ${requestId}`);
-    console.log("Swap request parameters:", formattedTransferParams);
+    console.log("Swap request parameters:", formattedSwapRequestParams);
 
-    const [, , messageAsG1Point] = await RouterSrc.transferParamsToBytes(
+    const [, , messageAsG1Point] = await RouterSrc.swapRequestParametersToBytes(
       requestId
     );
 

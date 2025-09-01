@@ -13,6 +13,6 @@ library ErrorsLib {
     error DestinationChainIdNotSupported(uint256 dstChainId);
     error FeeBpsExceedsThreshold(uint256 maxFeeBps);
     error BLSSignatureVerificationFailed();
-    error TransferParametersMismatch();
-    error SourceChainIdMismatch(uint256 transferParamsSrcChainId, uint256 contractChainId);
+    error SwapRequestParametersMismatch();
+    error SourceChainIdMismatch(uint256 swapRequestParamsSrcChainId, uint256 contractChainId);
 }
