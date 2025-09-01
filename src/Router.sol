@@ -191,7 +191,7 @@ contract Router is Ownable, ReentrancyGuard, IRouter {
         unfulfilledSolverRefunds.remove(requestId);
         params.executed = true;
 
-        uint256 solverRefund = params.amount + params.solverFee;
+        uint256 solverRefund = params.amountOut + params.solverFee;
 
         IERC20(params.tokenIn).safeTransfer(solver, solverRefund);
 
