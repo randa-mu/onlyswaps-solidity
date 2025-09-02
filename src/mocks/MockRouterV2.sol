@@ -121,6 +121,7 @@ contract MockRouterV2 is
 
         swapRequestBlsValidator = ISignatureScheme(_swapRequestBlsValidator);
         contractUpgradeBlsValidator = ISignatureScheme(_contractUpgradeBlsValidator);
+        minimumContractUpgradeDelay = 2 days;
     }
 
     // ---------------------- Core Logic ----------------------
@@ -285,12 +286,17 @@ contract MockRouterV2 is
     }
 
     /// @notice Converts contract upgrade parameters to a message as bytes and BLS format for signing
+    /// @param action The action being performed (e.g., "schedule", "cancel", "execute")
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
     /// @return messageAsG1Point The message hashed to BLS G1 point
-    function contractUpgradeParamsToBytes() public view returns (bytes memory, bytes memory, BLS.PointG1 memory) {
+    function contractUpgradeParamsToBytes(string memory action)
+        public
+        view
+        returns (bytes memory, bytes memory, BLS.PointG1 memory)
+    {
         bytes memory message =
-            abi.encode(scheduledImplementation, scheduledImplementationCalldata, scheduledTimestampForUpgrade);
+            abi.encode(action, scheduledImplementation, scheduledImplementationCalldata, scheduledTimestampForUpgrade);
         (uint256 x, uint256 y) = contractUpgradeBlsValidator.hashToPoint(message);
         BLS.PointG1 memory messageAsG1Point = BLS.PointG1({x: x, y: y});
         bytes memory messageAsG1Bytes = contractUpgradeBlsValidator.hashToBytes(message);
@@ -344,6 +350,12 @@ contract MockRouterV2 is
         return (verificationFee, amountToSwap - verificationFee);
     }
 
+    /// @notice Retrieves the minimum contract upgrade delay
+    /// @return The current minimum delay for upgrade operations
+    function getMinimumContractUpgradeDelay() external view returns (uint256) {
+        return minimumContractUpgradeDelay;
+    }
+
     /// @notice Generates a unique request ID based on the provided swap request parameters
     /// @param p The swap request parameters
     /// @return The generated request ID
@@ -372,7 +384,7 @@ contract MockRouterV2 is
     /// @notice Retrieves the current version of the contract
     /// @return The current version of the contract
     function getVersion() external pure returns (string memory) {
-        return "2.0.0";
+        return "1.0.0";
     }
 
     /// @notice Retrieves the current verification fee in basis points
@@ -503,6 +515,14 @@ contract MockRouterV2 is
         emit VerificationFeeBpsUpdated(verificationFeeBps);
     }
 
+    /// @notice Sets the minimum contract upgrade delay
+    /// @param _minimumContractUpgradeDelay The new minimum delay for upgrade operations
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay) external onlyAdmin {
+        require(_minimumContractUpgradeDelay > 2 days, ErrorsLib.UpgradeDelayTooShort());
+        minimumContractUpgradeDelay = _minimumContractUpgradeDelay;
+        emit MinimumContractUpgradeDelayUpdated(minimumContractUpgradeDelay);
+    }
+
     /// @notice Updates the swap request BLS signature validator contract
     /// @param _swapRequestBlsValidator The new swap request BLS validator contract address
     function setSwapRequestBlsValidator(address _swapRequestBlsValidator) external onlyAdmin {
@@ -567,21 +587,38 @@ contract MockRouterV2 is
     // ---------------------- Scheduled Upgrade Functions ----------------------
 
     /// @notice Schedules a contract upgrade
-    /// @param _newImplementation The address of the new implementation contract
-    /// @param _upgradeCalldata The calldata to be sent to the new implementation
-    /// @param _upgradeTime The time at which the upgrade can be executed
-    function scheduleUpgrade(address _newImplementation, bytes calldata _upgradeCalldata, uint256 _upgradeTime)
-        external
-        onlyAdmin
-    {
-        require(_newImplementation != address(0), ErrorsLib.ZeroAddress());
-        require(_upgradeTime > block.timestamp, ErrorsLib.UpgradeTimeMustBeInTheFuture());
+    /// @param newImplementation The address of the new implementation contract
+    /// @param upgradeCalldata The calldata to be sent to the new implementation
+    /// @param upgradeTime The time at which the upgrade can be executed
+    /// @param signature The BLS signature authorising the upgrade
+    function scheduleUpgrade(
+        address newImplementation,
+        bytes calldata upgradeCalldata,
+        uint256 upgradeTime,
+        bytes calldata signature
+    ) external {
+        require(newImplementation != address(0), ErrorsLib.ZeroAddress());
+        require(upgradeTime > block.timestamp, ErrorsLib.UpgradeTimeMustBeInTheFuture());
+        require(
+            upgradeTime >= block.timestamp + minimumContractUpgradeDelay,
+            ErrorsLib.UpgradeTimeMustRespectDelay(minimumContractUpgradeDelay)
+        );
 
-        scheduledImplementation = _newImplementation;
-        scheduledTimestampForUpgrade = _upgradeTime;
-        scheduledImplementationCalldata = _upgradeCalldata;
+        string memory action = "schedule";
+        (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes(action);
 
-        emit UpgradeScheduled(_newImplementation, _upgradeTime);
+        require(
+            contractUpgradeBlsValidator.verifySignature(
+                messageAsG1Bytes, signature, contractUpgradeBlsValidator.getPublicKeyBytes()
+            ),
+            ErrorsLib.BLSSignatureVerificationFailed()
+        );
+
+        scheduledImplementation = newImplementation;
+        scheduledTimestampForUpgrade = upgradeTime;
+        scheduledImplementationCalldata = upgradeCalldata;
+
+        emit UpgradeScheduled(newImplementation, upgradeTime);
     }
 
     /// @notice Cancels a scheduled upgrade
@@ -592,7 +629,8 @@ contract MockRouterV2 is
             ErrorsLib.TooLateToCancelUpgrade(scheduledTimestampForUpgrade)
         );
 
-        (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes();
+        string memory action = "cancel";
+        (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes(action);
 
         require(
             contractUpgradeBlsValidator.verifySignature(

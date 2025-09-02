@@ -25,4 +25,6 @@ library ErrorsLib {
     error GrantRoleFailed();
     error UpgradeMustGoThroughExecuteUpgrade();
     error UpgradeFailed();
+    error UpgradeDelayTooShort();
+    error UpgradeTimeMustRespectDelay(uint256 earliestTime);
 }

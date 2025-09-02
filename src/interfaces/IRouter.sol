@@ -78,7 +78,15 @@ interface IRouter {
     /// @param srcToken The source token address
     event TokenMappingAdded(uint256 dstChainId, address dstToken, address srcToken);
 
+    /// @notice Emitted when a pair of source and destination chain tokens are unmapped
+    /// @param dstChainId The destination chain id
+    /// @param dstToken The destination token address
+    /// @param srcToken The source token address
     event TokenMappingRemoved(uint256 dstChainId, address dstToken, address srcToken);
+
+    /// @notice Emitted when the minimum contract upgrade delay is updated
+    /// @param newDelay The new minimum delay for upgrade operations
+    event MinimumContractUpgradeDelayUpdated(uint256 newDelay);
 
     /// @notice Emitted when swap fees have been withdrawn to a recipient address
     /// @param token The token address of the withdrawn fees
@@ -158,6 +166,10 @@ interface IRouter {
     /// @return The calculated verification fee amount
     /// @return The amount after deducting the verification fee
     function getVerificationFeeAmount(uint256 amountToSwap) external view returns (uint256, uint256);
+
+    /// @notice Retrieves the minimum contract upgrade delay
+    /// @return The current minimum delay for upgrade operations
+    function getMinimumContractUpgradeDelay() external view returns (uint256);
 
     /// @notice Generates a unique request ID based on the provided swap request parameters
     /// @param p The swap request parameters
@@ -286,16 +298,24 @@ interface IRouter {
         returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point);
 
     /// @notice Converts contract upgrade parameters to a message as bytes and BLS format for signing
+    /// @param action The action being performed (e.g., "schedule", "cancel", "execute")
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
     /// @return messageAsG1Point The message hashed to BLS G1 point
-    function contractUpgradeParamsToBytes() external view returns (bytes memory, bytes memory, BLS.PointG1 memory);
+    function contractUpgradeParamsToBytes(string memory action)
+        external
+        view
+        returns (bytes memory, bytes memory, BLS.PointG1 memory);
 
     // -------- Admin Functions --------
 
     /// @notice Sets the verification fee in basis points
     /// @param _verificationFeeBps The new verification fee in basis points
     function setVerificationFeeBps(uint256 _verificationFeeBps) external;
+
+    /// @notice Sets the minimum contract upgrade delay
+    /// @param _minimumContractUpgradeDelay The new minimum delay for upgrade operations
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay) external;
 
     /// @notice Updates the swap request BLS signature validator contract
     /// @param _swapRequestBlsValidator The new swap request BLS validator contract address
@@ -309,8 +329,13 @@ interface IRouter {
     /// @param _newImplementation The address of the new implementation contract
     /// @param _upgradeCalldata The calldata to be sent to the new implementation
     /// @param _upgradeTime The time at which the upgrade can be executed
-    function scheduleUpgrade(address _newImplementation, bytes calldata _upgradeCalldata, uint256 _upgradeTime)
-        external;
+    /// @param signature The BLS signature authorizing the upgrade
+    function scheduleUpgrade(
+        address _newImplementation,
+        bytes calldata _upgradeCalldata,
+        uint256 _upgradeTime,
+        bytes calldata signature
+    ) external;
 
     /// @notice Permits a destination chain ID for swaps
     /// @param chainId The chain ID to be permitted
