@@ -21,7 +21,6 @@ library ErrorsLib {
     error UpgradeTooEarly(uint256 upgradeTime);
     error TooLateToCancelUpgrade(uint256 upgradeTime);
     error ZeroAddress();
-    error UpgradeTimeMustBeInTheFuture();
     error GrantRoleFailed();
     error UpgradeMustGoThroughExecuteUpgrade();
     error UpgradeFailed();

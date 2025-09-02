@@ -384,7 +384,7 @@ contract MockRouterV2 is
     /// @notice Retrieves the current version of the contract
     /// @return The current version of the contract
     function getVersion() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 
     /// @notice Retrieves the current verification fee in basis points
@@ -598,7 +598,6 @@ contract MockRouterV2 is
         bytes calldata signature
     ) external {
         require(newImplementation != address(0), ErrorsLib.ZeroAddress());
-        require(upgradeTime > block.timestamp, ErrorsLib.UpgradeTimeMustBeInTheFuture());
         require(
             upgradeTime >= block.timestamp + minimumContractUpgradeDelay,
             ErrorsLib.UpgradeTimeMustRespectDelay(minimumContractUpgradeDelay)

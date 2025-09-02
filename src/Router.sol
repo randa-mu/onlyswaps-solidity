@@ -592,7 +592,6 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
         bytes calldata signature
     ) external {
         require(newImplementation != address(0), ErrorsLib.ZeroAddress());
-        require(upgradeTime > block.timestamp, ErrorsLib.UpgradeTimeMustBeInTheFuture());
         require(
             upgradeTime >= block.timestamp + minimumContractUpgradeDelay,
             ErrorsLib.UpgradeTimeMustRespectDelay(minimumContractUpgradeDelay)
