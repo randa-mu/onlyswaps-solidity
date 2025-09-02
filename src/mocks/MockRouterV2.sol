@@ -17,7 +17,7 @@ import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 import {ISignatureScheme} from "../interfaces/ISignatureScheme.sol";
 import {IRouter, BLS} from "../interfaces/IRouter.sol";
 
-/// @title Mock Version 2 of Router Contract for Cross-Chain Token Swaps
+/// @title Mock Version 2 of the Router Contract for Cross-Chain Token Swaps
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
 contract MockRouterV2 is
     ReentrancyGuard,
@@ -287,16 +287,19 @@ contract MockRouterV2 is
 
     /// @notice Converts contract upgrade parameters to a message as bytes and BLS format for signing
     /// @param action The action being performed (e.g., "schedule", "cancel", "execute")
+    /// @param newImplementation The address of the new implementation contract
+    /// @param upgradeCalldata The calldata to be sent to the new implementation
+    /// @param upgradeTime The time at which the upgrade can be executed
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
     /// @return messageAsG1Point The message hashed to BLS G1 point
-    function contractUpgradeParamsToBytes(string memory action)
-        public
-        view
-        returns (bytes memory, bytes memory, BLS.PointG1 memory)
-    {
-        bytes memory message =
-            abi.encode(action, scheduledImplementation, scheduledImplementationCalldata, scheduledTimestampForUpgrade);
+    function contractUpgradeParamsToBytes(
+        string memory action,
+        address newImplementation,
+        bytes memory upgradeCalldata,
+        uint256 upgradeTime
+    ) public view returns (bytes memory, bytes memory, BLS.PointG1 memory) {
+        bytes memory message = abi.encode(action, newImplementation, upgradeCalldata, upgradeTime);
         (uint256 x, uint256 y) = contractUpgradeBlsValidator.hashToPoint(message);
         BLS.PointG1 memory messageAsG1Point = BLS.PointG1({x: x, y: y});
         bytes memory messageAsG1Bytes = contractUpgradeBlsValidator.hashToBytes(message);
@@ -604,7 +607,8 @@ contract MockRouterV2 is
         );
 
         string memory action = "schedule";
-        (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes(action);
+        (, bytes memory messageAsG1Bytes,) =
+            contractUpgradeParamsToBytes(action, newImplementation, upgradeCalldata, upgradeTime);
 
         require(
             contractUpgradeBlsValidator.verifySignature(
@@ -629,7 +633,9 @@ contract MockRouterV2 is
         );
 
         string memory action = "cancel";
-        (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes(action);
+        (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes(
+            action, scheduledImplementation, scheduledImplementationCalldata, scheduledTimestampForUpgrade
+        );
 
         require(
             contractUpgradeBlsValidator.verifySignature(

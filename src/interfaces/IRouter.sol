@@ -299,13 +299,18 @@ interface IRouter {
 
     /// @notice Converts contract upgrade parameters to a message as bytes and BLS format for signing
     /// @param action The action being performed (e.g., "schedule", "cancel", "execute")
+    /// @param newImplementation The address of the new implementation contract
+    /// @param upgradeCalldata The calldata to be sent to the new implementation
+    /// @param upgradeTime The time at which the upgrade can be executed
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
     /// @return messageAsG1Point The message hashed to BLS G1 point
-    function contractUpgradeParamsToBytes(string memory action)
-        external
-        view
-        returns (bytes memory, bytes memory, BLS.PointG1 memory);
+    function contractUpgradeParamsToBytes(
+        string memory action,
+        address newImplementation,
+        bytes memory upgradeCalldata,
+        uint256 upgradeTime
+    ) external view returns (bytes memory, bytes memory, BLS.PointG1 memory);
 
     // -------- Admin Functions --------
 
