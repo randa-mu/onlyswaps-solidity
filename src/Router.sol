@@ -276,7 +276,7 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
         );
         (uint256 x, uint256 y) = swapRequestBlsValidator.hashToPoint(message);
         messageAsG1Point = BLS.PointG1({x: x, y: y});
-        messageAsG1Bytes = swapRequestBlsValidator.hashToBytes(message);
+        messageAsG1Bytes = abi.encode(messageAsG1Point.x, messageAsG1Point.y);
     }
 
     /// @notice Converts contract upgrade parameters to a message as bytes and BLS format for signing
@@ -296,7 +296,7 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
         bytes memory message = abi.encode(action, newImplementation, upgradeCalldata, upgradeTime);
         (uint256 x, uint256 y) = contractUpgradeBlsValidator.hashToPoint(message);
         BLS.PointG1 memory messageAsG1Point = BLS.PointG1({x: x, y: y});
-        bytes memory messageAsG1Bytes = contractUpgradeBlsValidator.hashToBytes(message);
+        bytes memory messageAsG1Bytes = abi.encode(messageAsG1Point.x, messageAsG1Point.y);
 
         return (message, messageAsG1Bytes, messageAsG1Point);
     }
