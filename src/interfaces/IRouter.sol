@@ -78,13 +78,38 @@ interface IRouter {
     /// @param srcToken The source token address
     event TokenMappingAdded(uint256 dstChainId, address dstToken, address srcToken);
 
+    /// @notice Emitted when a pair of source and destination chain tokens are unmapped
+    /// @param dstChainId The destination chain id
+    /// @param dstToken The destination token address
+    /// @param srcToken The source token address
     event TokenMappingRemoved(uint256 dstChainId, address dstToken, address srcToken);
+
+    /// @notice Emitted when the minimum contract upgrade delay is updated
+    /// @param newDelay The new minimum delay for upgrade operations
+    event MinimumContractUpgradeDelayUpdated(uint256 newDelay);
 
     /// @notice Emitted when swap fees have been withdrawn to a recipient address
     /// @param token The token address of the withdrawn fees
     /// @param recipient The address receiving the withdrawn fees
     /// @param amountOut The amount of fees withdrawn
     event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amountOut);
+
+    /// @notice Emitted when a contract upgrade is scheduled
+    /// @param newImplementation The address of the new implementation contract
+    /// @param executeAfter The timestamp after which the upgrade can be executed
+    event UpgradeScheduled(address indexed newImplementation, uint256 executeAfter);
+
+    /// @notice Emitted when a scheduled upgrade is cancelled
+    /// @param cancelledImplementation The address of the cancelled implementation contract
+    event UpgradeCancelled(address indexed cancelledImplementation);
+
+    /// @notice Emitted when a scheduled upgrade is executed
+    /// @param newImplementation The address of the new implementation contract
+    event UpgradeExecuted(address indexed newImplementation);
+
+    /// @notice Emitted when the BLS validator contract is updated
+    /// @param contractUpgradeBlsValidator The new BLS validator contract address
+    event ContractUpgradeBLSValidatorUpdated(address indexed contractUpgradeBlsValidator);
 
     // -------- Core Transfer Logic --------
 
@@ -121,11 +146,18 @@ interface IRouter {
     /// @notice Relays tokens to the recipient and stores a receipt
     /// @param token The token being relayed
     /// @param recipient The target recipient of the tokens
-    /// @param amountOut The net amount delivered (after fees)
+    /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param requestId The original request ID from the source chain
     /// @param srcChainId The ID of the source chain where the request originated
     function relayTokens(address token, address recipient, uint256 amountOut, bytes32 requestId, uint256 srcChainId)
         external;
+
+    /// @notice Cancels a scheduled upgrade
+    /// @param signature The BLS signature authorizing the cancellation
+    function cancelUpgrade(bytes calldata signature) external;
+
+    /// @notice Executes a scheduled upgrade
+    function executeUpgrade() external;
 
     // -------- View Functions --------
 
@@ -134,6 +166,10 @@ interface IRouter {
     /// @return The calculated verification fee amount
     /// @return The amount after deducting the verification fee
     function getVerificationFeeAmount(uint256 amountToSwap) external view returns (uint256, uint256);
+
+    /// @notice Retrieves the minimum contract upgrade delay
+    /// @return The current minimum delay for upgrade operations
+    function getMinimumContractUpgradeDelay() external view returns (uint256);
 
     /// @notice Generates a unique request ID based on the provided swap request parameters
     /// @param p The swap request parameters
@@ -144,9 +180,9 @@ interface IRouter {
     /// @return The current chain ID
     function getChainID() external view returns (uint256);
 
-    /// @notice Retrieves the address of the BLS validator
-    /// @return The address of the BLS validator
-    function getBlsValidator() external view returns (address);
+    /// @notice Retrieves the address of the swap request BLS validator
+    /// @return The address of the swap request BLS validator
+    function getSwapRequestBlsValidator() external view returns (address);
 
     /// @notice Retrieves the current verification fee in basis points
     /// @return The current verification fee in basis points
@@ -215,6 +251,14 @@ interface IRouter {
             uint256 fulfilledAt
         );
 
+    /// @notice Retrieves the address of the contract upgrade BLS validator
+    /// @return The address of the contract upgrade BLS validator
+    function getContractUpgradeBlsValidator() external view returns (address);
+
+    /// @notice Retrieves the current version of the contract
+    /// @return The current version of the contract
+    function getVersion() external view returns (string memory);
+
     /// @notice Checks if a destination token is mapped for a given source token and destination chain ID
     /// @param srcToken The address of the source token
     /// @param dstChainId The destination chain ID
@@ -253,15 +297,50 @@ interface IRouter {
         view
         returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point);
 
+    /// @notice Converts contract upgrade parameters to a message as bytes and BLS format for signing
+    /// @param action The action being performed (e.g., "schedule", "cancel", "execute")
+    /// @param newImplementation The address of the new implementation contract
+    /// @param upgradeCalldata The calldata to be sent to the new implementation
+    /// @param upgradeTime The time at which the upgrade can be executed
+    /// @return message The encoded message bytes
+    /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
+    /// @return messageAsG1Point The message hashed to BLS G1 point
+    function contractUpgradeParamsToBytes(
+        string memory action,
+        address newImplementation,
+        bytes memory upgradeCalldata,
+        uint256 upgradeTime
+    ) external view returns (bytes memory, bytes memory, BLS.PointG1 memory);
+
     // -------- Admin Functions --------
 
     /// @notice Sets the verification fee in basis points
     /// @param _verificationFeeBps The new verification fee in basis points
     function setVerificationFeeBps(uint256 _verificationFeeBps) external;
 
-    /// @notice Updates the address of the BLS validator contract
-    /// @param _blsValidator The new BLS validator contract address
-    function setBlsValidator(address _blsValidator) external;
+    /// @notice Sets the minimum contract upgrade delay
+    /// @param _minimumContractUpgradeDelay The new minimum delay for upgrade operations
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay) external;
+
+    /// @notice Updates the swap request BLS signature validator contract
+    /// @param _swapRequestBlsValidator The new swap request BLS validator contract address
+    function setSwapRequestBlsValidator(address _swapRequestBlsValidator) external;
+
+    /// @notice Updates the contract upgrade BLS validator contract
+    /// @param _contractUpgradeBlsValidator The new contract upgrade BLS validator contract address
+    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator) external;
+
+    /// @notice Schedules a contract upgrade
+    /// @param _newImplementation The address of the new implementation contract
+    /// @param _upgradeCalldata The calldata to be sent to the new implementation
+    /// @param _upgradeTime The time at which the upgrade can be executed
+    /// @param signature The BLS signature authorizing the upgrade
+    function scheduleUpgrade(
+        address _newImplementation,
+        bytes calldata _upgradeCalldata,
+        uint256 _upgradeTime,
+        bytes calldata signature
+    ) external;
 
     /// @notice Permits a destination chain ID for swaps
     /// @param chainId The chain ID to be permitted

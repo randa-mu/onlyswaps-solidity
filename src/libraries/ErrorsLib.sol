@@ -17,4 +17,13 @@ library ErrorsLib {
     error BLSSignatureVerificationFailed();
     error SwapRequestParametersMismatch();
     error SourceChainIdMismatch(uint256 swapRequestParamsSrcChainId, uint256 contractChainId);
+    error NoUpgradePending();
+    error UpgradeTooEarly(uint256 upgradeTime);
+    error TooLateToCancelUpgrade(uint256 upgradeTime);
+    error ZeroAddress();
+    error GrantRoleFailed();
+    error UpgradeMustGoThroughExecuteUpgrade();
+    error UpgradeFailed();
+    error UpgradeDelayTooShort();
+    error UpgradeTimeMustRespectDelay(uint256 earliestTime);
 }

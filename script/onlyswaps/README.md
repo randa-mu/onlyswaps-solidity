@@ -78,6 +78,22 @@ forge script script/onlyswaps/single-deployment/DeployBN254SignatureScheme.s.sol
 Which is used by the [DeployRouter.sol](script/onlyswaps/single-deployment/DeployRouter.s.sol) deployment script when deploying [Router.sol](src/Router.sol).
 
 
+## Upgrading the Router contract
+
+To upgrade the implementation contract for the `Router` contract, set the `IS_UPGRADE` to true in the `.env` file.
+
+Finally, ensure that the contract addresses (for BlocklockSender (proxy address), DecryptionSender (proxy address) and SignatureSchemeAddressProvider) for the related network are set in the script input json file <chain-id>.json.
+
+After setting the required variables, run the deployment command only for the specific contract to upgrade, e.g., if upgrading `Router` implementation, run the following command for a single `Router` contract deployment:
+
+```bash
+forge script script/blocklock/single-deployments/DeployRouter.s.sol:DeployRouter \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast
+```
+
+
 ## Filecoin deployment
 
 For Filecoin Mainnet or Calibration Testnet, a common [deployment issue](https://github.com/filecoin-project/fevm-foundry-kit) that you may see is a failure due to gas. Simply pass in a higher gas limit to fix this (either via. a higher gas estimate multiplier using the `-g` flag or a fixed gas limit) e.g.,
@@ -94,4 +110,26 @@ The deployment addresses file is generated with:
 
 ```sh
 bash utils/generate-contract-addresses.sh > contract-addresses.json
+```
+
+
+## Post-deployment
+
+### Router contract configuration
+The `ConfigureRouterScript` script enables the deployer or Router contract admin to configure the contract on any chain, i.e., set supported tokens and destination chain ids. It requires the following environment variables:
+
+```bash
+ROUTER_SRC_ADDRESS=0xYourRouterSrcAddress
+ERC20_SRC_ADDRESS=0xYourERC20SrcAddress
+ERC20_DST_ADDRESS=0xYourERC20DstAddress
+DST_CHAIN_ID=84532
+```
+
+And it can be executed using the following command:
+
+```bash
+forge script script/onlysubs/utils/ConfigureRouterScript.s.sol:ConfigureRouterScript \
+--rpc-url $RPC_URL \
+--private-key $PRIVATE_KEY \
+--broadcast
 ```

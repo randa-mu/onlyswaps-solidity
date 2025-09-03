@@ -28,15 +28,25 @@ contract JsonUtils is Script {
         view
         returns (OnlySwapsDeploymentAddresses memory result)
     {
-        result.bn254SignatureSchemeAddress = _readAddressFromJsonInput(filePath, "bn254SignatureSchemeAddress");
-        result.routerAddress = _readAddressFromJsonInput(filePath, "routerAddress");
+        result.bn254SwapRequestSignatureSchemeAddress =
+            _readAddressFromJsonInput(filePath, "bn254SwapRequestSignatureSchemeAddress");
+        result.bn254ContractUpgradeSignatureSchemeAddress =
+            _readAddressFromJsonInput(filePath, "bn254ContractUpgradeSignatureSchemeAddress");
+        result.routerProxyAddress = _readAddressFromJsonInput(filePath, "routerProxyAddress");
+        result.routerImplementationAddress = _readAddressFromJsonInput(filePath, "routerImplementationAddress");
         result.rusdFaucet = _readAddressFromJsonInput(filePath, "rusdFaucet");
     }
 
     function _writeOnlySwapsStructToJson(string memory filePath, OnlySwapsDeploymentAddresses memory data) internal {
         string memory json;
-        json = vm.serializeAddress("root", "bn254SignatureSchemeAddress", data.bn254SignatureSchemeAddress);
-        json = vm.serializeAddress("root", "routerAddress", data.routerAddress);
+        json = vm.serializeAddress(
+            "root", "bn254SwapRequestSignatureSchemeAddress", data.bn254SwapRequestSignatureSchemeAddress
+        );
+        json = vm.serializeAddress(
+            "root", "bn254ContractUpgradeSignatureSchemeAddress", data.bn254ContractUpgradeSignatureSchemeAddress
+        );
+        json = vm.serializeAddress("root", "routerProxyAddress", data.routerProxyAddress);
+        json = vm.serializeAddress("root", "routerImplementationAddress", data.routerImplementationAddress);
         json = vm.serializeAddress("root", "rusdFaucet", data.rusdFaucet);
 
         vm.writeJson(json, _constructJsonFilePath(filePath));
@@ -84,10 +94,14 @@ contract JsonUtils is Script {
 
         if (hashedKey == keccak256(bytes(Constants.KEY_RUSD))) {
             data.rusdFaucet = value;
-        } else if (hashedKey == keccak256(bytes(Constants.KEY_ROUTER))) {
-            data.routerAddress = value;
-        } else if (hashedKey == keccak256(bytes(Constants.KEY_BN254_SIGNATURE_SCHEME))) {
-            data.bn254SignatureSchemeAddress = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_ROUTER_IMPLEMENTATION))) {
+            data.routerImplementationAddress = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_ROUTER_PROXY))) {
+            data.routerProxyAddress = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_BN254_SWAP_REQUEST_SIGNATURE_SCHEME))) {
+            data.bn254SwapRequestSignatureSchemeAddress = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_BN254_CONTRACT_UPGRADE_SIGNATURE_SCHEME))) {
+            data.bn254ContractUpgradeSignatureSchemeAddress = value;
         } else {
             revert("Unsupported key in _storeOnlySwapsAddressInJson");
         }

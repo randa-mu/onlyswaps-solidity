@@ -18,19 +18,19 @@ import {Constants} from "../libraries/Constants.sol";
 
 import {BN254SignatureScheme} from "src/signature-scheme/BN254SignatureScheme.sol";
 
-/// @title DeployBN254SignatureScheme
-/// @dev Script for deploying BN254SignatureScheme contract.
-contract DeployBN254SignatureScheme is JsonUtils, EnvReader {
+/// @title DeployBN254SwapRequestSignatureScheme
+/// @dev Script for deploying BN254SwapRequestSignatureScheme contract.
+contract DeployBN254SwapRequestSignatureScheme is JsonUtils, EnvReader {
     function run() public virtual {
-        deployBN254SignatureScheme();
+        deployBN254SwapRequestSignatureScheme();
     }
 
-    function deployBN254SignatureScheme() internal returns (BN254SignatureScheme bn254SignatureScheme) {
+    function deployBN254SwapRequestSignatureScheme() internal returns (BN254SignatureScheme bn254SignatureScheme) {
         DeploymentParameters memory deploymentParameters = DeploymentParamsSelector.getDeploymentParams(block.chainid);
 
         bytes memory code = abi.encodePacked(
             type(BN254SignatureScheme).creationCode,
-            abi.encode(deploymentParameters.blsPublicKey.x, deploymentParameters.blsPublicKey.y)
+            abi.encode(deploymentParameters.blsSwapRequestPublicKey.x, deploymentParameters.blsSwapRequestPublicKey.y)
         );
 
         vm.broadcast();
@@ -40,13 +40,15 @@ contract DeployBN254SignatureScheme is JsonUtils, EnvReader {
             bn254SignatureScheme = BN254SignatureScheme(contractAddress);
         } else {
             bn254SignatureScheme = new BN254SignatureScheme{salt: Constants.SALT}(
-                deploymentParameters.blsPublicKey.x, deploymentParameters.blsPublicKey.y
+                deploymentParameters.blsSwapRequestPublicKey.x, deploymentParameters.blsSwapRequestPublicKey.y
             );
         }
 
-        console.log("Bn254SignatureScheme contract deployed at: ", address(bn254SignatureScheme));
+        console.log("Bn254SwapRequestSignatureScheme contract deployed at: ", address(bn254SignatureScheme));
 
         string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
-        _storeOnlySwapsAddressInJson(path, Constants.KEY_BN254_SIGNATURE_SCHEME, address(bn254SignatureScheme));
+        _storeOnlySwapsAddressInJson(
+            path, Constants.KEY_BN254_SWAP_REQUEST_SIGNATURE_SCHEME, address(bn254SignatureScheme)
+        );
     }
 }

@@ -3,6 +3,8 @@ pragma solidity ^0.8;
 
 struct OnlySwapsDeploymentAddresses {
     address rusdFaucet;
-    address routerAddress;
-    address bn254SignatureSchemeAddress;
+    address routerProxyAddress;
+    address routerImplementationAddress;
+    address bn254SwapRequestSignatureSchemeAddress;
+    address bn254ContractUpgradeSignatureSchemeAddress;
 }

@@ -12,14 +12,20 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import {ErrorsLib} from "./libraries/ErrorsLib.sol";
+import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 
-import {ISignatureScheme} from "./interfaces/ISignatureScheme.sol";
-import {IRouter, BLS} from "./interfaces/IRouter.sol";
+import {ISignatureScheme} from "../interfaces/ISignatureScheme.sol";
+import {IRouter, BLS} from "../interfaces/IRouter.sol";
 
-/// @title Router Contract for Cross-Chain Token Swaps
+/// @title Mock Version 2 of the Router Contract for Cross-Chain Token Swaps
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
-contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, AccessControlEnumerableUpgradeable {
+contract MockRouterV2 is
+    ReentrancyGuard,
+    IRouter,
+    Initializable,
+    UUPSUpgradeable,
+    AccessControlEnumerableUpgradeable
+{
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -381,7 +387,7 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
     /// @notice Retrieves the current version of the contract
     /// @return The current version of the contract
     function getVersion() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 
     /// @notice Retrieves the current verification fee in basis points
@@ -690,5 +696,11 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
     function storeSwapRequest(bytes32 requestId, SwapRequestParameters memory params) internal {
         swapRequestParameters[requestId] = params;
         unfulfilledSolverRefunds.add(requestId);
+    }
+
+    // ---------------------- Mock Upgrade Test Functions ----------------------
+
+    function testNewFunctionality() external pure returns (bool) {
+        return true;
     }
 }
