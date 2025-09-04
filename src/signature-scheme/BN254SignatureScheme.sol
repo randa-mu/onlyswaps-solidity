@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {BLS} from "../libraries/BLS.sol";
+import {BLS} from "bls-solidity/BLS.sol";
+
 import {BytesLib} from "../libraries/BytesLib.sol";
 
 import {ISignatureScheme} from "../interfaces/ISignatureScheme.sol";
@@ -12,6 +13,12 @@ import {ISignatureScheme} from "../interfaces/ISignatureScheme.sol";
 contract BN254SignatureScheme is ISignatureScheme {
     using BytesLib for bytes32;
 
+    /// @notice Enum to represent the contract type
+    enum ContractType {
+        Bridge,
+        Upgrade
+    }
+
     /// @notice Links public keys of threshold network statically to signature scheme contracts and remove from constructor of sender contracts. Admin cannot update, simply use new scheme id.
     BLS.PointG2 private publicKey = BLS.PointG2({x: [uint256(0), uint256(0)], y: [uint256(0), uint256(0)]});
 
@@ -21,12 +28,26 @@ contract BN254SignatureScheme is ISignatureScheme {
     /// @notice Domain separation tag for the BLS signature scheme
     bytes public DST;
 
-    /// @notice Sets the DST with the current chain ID as a hex string (converted to bytes)
-    constructor(uint256[2] memory x, uint256[2] memory y) {
+    /// @notice Custom error for invalid contract type in the constructor.
+    /// @notice Should either be "bridge" or "upgrade"
+    error InvalidContractType();
+
+    /// @notice Constructor for the BN254SignatureScheme contract.
+    /// @param x The x-coordinate of the public key in G2.
+    /// @param y The y-coordinate of the public key in G2.
+    /// @param contractType The type of contract (0 for Bridge, 1 for Upgrade).
+    constructor(uint256[2] memory x, uint256[2] memory y, ContractType contractType) {
+        // Validate the contract type
+        if (contractType != ContractType.Bridge && contractType != ContractType.Upgrade) {
+            revert InvalidContractType();
+        }
+
         publicKey = BLS.PointG2({x: x, y: y});
 
+        // Set the DST based on the contract type
+        string memory typeString = contractType == ContractType.Bridge ? "bridge" : "upgrade";
         DST = abi.encodePacked(
-            "dcipher-token-bridge-v01-BN254G1_XMD:KECCAK-256_SVDW_RO_", bytes32(getChainId()).toHexString(), "_"
+            "dcipher-", typeString, "-v01-BN254G1_XMD:KECCAK-256_SVDW_RO_", bytes32(getChainId()).toHexString(), "_"
         );
     }
 
