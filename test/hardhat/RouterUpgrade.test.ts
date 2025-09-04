@@ -48,20 +48,27 @@ describe("RouterUpgrade", function () {
   const bridgeType = 0;
   const upgradeType = 1;
 
-  async function generateSignature(action: string, contractAddress: string, calldata: string, upgradeTime: number): Promise<string> {
-    const [, , messageAsG1Point] = await router.contractUpgradeParamsToBytes(action, contractAddress, calldata, upgradeTime);
+  async function generateSignature(
+    action: string,
+    contractAddress: string,
+    calldata: string,
+    upgradeTime: number,
+  ): Promise<string> {
+    const [, , messageAsG1Point] = await router.contractUpgradeParamsToBytes(
+      action,
+      contractAddress,
+      calldata,
+      upgradeTime,
+    );
     const M = bn254.G1.ProjectivePoint.fromAffine({
       x: BigInt(messageAsG1Point[0]),
       y: BigInt(messageAsG1Point[1]),
     });
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
     const sigPointToAffine = sigPoint.toAffine();
-    return AbiCoder.defaultAbiCoder().encode(
-      ["uint256", "uint256"],
-      [sigPointToAffine.x, sigPointToAffine.y],
-    );
+    return AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sigPointToAffine.x, sigPointToAffine.y]);
   }
-  
+
   beforeEach(async () => {
     [owner, user, solver, recipient] = await ethers.getSigners();
 
@@ -84,7 +91,11 @@ describe("RouterUpgrade", function () {
     dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     // Deploy BLS signature scheme with the public key G2 point swapped around to be compatible with the BLS solidity library
     swapBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0], bridgeType);
-    upgradeBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0], upgradeType);
+    upgradeBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy(
+      [x.c1, x.c0],
+      [y.c1, y.c0],
+      upgradeType,
+    );
 
     const Router = new ethers.ContractFactory(Router__factory.abi, Router__factory.bytecode, owner);
 
@@ -134,10 +145,9 @@ describe("RouterUpgrade", function () {
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
       let sigBytes = await generateSignature("schedule", ZeroAddress, "0x", upgradeTime);
-      await expect(router.connect(owner).scheduleUpgrade(ZeroAddress, "0x", upgradeTime, sigBytes)).to.be.revertedWithCustomError(
-        router,
-        "ZeroAddress()",
-      );
+      await expect(
+        router.connect(owner).scheduleUpgrade(ZeroAddress, "0x", upgradeTime, sigBytes),
+      ).to.be.revertedWithCustomError(router, "ZeroAddress()");
     });
 
     it("should revert if upgrade time is not in the future (bad path)", async () => {
@@ -147,10 +157,9 @@ describe("RouterUpgrade", function () {
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp - 10 : 0; // 10 seconds in the past
       let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
-      await expect(
-        router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes),
-      ).to.be.revertedWithCustomError(router, "UpgradeTimeMustRespectDelay")
-      .withArgs(await router.getMinimumContractUpgradeDelay());
+      await expect(router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes))
+        .to.be.revertedWithCustomError(router, "UpgradeTimeMustRespectDelay")
+        .withArgs(await router.getMinimumContractUpgradeDelay());
     });
 
     it("should not revert if called by non-admin (good path)", async () => {
@@ -158,7 +167,7 @@ describe("RouterUpgrade", function () {
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
-      
+
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
       let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
 
@@ -172,7 +181,7 @@ describe("RouterUpgrade", function () {
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      
+
       // Prepare initialization data for the new implementation
       const calldata = router.interface.encodeFunctionData("getVersion");
 
@@ -254,7 +263,7 @@ describe("RouterUpgrade", function () {
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
-      
+
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
       let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
@@ -273,7 +282,7 @@ describe("RouterUpgrade", function () {
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
-      
+
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
       let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
 
@@ -314,7 +323,7 @@ describe("RouterUpgrade", function () {
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
-      
+
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
       let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);

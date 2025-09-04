@@ -68,7 +68,11 @@ describe("Router", function () {
     dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     // Deploy BLS signature scheme with the public key G2 point swapped around to be compatible with the BLS solidity library
     swapBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0], bridgeType);
-    upgradeBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0], upgradeType);
+    upgradeBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy(
+      [x.c1, x.c0],
+      [y.c1, y.c0],
+      upgradeType,
+    );
 
     const Router = new ethers.ContractFactory(Router__factory.abi, Router__factory.bytecode, owner);
 
