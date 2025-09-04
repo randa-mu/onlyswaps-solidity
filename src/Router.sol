@@ -3,14 +3,13 @@ pragma solidity ^0.8.0;
 
 import {AccessControlEnumerableUpgradeable} from
     "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+
+import {ScheduledUpgradeable} from "./ScheduledUpgradeable.sol";
 
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 
@@ -18,40 +17,27 @@ import {ISignatureScheme} from "./interfaces/ISignatureScheme.sol";
 import {IRouter, BLS} from "./interfaces/IRouter.sol";
 
 /// @title Router Contract for Cross-Chain Token Swaps
+/// @author Randamu
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
-contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, AccessControlEnumerableUpgradeable {
+contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControlEnumerableUpgradeable {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
-
-    /// @notice Address of the scheduled implementation upgrade
-    address public scheduledImplementation;
-    /// @notice Calldata for the scheduled implementation upgrade
-    bytes scheduledImplementationCalldata;
-    /// @notice Timestamp for the scheduled implementation upgrade
-    uint256 public scheduledTimestampForUpgrade;
-
-    /// @notice Minimum delay for upgrade operations
-    uint256 public minimumContractUpgradeDelay;
 
     /// @notice Role identifier for the contract administrator.
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     /// @notice Basis points divisor
-    uint256 public constant BPS_DIVISOR = 10_000;
+    uint256 public constant BPS_DIVISOR = 10_000; // 100%
 
     /// @notice Max total fee in BPS
-    uint256 public constant MAX_FEE_BPS = 5_000;
+    uint256 public constant MAX_FEE_BPS = 5_000; // 50%
 
     /// @notice Verification fee in BPS
     uint256 public verificationFeeBps;
 
     /// @notice BLS validator used for swap request signature verification
     ISignatureScheme public swapRequestBlsValidator;
-
-    /// @notice BLS validator used for validating admin threshold signatures
-    ///         for stopping timed contract upgrades
-    ISignatureScheme public contractUpgradeBlsValidator;
 
     /// @dev Stores all fulfilled swap request IDs
     EnumerableSet.Bytes32Set private fulfilledTransfers;
@@ -107,15 +93,15 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
     ) public initializer {
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
+        __ScheduledUpgradeable_init(_contractUpgradeBlsValidator, 2 days);
 
-        verificationFeeBps = _verificationFeeBps;
-
+        require(_verificationFeeBps > 0 && _verificationFeeBps <= MAX_FEE_BPS, ErrorsLib.InvalidFeeBps());
+        require(_contractUpgradeBlsValidator != address(0), ErrorsLib.ZeroAddress());
         require(_grantRole(ADMIN_ROLE, _owner), ErrorsLib.GrantRoleFailed());
         require(_grantRole(DEFAULT_ADMIN_ROLE, _owner), ErrorsLib.GrantRoleFailed());
 
+        verificationFeeBps = _verificationFeeBps;
         swapRequestBlsValidator = ISignatureScheme(_swapRequestBlsValidator);
-        contractUpgradeBlsValidator = ISignatureScheme(_contractUpgradeBlsValidator);
-        minimumContractUpgradeDelay = 2 days;
     }
 
     // ---------------------- Core Logic ----------------------
@@ -292,13 +278,8 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
         address newImplementation,
         bytes memory upgradeCalldata,
         uint256 upgradeTime
-    ) public view returns (bytes memory, bytes memory, BLS.PointG1 memory) {
-        bytes memory message = abi.encode(action, newImplementation, upgradeCalldata, upgradeTime);
-        (uint256 x, uint256 y) = contractUpgradeBlsValidator.hashToPoint(message);
-        BLS.PointG1 memory messageAsG1Point = BLS.PointG1({x: x, y: y});
-        bytes memory messageAsG1Bytes = abi.encode(messageAsG1Point.x, messageAsG1Point.y);
-
-        return (message, messageAsG1Bytes, messageAsG1Point);
+    ) public view override (IRouter, ScheduledUpgradeable) returns (bytes memory, bytes memory, BLS.PointG1 memory) {
+        return super.contractUpgradeParamsToBytes(action, newImplementation, upgradeCalldata, upgradeTime);
     }
 
     /// @notice Builds swap request parameters based on the provided details
@@ -514,10 +495,12 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
 
     /// @notice Sets the minimum contract upgrade delay
     /// @param _minimumContractUpgradeDelay The new minimum delay for upgrade operations
-    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay) external onlyAdmin {
-        require(_minimumContractUpgradeDelay > 2 days, ErrorsLib.UpgradeDelayTooShort());
-        minimumContractUpgradeDelay = _minimumContractUpgradeDelay;
-        emit MinimumContractUpgradeDelayUpdated(minimumContractUpgradeDelay);
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay)
+        public
+        override (IRouter, ScheduledUpgradeable)
+        onlyAdmin
+    {
+        super.setMinimumContractUpgradeDelay(_minimumContractUpgradeDelay);
     }
 
     /// @notice Updates the swap request BLS signature validator contract
@@ -529,9 +512,12 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
 
     /// @notice Updates the contract upgrade BLS validator contract
     /// @param _contractUpgradeBlsValidator The new contract upgrade BLS validator contract address
-    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator) external onlyAdmin {
-        contractUpgradeBlsValidator = ISignatureScheme(_contractUpgradeBlsValidator);
-        emit ContractUpgradeBLSValidatorUpdated(address(contractUpgradeBlsValidator));
+    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator)
+        public
+        override (IRouter, ScheduledUpgradeable)
+        onlyAdmin
+    {
+        super.setContractUpgradeBlsValidator(_contractUpgradeBlsValidator);
     }
 
     /// @notice Permits a destination chain ID for swaps
@@ -593,97 +579,26 @@ contract Router is ReentrancyGuard, IRouter, Initializable, UUPSUpgradeable, Acc
         bytes calldata upgradeCalldata,
         uint256 upgradeTime,
         bytes calldata signature
-    ) external {
-        require(newImplementation != address(0), ErrorsLib.ZeroAddress());
-        require(
-            upgradeTime >= block.timestamp + minimumContractUpgradeDelay,
-            ErrorsLib.UpgradeTimeMustRespectDelay(minimumContractUpgradeDelay)
-        );
-
-        string memory action = "schedule";
-        (, bytes memory messageAsG1Bytes,) =
-            contractUpgradeParamsToBytes(action, newImplementation, upgradeCalldata, upgradeTime);
-
-        require(
-            contractUpgradeBlsValidator.verifySignature(
-                messageAsG1Bytes, signature, contractUpgradeBlsValidator.getPublicKeyBytes()
-            ),
-            ErrorsLib.BLSSignatureVerificationFailed()
-        );
-
-        scheduledImplementation = newImplementation;
-        scheduledTimestampForUpgrade = upgradeTime;
-        scheduledImplementationCalldata = upgradeCalldata;
-
-        emit UpgradeScheduled(newImplementation, upgradeTime);
+    ) public override (IRouter, ScheduledUpgradeable) {
+        super.scheduleUpgrade(newImplementation, upgradeCalldata, upgradeTime, signature);
     }
 
     /// @notice Cancels a scheduled upgrade
     /// @param signature The BLS signature authorizing the cancellation
-    function cancelUpgrade(bytes calldata signature) external {
-        require(
-            block.timestamp < scheduledTimestampForUpgrade,
-            ErrorsLib.TooLateToCancelUpgrade(scheduledTimestampForUpgrade)
-        );
-
-        string memory action = "cancel";
-        (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes(
-            action, scheduledImplementation, scheduledImplementationCalldata, scheduledTimestampForUpgrade
-        );
-
-        require(
-            contractUpgradeBlsValidator.verifySignature(
-                messageAsG1Bytes, signature, contractUpgradeBlsValidator.getPublicKeyBytes()
-            ),
-            ErrorsLib.BLSSignatureVerificationFailed()
-        );
-
-        address cancelledImplementation = scheduledImplementation;
-        scheduledImplementation = address(0);
-        scheduledTimestampForUpgrade = 0;
-        scheduledImplementationCalldata = "";
-        emit UpgradeCancelled(cancelledImplementation);
+    function cancelUpgrade(bytes calldata signature) public override (IRouter, ScheduledUpgradeable) {
+        super.cancelUpgrade(signature);
     }
 
     /// @notice Executes a scheduled upgrade
-    function executeUpgrade() external {
-        require(scheduledImplementation != address(0), ErrorsLib.NoUpgradePending());
-        require(
-            block.timestamp >= scheduledTimestampForUpgrade, ErrorsLib.UpgradeTooEarly(scheduledTimestampForUpgrade)
-        );
-
-        address impl = scheduledImplementation;
-        bytes memory callData = scheduledImplementationCalldata;
-
-        // Reset state BEFORE performing upgrade to avoid reentrancy issues
-        scheduledImplementation = address(0);
-        scheduledTimestampForUpgrade = 0;
-        scheduledImplementationCalldata = "";
-
-        // External call to self for msg.sender == address(this) inside _authorizeUpgrade to be valid
-        (bool success, bytes memory ret) =
-            address(this).call(abi.encodeWithSelector(this.upgradeToAndCall.selector, impl, callData));
-
-        if (!success) {
-            // Bubble up revert reason if present
-            if (ret.length > 0) {
-                assembly {
-                    let size := mload(ret)
-                    revert(add(ret, 32), size)
-                }
-            }
-            revert ErrorsLib.UpgradeFailed();
-        }
-
-        emit UpgradeExecuted(impl);
+    function executeUpgrade() public override (IRouter, ScheduledUpgradeable) {
+        super.executeUpgrade();
     }
 
     // ---------------------- Internal Functions ----------------------
 
     /// @dev Required by UUPS to restrict upgrades.
-    function _authorizeUpgrade(address /* newImplementation */ ) internal view override {
-        // Only allow calls coming from within this contract
-        require(msg.sender == address(this), ErrorsLib.UpgradeMustGoThroughExecuteUpgrade());
+    function _authorizeUpgrade(address newImplementation) internal view override {
+        super._authorizeUpgrade(newImplementation);
     }
 
     /// @notice Stores a swap request and marks as unfulfilled
