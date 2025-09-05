@@ -28,19 +28,27 @@ git clone https://github.com/randa-mu/onlysubs-solidity
 ```
 
 ### Install dependencies
+
 ```bash
 npm install
 ```
 
 ### Build
+
 ```bash
 npm run build
 ```
 
 ### Test
+
 ```bash
 npm run test
 ```
+
+### Deployment
+
+For the deployment documentation, please see the deployment [README](./script/onlyswaps/README.md).
+
 
 #### Code Coverage
 
@@ -75,7 +83,7 @@ The script automatically spawns two Anvil blockchains at port 8545 (with chain i
 To run the demo script, run the following command: 
 
 ```bash
-npx hardhat compile
+npm run build
 npx ts-node demo/onlyswap-e2e-demo.ts
 ```
 
@@ -87,22 +95,23 @@ Example output:
 Anvil instances ready...
 Configuring routers...
 Recipient balance before swap request: 0.0 RUSD
-Swap request created with requestId 0x2d0d7b3ffeaa37b249923f2bd6679462d018572c30760af2867f1a8c9db65793
+Swap request created with requestId 0xc8e424bef2a726381716973580834e29713efb17b3af76c0f741bc7ff4a8cc4a
 Swap request parameters: {
   sender: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   recipient: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
-  token: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-  amount: '10.0',
+  tokenIn: '0x0165878A594ca255338adfa4d48449f69242Eb8F',
+  tokenOut: '0x8464135c8F25Da09e49BC8782676a84730C318bC',
+  amountOut: '9.5',
   srcChainId: 31337n,
   dstChainId: 31338n,
-  swapFee: '0.05',
-  solverFee: '0.95',
+  verificationFee: '0.5',
+  solverFee: '1.0',
   nonce: 1n,
   executed: false
 }
-Recipient balance after relay: 10.0 RUSD
+Recipient balance after relay: 9.5 RUSD
 Solver balance before rebalance: 0.0 RUSD
-Solver balance after rebalance: 10.95 RUSD
+Solver balance after rebalance: 10.5 RUSD
 Anvil instances stopped.
 ```
 
