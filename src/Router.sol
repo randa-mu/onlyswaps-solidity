@@ -167,7 +167,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         // Update the fees in the stored params
         params.solverFee = newFee;
 
-        // Emit event if needed for tracking fee updates (optional)
+        // Emit event if needed for tracking fee updates
         emit SwapRequestSolverFeeUpdated(requestId);
     }
 
