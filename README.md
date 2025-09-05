@@ -47,7 +47,7 @@ npm run test
 
 ### Deployment
 
-For the deployment documentation, please see the deployment [README](./script/onlyswaps/README.md).
+For the deployment documentation, please see the deployment [guide here](./script/onlyswaps/README.md).
 
 
 #### Code Coverage

@@ -228,3 +228,30 @@ abstract contract ScheduledUpgradeable is Initializable, UUPSUpgradeable {
         emit MinimumContractUpgradeDelayUpdated(minimumContractUpgradeDelay);
     }
 }
+
+/// @title IScheduledUpgradeable
+/// @notice Interface for the ScheduledUpgradeable contract
+interface IScheduledUpgradeable {
+    function scheduleUpgrade(
+        address newImplementation,
+        bytes calldata upgradeCalldata,
+        uint256 upgradeTime,
+        bytes calldata signature
+    ) external;
+
+    function cancelUpgrade(bytes calldata signature) external;
+
+    function executeUpgrade() external;
+
+    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator, bytes calldata signature) external;
+
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay) external;
+
+    function currentNonce() external view returns (uint256);
+
+    function scheduledImplementation() external view returns (address);
+
+    function scheduledTimestampForUpgrade() external view returns (uint256);
+
+    function minimumContractUpgradeDelay() external view returns (uint256);
+}
