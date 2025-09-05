@@ -42,7 +42,9 @@ contract DeployBN254ContractUpgradeSignatureScheme is JsonUtils, EnvReader {
             bn254SignatureScheme = BN254SignatureScheme(contractAddress);
         } else {
             bn254SignatureScheme = new BN254SignatureScheme{salt: Constants.SALT}(
-                deploymentParameters.blsContractUpgradePublicKey.x, deploymentParameters.blsContractUpgradePublicKey.y
+                deploymentParameters.blsContractUpgradePublicKey.x,
+                deploymentParameters.blsContractUpgradePublicKey.y,
+                BN254SignatureScheme.ContractType.Upgrade
             );
         }
 

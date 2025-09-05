@@ -37,10 +37,14 @@ describe("Router", function () {
   let router: Router;
   let srcToken: ERC20Token;
   let dstToken: ERC20Token;
-  let bn254SigScheme: BN254SignatureScheme;
+  let swapBn254SigScheme: BN254SignatureScheme;
+  let upgradeBn254SigScheme: BN254SignatureScheme;
 
   let privKeyBytes: Uint8Array;
   let ownerAddr: string, solverAddr: string, userAddr: string, recipientAddr: string;
+
+  const bridgeType = 0;
+  const upgradeType = 1;
 
   beforeEach(async () => {
     [owner, user, solver, recipient] = await ethers.getSigners();
@@ -63,7 +67,12 @@ describe("Router", function () {
     srcToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     // Deploy BLS signature scheme with the public key G2 point swapped around to be compatible with the BLS solidity library
-    bn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0]);
+    swapBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0], bridgeType);
+    upgradeBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy(
+      [x.c1, x.c0],
+      [y.c1, y.c0],
+      upgradeType,
+    );
 
     const Router = new ethers.ContractFactory(Router__factory.abi, Router__factory.bytecode, owner);
 
@@ -77,8 +86,8 @@ describe("Router", function () {
       await routerImplementation.getAddress(),
       Router.interface.encodeFunctionData("initialize", [
         ownerAddr,
-        await bn254SigScheme.getAddress(),
-        await bn254SigScheme.getAddress(),
+        await swapBn254SigScheme.getAddress(),
+        await upgradeBn254SigScheme.getAddress(),
         VERIFICATION_FEE_BPS,
       ]),
     );

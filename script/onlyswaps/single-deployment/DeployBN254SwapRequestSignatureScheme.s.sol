@@ -40,7 +40,9 @@ contract DeployBN254SwapRequestSignatureScheme is JsonUtils, EnvReader {
             bn254SignatureScheme = BN254SignatureScheme(contractAddress);
         } else {
             bn254SignatureScheme = new BN254SignatureScheme{salt: Constants.SALT}(
-                deploymentParameters.blsSwapRequestPublicKey.x, deploymentParameters.blsSwapRequestPublicKey.y
+                deploymentParameters.blsSwapRequestPublicKey.x,
+                deploymentParameters.blsSwapRequestPublicKey.y,
+                BN254SignatureScheme.ContractType.Bridge
             );
         }
 

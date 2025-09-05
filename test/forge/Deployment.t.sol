@@ -56,8 +56,10 @@ contract DeploymentTest is Test {
 
         /// @dev src chain deployment
         /// Deploy signature verifiers and ERC20 token for the source chain
-        srcSwapRequestBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
-        srcContractUpgradeBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
+        srcSwapRequestBLSSigVerifier =
+            new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]], BN254SignatureScheme.ContractType.Bridge);
+        srcContractUpgradeBLSSigVerifier =
+            new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]], BN254SignatureScheme.ContractType.Upgrade);
         srcToken = new ERC20Token("Source Token", "ST", tokenDecimals);
         // Deploy upgradable router on src chain
         Router srcRouterImplementation = new Router();
@@ -72,8 +74,10 @@ contract DeploymentTest is Test {
 
         /// @dev dst chain deployment
         /// Deploy signature verifiers and ERC20 token for the destination chain
-        dstSwapRequestBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
-        dstContractUpgradeBLSSigVerifier = new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]]);
+        dstSwapRequestBLSSigVerifier =
+            new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]], BN254SignatureScheme.ContractType.Bridge);
+        dstContractUpgradeBLSSigVerifier =
+            new BN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]], BN254SignatureScheme.ContractType.Upgrade);
         dstToken = new ERC20Token("Destination Token", "DT", tokenDecimals);
         // Deploy upgradable router on dst chain
         Router dstRouterImplementation = new Router();
