@@ -77,8 +77,7 @@ contract JsonUtils is Script {
         // This will throw an error if the file doesn't exist, which we catch below
         try vm.readFile(_constructJsonFilePath((filePath))) returns (string memory /* content */ ) {
             // We can store the file contents here in case we need it later.
-        }
-        catch {
+        } catch {
             fileExists = false;
         }
     }
