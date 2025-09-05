@@ -76,6 +76,7 @@ abstract contract ScheduledUpgradeable is Initializable, UUPSUpgradeable {
         bytes calldata signature
     ) public virtual {
         require(newImplementation != address(0), ErrorsLib.ZeroAddress());
+        require(scheduledImplementation != newImplementation, ErrorsLib.SameVersionUpgradeNotAllowed());
         require(
             upgradeTime >= block.timestamp + minimumContractUpgradeDelay,
             ErrorsLib.UpgradeTimeMustRespectDelay(minimumContractUpgradeDelay)
@@ -84,7 +85,7 @@ abstract contract ScheduledUpgradeable is Initializable, UUPSUpgradeable {
         string memory action = "schedule";
         uint256 nonce = ++currentNonce;
         (, bytes memory messageAsG1Bytes,) =
-            contractUpgradeParamsToBytes(action, newImplementation, upgradeCalldata, upgradeTime, nonce);
+            contractUpgradeParamsToBytes(action, scheduledImplementation, newImplementation, upgradeCalldata, upgradeTime, nonce);
 
         require(
             contractUpgradeBlsValidator.verifySignature(
@@ -109,7 +110,7 @@ abstract contract ScheduledUpgradeable is Initializable, UUPSUpgradeable {
         string memory action = "cancel";
         uint256 nonce = ++currentNonce;
         (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes(
-            action, scheduledImplementation, scheduledImplementationCalldata, scheduledTimestampForUpgrade, nonce
+            action, scheduledImplementation, scheduledImplementation, scheduledImplementationCalldata, scheduledTimestampForUpgrade, nonce
         );
 
         require(
@@ -161,12 +162,13 @@ abstract contract ScheduledUpgradeable is Initializable, UUPSUpgradeable {
 
     function contractUpgradeParamsToBytes(
         string memory action,
+        address alreadyPendingImplementation,
         address newImplementation,
         bytes memory upgradeCalldata,
         uint256 upgradeTime,
         uint256 nonce
     ) public view virtual returns (bytes memory, bytes memory, BLS.PointG1 memory) {
-        bytes memory message = abi.encode(action, newImplementation, upgradeCalldata, upgradeTime, nonce);
+        bytes memory message = abi.encode(action, alreadyPendingImplementation, newImplementation, upgradeCalldata, upgradeTime, nonce);
         (uint256 x, uint256 y) = contractUpgradeBlsValidator.hashToPoint(message);
         BLS.PointG1 memory messageAsG1Point = BLS.PointG1({x: x, y: y});
         bytes memory messageAsG1Bytes = abi.encode(messageAsG1Point.x, messageAsG1Point.y);

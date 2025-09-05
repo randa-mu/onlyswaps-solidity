@@ -57,6 +57,7 @@ describe("RouterUpgrade", function () {
   ): Promise<string> {
     const [, , messageAsG1Point] = await router.contractUpgradeParamsToBytes(
       action,
+      await router.scheduledImplementation(),
       contractAddress,
       calldata,
       upgradeTime,
