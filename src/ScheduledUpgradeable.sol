@@ -12,6 +12,9 @@ import {BLS} from "bls-solidity/BLS.sol";
 /// @notice Abstract contract for scheduling, cancelling, and executing contract upgrades.
 /// @dev Handles BLS (BN254) signature verification for scheduling and cancelling upgrades.
 abstract contract ScheduledUpgradeable is Initializable, UUPSUpgradeable {
+    /// @notice Unique nonce for each message to prevent replay attacks
+    uint256 public currentNonce;
+
     /// @notice Address of the scheduled implementation upgrade
     address public scheduledImplementation;
 
@@ -79,8 +82,9 @@ abstract contract ScheduledUpgradeable is Initializable, UUPSUpgradeable {
         );
 
         string memory action = "schedule";
+        uint256 nonce = ++currentNonce;
         (, bytes memory messageAsG1Bytes,) =
-            contractUpgradeParamsToBytes(action, newImplementation, upgradeCalldata, upgradeTime);
+            contractUpgradeParamsToBytes(action, newImplementation, upgradeCalldata, upgradeTime, nonce);
 
         require(
             contractUpgradeBlsValidator.verifySignature(
@@ -103,8 +107,9 @@ abstract contract ScheduledUpgradeable is Initializable, UUPSUpgradeable {
         );
 
         string memory action = "cancel";
+        uint256 nonce = ++currentNonce;
         (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes(
-            action, scheduledImplementation, scheduledImplementationCalldata, scheduledTimestampForUpgrade
+            action, scheduledImplementation, scheduledImplementationCalldata, scheduledTimestampForUpgrade, nonce
         );
 
         require(
@@ -158,9 +163,10 @@ abstract contract ScheduledUpgradeable is Initializable, UUPSUpgradeable {
         string memory action,
         address newImplementation,
         bytes memory upgradeCalldata,
-        uint256 upgradeTime
+        uint256 upgradeTime,
+        uint256 nonce
     ) public view virtual returns (bytes memory, bytes memory, BLS.PointG1 memory) {
-        bytes memory message = abi.encode(action, newImplementation, upgradeCalldata, upgradeTime);
+        bytes memory message = abi.encode(action, newImplementation, upgradeCalldata, upgradeTime, nonce);
         (uint256 x, uint256 y) = contractUpgradeBlsValidator.hashToPoint(message);
         BLS.PointG1 memory messageAsG1Point = BLS.PointG1({x: x, y: y});
         bytes memory messageAsG1Bytes = abi.encode(messageAsG1Point.x, messageAsG1Point.y);

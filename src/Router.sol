@@ -60,9 +60,6 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice Accumulated fees per token
     mapping(address => uint256) public totalVerificationFeeBalance;
 
-    /// @notice Unique nonce for each swap request and user
-    uint256 public currentNonce;
-
     /// @dev Mapping of nonce to requester address
     mapping(uint256 => address) public nonceToRequester;
 
@@ -263,23 +260,6 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         (uint256 x, uint256 y) = swapRequestBlsValidator.hashToPoint(message);
         messageAsG1Point = BLS.PointG1({x: x, y: y});
         messageAsG1Bytes = abi.encode(messageAsG1Point.x, messageAsG1Point.y);
-    }
-
-    /// @notice Converts contract upgrade parameters to a message as bytes and BLS format for signing
-    /// @param action The action being performed (e.g., "schedule", "cancel", "execute")
-    /// @param newImplementation The address of the new implementation contract
-    /// @param upgradeCalldata The calldata to be sent to the new implementation
-    /// @param upgradeTime The time at which the upgrade can be executed
-    /// @return message The encoded message bytes
-    /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
-    /// @return messageAsG1Point The message hashed to BLS G1 point
-    function contractUpgradeParamsToBytes(
-        string memory action,
-        address newImplementation,
-        bytes memory upgradeCalldata,
-        uint256 upgradeTime
-    ) public view override (IRouter, ScheduledUpgradeable) returns (bytes memory, bytes memory, BLS.PointG1 memory) {
-        return super.contractUpgradeParamsToBytes(action, newImplementation, upgradeCalldata, upgradeTime);
     }
 
     /// @notice Builds swap request parameters based on the provided details
