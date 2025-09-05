@@ -173,6 +173,19 @@ abstract contract ScheduledUpgradeable is Initializable, UUPSUpgradeable {
         return (message, messageAsG1Bytes, messageAsG1Point);
     }
 
+    function blsValidatorUpdateParamsToBytes(address blsValidator, uint256 nonce)
+        public
+        view
+        virtual
+        returns (bytes memory, bytes memory, BLS.PointG1 memory)
+    {
+        bytes memory message = abi.encode(blsValidator, nonce);
+        (uint256 x, uint256 y) = contractUpgradeBlsValidator.hashToPoint(message);
+        BLS.PointG1 memory messageAsG1Point = BLS.PointG1({x: x, y: y});
+        bytes memory messageAsG1Bytes = abi.encode(messageAsG1Point.x, messageAsG1Point.y);
+        return (message, messageAsG1Bytes, messageAsG1Point);
+    }
+
     // ---------------------- Internal Functions ----------------------
 
     /// @dev Required by UUPS to restrict upgrades.
@@ -182,8 +195,20 @@ abstract contract ScheduledUpgradeable is Initializable, UUPSUpgradeable {
 
     // ---------------------- Admin Functions ----------------------
 
-    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator) public virtual {
+    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator, bytes calldata signature)
+        public
+        virtual
+    {
         require(_contractUpgradeBlsValidator != address(0), ErrorsLib.ZeroAddress());
+        uint256 nonce = ++currentNonce;
+        (, bytes memory messageAsG1Bytes,) = blsValidatorUpdateParamsToBytes(_contractUpgradeBlsValidator, nonce);
+
+        require(
+            contractUpgradeBlsValidator.verifySignature(
+                messageAsG1Bytes, signature, contractUpgradeBlsValidator.getPublicKeyBytes()
+            ),
+            ErrorsLib.BLSSignatureVerificationFailed()
+        );
         contractUpgradeBlsValidator = ISignatureScheme(_contractUpgradeBlsValidator);
         emit ContractUpgradeBLSValidatorUpdated(address(contractUpgradeBlsValidator));
     }

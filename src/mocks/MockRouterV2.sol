@@ -27,10 +27,10 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     /// @notice Basis points divisor
-    uint256 public constant BPS_DIVISOR = 10_000;
+    uint256 public constant BPS_DIVISOR = 10_000; // 100%
 
     /// @notice Max total fee in BPS
-    uint256 public constant MAX_FEE_BPS = 5_000;
+    uint256 public constant MAX_FEE_BPS = 5_000; // 50%
 
     /// @notice Verification fee in BPS
     uint256 public verificationFeeBps;
@@ -478,19 +478,30 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
     /// @notice Updates the swap request BLS signature validator contract
     /// @param _swapRequestBlsValidator The new swap request BLS validator contract address
-    function setSwapRequestBlsValidator(address _swapRequestBlsValidator) external onlyAdmin {
+    /// @param signature The BLS signature authorising the update
+    function setSwapRequestBlsValidator(address _swapRequestBlsValidator, bytes calldata signature) external {
+        require(_swapRequestBlsValidator != address(0), ErrorsLib.ZeroAddress());
+        uint256 nonce = ++currentNonce;
+        (, bytes memory messageAsG1Bytes,) = blsValidatorUpdateParamsToBytes(_swapRequestBlsValidator, nonce);
+
+        require(
+            contractUpgradeBlsValidator.verifySignature(
+                messageAsG1Bytes, signature, contractUpgradeBlsValidator.getPublicKeyBytes()
+            ),
+            ErrorsLib.BLSSignatureVerificationFailed()
+        );
         swapRequestBlsValidator = ISignatureScheme(_swapRequestBlsValidator);
         emit BLSValidatorUpdated(address(swapRequestBlsValidator));
     }
 
     /// @notice Updates the contract upgrade BLS validator contract
     /// @param _contractUpgradeBlsValidator The new contract upgrade BLS validator contract address
-    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator)
+    /// @param signature The BLS signature authorising the update
+    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator, bytes calldata signature)
         public
         override (IRouter, ScheduledUpgradeable)
-        onlyAdmin
     {
-        super.setContractUpgradeBlsValidator(_contractUpgradeBlsValidator);
+        super.setContractUpgradeBlsValidator(_contractUpgradeBlsValidator, signature);
     }
 
     /// @notice Permits a destination chain ID for swaps
@@ -553,6 +564,11 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         uint256 upgradeTime,
         bytes calldata signature
     ) public override (IRouter, ScheduledUpgradeable) {
+        require(
+            keccak256(abi.encodePacked(IRouter(newImplementation).getVersion()))
+                != keccak256(abi.encodePacked(getVersion())),
+            "New version must be different from current version"
+        );
         super.scheduleUpgrade(newImplementation, upgradeCalldata, upgradeTime, signature);
     }
 
@@ -586,7 +602,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         return true;
     }
 
-    function getVersion() external pure returns (string memory) {
+    function getVersion() public pure returns (string memory) {
         return "2.0.0";
     }
 }

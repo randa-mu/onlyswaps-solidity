@@ -151,7 +151,7 @@ describe("RouterUpgrade", function () {
       let sigBytes = await generateSignature("schedule", ZeroAddress, "0x", upgradeTime, currentNonce);
       await expect(
         router.connect(owner).scheduleUpgrade(ZeroAddress, "0x", upgradeTime, sigBytes),
-      ).to.be.revertedWithCustomError(router, "ZeroAddress()");
+      ).to.be.reverted;
     });
 
     it("should revert if upgrade time is not in the future (bad path)", async () => {

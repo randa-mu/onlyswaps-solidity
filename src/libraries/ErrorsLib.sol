@@ -26,4 +26,5 @@ library ErrorsLib {
     error UpgradeFailed();
     error UpgradeDelayTooShort();
     error UpgradeTimeMustRespectDelay(uint256 earliestTime);
+    error SameVersionUpgradeNotAllowed();
 }

@@ -298,11 +298,13 @@ interface IRouter {
 
     /// @notice Updates the swap request BLS signature validator contract
     /// @param _swapRequestBlsValidator The new swap request BLS validator contract address
-    function setSwapRequestBlsValidator(address _swapRequestBlsValidator) external;
+    /// @param signature The BLS signature authorizing the update
+    function setSwapRequestBlsValidator(address _swapRequestBlsValidator, bytes calldata signature) external;
 
     /// @notice Updates the contract upgrade BLS validator contract
     /// @param _contractUpgradeBlsValidator The new contract upgrade BLS validator contract address
-    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator) external;
+    /// @param signature The BLS signature authorizing the update
+    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator, bytes calldata signature) external;
 
     /// @notice Schedules a contract upgrade
     /// @param _newImplementation The address of the new implementation contract
