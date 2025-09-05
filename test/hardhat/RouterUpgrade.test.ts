@@ -53,7 +53,7 @@ describe("RouterUpgrade", function () {
     contractAddress: string,
     calldata: string,
     upgradeTime: number,
-    currentNonce: number
+    currentNonce: number,
   ): Promise<string> {
     const [, , messageAsG1Point] = await router.contractUpgradeParamsToBytes(
       action,
@@ -61,7 +61,7 @@ describe("RouterUpgrade", function () {
       contractAddress,
       calldata,
       upgradeTime,
-      currentNonce
+      currentNonce,
     );
     const M = bn254.G1.ProjectivePoint.fromAffine({
       x: BigInt(messageAsG1Point[0]),
@@ -150,9 +150,7 @@ describe("RouterUpgrade", function () {
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
       const currentNonce = Number(await router.currentNonce()) + 1;
       let sigBytes = await generateSignature("schedule", ZeroAddress, "0x", upgradeTime, currentNonce);
-      await expect(
-        router.connect(owner).scheduleUpgrade(ZeroAddress, "0x", upgradeTime, sigBytes),
-      ).to.be.reverted;
+      await expect(router.connect(owner).scheduleUpgrade(ZeroAddress, "0x", upgradeTime, sigBytes)).to.be.reverted;
     });
 
     it("should revert if upgrade time is not in the future (bad path)", async () => {
@@ -191,7 +189,7 @@ describe("RouterUpgrade", function () {
 
       // Prepare initialization data for the new implementation
       const calldata = router.interface.encodeFunctionData("getVersion");
-      
+
       const currentNonce = Number(await router.currentNonce()) + 1;
       let sigBytes = await generateSignature("schedule", newImplAddress, calldata, upgradeTime, currentNonce);
 
