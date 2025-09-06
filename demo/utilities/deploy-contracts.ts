@@ -13,13 +13,29 @@ export async function deployContracts(srcSigner: ethers.Signer, dstSigner: ether
   const ERC20Dst = await new ERC20Token__factory(dstSigner).deploy("RUSD", "RUSD", 18);
 
   // Deploy BN254 signature schemes with swapped G2 point coordinates
-  const BN254SigSrc = await new BN254SignatureScheme__factory(srcSigner).deploy(
+  const bridgeType = 0;
+  const upgradeType = 1;
+
+  const BN254SigAdminSrc = await new BN254SignatureScheme__factory(srcSigner).deploy(
     [pubKeyPoint.x.c1, pubKeyPoint.x.c0],
-    [pubKeyPoint.y.c1, pubKeyPoint.y.c0]
+    [pubKeyPoint.y.c1, pubKeyPoint.y.c0],
+    bridgeType
   );
-  const BN254SigDst = await new BN254SignatureScheme__factory(dstSigner).deploy(
+  const BN254SigUpgradeSrc = await new BN254SignatureScheme__factory(srcSigner).deploy(
     [pubKeyPoint.x.c1, pubKeyPoint.x.c0],
-    [pubKeyPoint.y.c1, pubKeyPoint.y.c0]
+    [pubKeyPoint.y.c1, pubKeyPoint.y.c0],
+    upgradeType
+  );
+  
+  const BN254SigAdminDst = await new BN254SignatureScheme__factory(dstSigner).deploy(
+    [pubKeyPoint.x.c1, pubKeyPoint.x.c0],
+    [pubKeyPoint.y.c1, pubKeyPoint.y.c0],
+    bridgeType
+  );
+  const BN254SigUpgradeDst = await new BN254SignatureScheme__factory(dstSigner).deploy(
+    [pubKeyPoint.x.c1, pubKeyPoint.x.c0],
+    [pubKeyPoint.y.c1, pubKeyPoint.y.c0],
+    upgradeType
   );
 
   // Deploy Router implementations
@@ -39,8 +55,8 @@ export async function deployContracts(srcSigner: ethers.Signer, dstSigner: ether
     await routerImplementationSrc.getAddress(),
     routerImplementationSrc.interface.encodeFunctionData("initialize", [
       await srcSigner.getAddress(),
-      await BN254SigSrc.getAddress(),
-      await BN254SigSrc.getAddress(),
+      await BN254SigAdminSrc.getAddress(),
+      await BN254SigUpgradeSrc.getAddress(),
       VERIFICATION_FEE_BPS
     ])
   );
@@ -55,8 +71,8 @@ export async function deployContracts(srcSigner: ethers.Signer, dstSigner: ether
     await routerImplementationDst.getAddress(),
     routerImplementationDst.interface.encodeFunctionData("initialize", [
       await dstSigner.getAddress(),
-      await BN254SigDst.getAddress(),
-      await BN254SigDst.getAddress(),
+      await BN254SigAdminDst.getAddress(),
+      await BN254SigUpgradeDst.getAddress(),
       VERIFICATION_FEE_BPS
     ])
   );
@@ -68,7 +84,8 @@ export async function deployContracts(srcSigner: ethers.Signer, dstSigner: ether
 
   return {
     ERC20Src, ERC20Dst,
-    BN254SigSrc, BN254SigDst,
+    BN254SigAdminSrc, BN254SigUpgradeSrc,
+    BN254SigAdminDst, BN254SigUpgradeDst,
     RouterSrc, RouterDst
   };
 }

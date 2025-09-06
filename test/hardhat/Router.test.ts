@@ -46,6 +46,21 @@ describe("Router", function () {
   const bridgeType = 0;
   const upgradeType = 1;
 
+  async function generateSignatureForBlsValidatorUpdate(
+    router: Router,
+    invalidAddress: string,
+    currentNonce: number,
+  ): Promise<string> {
+    const [, , messageAsG1Point] = await router.blsValidatorUpdateParamsToBytes(invalidAddress, currentNonce);
+    const M = bn254.G1.ProjectivePoint.fromAffine({
+      x: BigInt(messageAsG1Point[0]),
+      y: BigInt(messageAsG1Point[1]),
+    });
+    const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    const sigPointToAffine = sigPoint.toAffine();
+    return AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sigPointToAffine.x, sigPointToAffine.y]);
+  }
+
   beforeEach(async () => {
     [owner, user, solver, recipient] = await ethers.getSigners();
 
@@ -764,6 +779,102 @@ describe("Router", function () {
   it("should return correct contract version", async () => {
     const version = await router.getVersion();
     expect(version).to.equal("1.0.0");
+  });
+
+  it("should revert if setSwapRequestBlsValidator is called with zero address", async () => {
+    const invalidAddress = ZeroAddress;
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, invalidAddress, currentNonce);
+    await expect(
+      router.connect(owner).setSwapRequestBlsValidator(invalidAddress, sigBytes),
+    ).to.be.revertedWithCustomError(router, "ZeroAddress()");
+  });
+
+  it("should revert if BLS signature verification fails", async () => {
+    const validAddress = await owner.getAddress();
+    const invalidSignature = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
+
+    await expect(
+      router.connect(owner).setSwapRequestBlsValidator(validAddress, invalidSignature),
+    ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed()");
+  });
+
+  it("should update the swapRequestBlsValidator if called with valid parameters", async () => {
+    const validAddress = await owner.getAddress();
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+
+    await expect(router.connect(owner).setSwapRequestBlsValidator(validAddress, sigBytes))
+      .to.emit(router, "BLSValidatorUpdated")
+      .withArgs(validAddress);
+
+    const updatedValidator = await router.swapRequestBlsValidator();
+    expect(updatedValidator).to.equal(validAddress);
+  });
+
+  it("should update the upgradeBlsValidator if called with valid parameters", async () => {
+    const validAddress = await owner.getAddress();
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+
+    await expect(router.connect(owner).setContractUpgradeBlsValidator(validAddress, sigBytes))
+      .to.emit(router, "ContractUpgradeBLSValidatorUpdated")
+      .withArgs(validAddress);
+
+    const updatedValidator = await router.contractUpgradeBlsValidator();
+    expect(updatedValidator).to.equal(validAddress);
+  });
+
+  it("should revert if setContractUpgradeBlsValidator is called with zero address", async () => {
+    const invalidAddress = ZeroAddress;
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, invalidAddress, currentNonce);
+    await expect(
+      router.connect(owner).setContractUpgradeBlsValidator(invalidAddress, sigBytes),
+    ).to.be.revertedWithCustomError(router, "ZeroAddress()");
+  });
+
+  it("should not revert if non-owner tries to call setSwapRequestBlsValidator", async () => {
+    const validAddress = await owner.getAddress();
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+
+    await expect(router.connect(user).setSwapRequestBlsValidator(validAddress, sigBytes)).to.not.be.reverted;
+  });
+
+  it("should not revert if non-owner tries to call setContractUpgradeBlsValidator", async () => {
+    const validAddress = await owner.getAddress();
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+
+    await expect(router.connect(user).setContractUpgradeBlsValidator(validAddress, sigBytes)).to.not.be.reverted;
+  });
+
+  it("should return the correct public key from BN254SignatureScheme", async () => {
+    // Get public key from the swap signature scheme contract
+    const [x, y] = await swapBn254SigScheme.getPublicKey();
+
+    // The public key used for deployment
+    const pk = bn254.getPublicKeyForShortSignatures(privKeyBytes);
+    const pubKeyPoint = bn254.G2.ProjectivePoint.fromHex(pk).toAffine();
+
+    // Compare each coordinate
+    expect(x[0]).to.equal(pubKeyPoint.x.c1);
+    expect(x[1]).to.equal(pubKeyPoint.x.c0);
+    expect(y[0]).to.equal(pubKeyPoint.y.c1);
+    expect(y[1]).to.equal(pubKeyPoint.y.c0);
+  });
+
+  it("should revert if BN254SignatureScheme is constructed with an invalid contract type", async () => {
+    const invalidType = 2; // Not 0 (Bridge) or 1 (Upgrade)
+    
+    await expect(
+      new BN254SignatureScheme__factory(owner).deploy([1n, 2n], [3n, 4n], invalidType)
+    ).to.be.reverted;
+
+    await expect(
+      new BN254SignatureScheme__factory(owner).deploy([1n, 2n], [3n, 4n], bridgeType)
+    ).to.not.be.reverted;
   });
 });
 
