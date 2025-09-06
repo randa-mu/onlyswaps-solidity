@@ -1,6 +1,27 @@
 # OnlySwaps
 
-Solidity smart contract that enables **cross-chain token swap** requests from a source chain to a destination chain. The requests are fulfilled by solvers on the destination chain in exchange for the liquidity and fee / incentive on the source chain.
+Solidity smart contracts for **cross-chain token swaps** with upgradeability and BLS signature verification.
+
+## Architecture Overview
+
+### Router
+
+The `Router` contract is the central entry point for swap requests and contract upgrades. It manages cross-chain token swap requests, swap execution, and upgrade scheduling. The Router inherits from `ScheduledUpgradeable` to support secure, scheduled implementation contract upgrades based on ERC-1822, the [Universal Upgradeable Proxy Standard (UUPS)](https://docs.openzeppelin.com/contracts/4.x/api/proxy#UUPSUpgradeable).
+
+### ScheduledUpgradeable
+
+`ScheduledUpgradeable` is an abstract, upgradeable base contract that provides:
+- Scheduling logic for contract upgrades, including time delays and BLS signature verification.
+- Functions to schedule, execute, and cancel upgrades, ensuring upgrades are authorized and transparent.
+
+Child contracts (like `Router`) inherit from `ScheduledUpgradeable` and can customize upgrade scheduling logic.
+
+### BN254SignatureScheme
+
+`BN254SignatureScheme` is a contract for BLS signature verification on the BN254 curve. It is used to verify off-chain signatures for swap requests and contract upgrades. The contract supports domain separation via a unique DST (Domain Separation Tag) for each use case (e.g., bridge swaps or upgrades), ensuring signatures cannot be replayed across domains.
+
+- The DST is set in the constructor and includes the chain ID and contract type (e.g., "bridge" or "upgrade").
+- The contract exposes functions for verifying BLS signatures and retrieving validator keys.
 
 
 ## Usage
