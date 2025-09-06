@@ -153,6 +153,7 @@ node_modules/
 # coverage
 coverage
 lcov.info
+coverage.json
 
 # macOS
 .DS_Store
