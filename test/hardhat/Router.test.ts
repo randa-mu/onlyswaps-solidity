@@ -849,6 +849,33 @@ describe("Router", function () {
 
     await expect(router.connect(user).setContractUpgradeBlsValidator(validAddress, sigBytes)).to.not.be.reverted;
   });
+
+  it("should return the correct public key from BN254SignatureScheme", async () => {
+    // Get public key from the swap signature scheme contract
+    const [x, y] = await swapBn254SigScheme.getPublicKey();
+
+    // The public key used for deployment
+    const pk = bn254.getPublicKeyForShortSignatures(privKeyBytes);
+    const pubKeyPoint = bn254.G2.ProjectivePoint.fromHex(pk).toAffine();
+
+    // Compare each coordinate
+    expect(x[0]).to.equal(pubKeyPoint.x.c1);
+    expect(x[1]).to.equal(pubKeyPoint.x.c0);
+    expect(y[0]).to.equal(pubKeyPoint.y.c1);
+    expect(y[1]).to.equal(pubKeyPoint.y.c0);
+  });
+
+  it("should revert if BN254SignatureScheme is constructed with an invalid contract type", async () => {
+    const invalidType = 2; // Not 0 (Bridge) or 1 (Upgrade)
+    
+    await expect(
+      new BN254SignatureScheme__factory(owner).deploy([1n, 2n], [3n, 4n], invalidType)
+    ).to.be.reverted;
+
+    await expect(
+      new BN254SignatureScheme__factory(owner).deploy([1n, 2n], [3n, 4n], bridgeType)
+    ).to.not.be.reverted;
+  });
 });
 
 // Returns the first instance of an event log from a transaction receipt that matches the address provided
