@@ -213,7 +213,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         /// @dev rebalancing of solvers happens on the source chain router
         require(params.srcChainId == getChainID(), ErrorsLib.SourceChainIdMismatch(params.srcChainId, getChainID()));
 
-        (, bytes memory messageAsG1Bytes,) = swapRequestParametersToBytes(requestId);
+        (, bytes memory messageAsG1Bytes,) = swapRequestParametersToBytes(requestId, solver);
         require(
             swapRequestBlsValidator.verifySignature(
                 messageAsG1Bytes, signature, swapRequestBlsValidator.getPublicKeyBytes()
@@ -236,18 +236,21 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
     /// @notice Converts swap request parameters to a message as bytes and BLS format for signing
     /// @param requestId The unique request ID
+    /// @param solver The address of the solver that fulfilled the request on the destination chain
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
     /// @return messageAsG1Point The message hashed to BLS G1 point
-    function swapRequestParametersToBytes(bytes32 requestId)
+    function swapRequestParametersToBytes(bytes32 requestId, address solver)
         public
         view
         returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point)
     {
+        require(solver != address(0), ErrorsLib.ZeroAddress());
         SwapRequestParameters memory params = getSwapRequestParameters(requestId);
         /// @dev The order of parameters is critical for signature verification
         /// @dev The executed parameter is not used in the message hash
         message = abi.encode(
+            solver,
             params.sender,
             params.recipient,
             params.tokenIn,

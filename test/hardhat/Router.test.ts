@@ -365,7 +365,7 @@ describe("Router", function () {
     // Step 1. Fetch transfer parameters from the chain using the request id
     const swapRequestParams = await router.getSwapRequestParameters(requestId);
 
-    const [, , messageAsG1Point] = await router.swapRequestParametersToBytes(requestId);
+    const [, , messageAsG1Point] = await router.swapRequestParametersToBytes(requestId, solver.address);
 
     // Step 2: Message from EVM
     const M = bn254.G1.ProjectivePoint.fromAffine({
@@ -647,7 +647,7 @@ describe("Router", function () {
 
     // Fulfill the request
     const swapRequestParams = await router.getSwapRequestParameters(requestId);
-    const [, , messageAsG1Point] = await router.swapRequestParametersToBytes(requestId);
+    const [, , messageAsG1Point] = await router.swapRequestParametersToBytes(requestId, solver.address);
     const M = bn254.G1.ProjectivePoint.fromAffine({
       x: BigInt(messageAsG1Point[0]),
       y: BigInt(messageAsG1Point[1]),
@@ -867,14 +867,43 @@ describe("Router", function () {
 
   it("should revert if BN254SignatureScheme is constructed with an invalid contract type", async () => {
     const invalidType = 2; // Not 0 (Bridge) or 1 (Upgrade)
-    
-    await expect(
-      new BN254SignatureScheme__factory(owner).deploy([1n, 2n], [3n, 4n], invalidType)
-    ).to.be.reverted;
 
-    await expect(
-      new BN254SignatureScheme__factory(owner).deploy([1n, 2n], [3n, 4n], bridgeType)
-    ).to.not.be.reverted;
+    await expect(new BN254SignatureScheme__factory(owner).deploy([1n, 2n], [3n, 4n], invalidType)).to.be.reverted;
+
+    await expect(new BN254SignatureScheme__factory(owner).deploy([1n, 2n], [3n, 4n], bridgeType)).to.not.be.reverted;
+  });
+
+  it("should update minimumContractUpgradeDelay and emit event if delay is greater than 2 days", async () => {
+    const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
+
+    const tx = await router.setMinimumContractUpgradeDelay(newDelay);
+    await expect(tx).to.emit(router, "MinimumContractUpgradeDelayUpdated").withArgs(newDelay);
+
+    expect(await router.minimumContractUpgradeDelay()).to.equal(newDelay);
+  });
+
+  it("should revert if minimumContractUpgradeDelay is less than or equal to 2 days", async () => {
+    const invalidDelay = 2 * 24 * 60 * 60; // 2 days in seconds
+
+    await expect(router.setMinimumContractUpgradeDelay(invalidDelay)).to.be.revertedWithCustomError(
+      router,
+      "UpgradeDelayTooShort",
+    );
+
+    const zeroDelay = 0;
+    await expect(router.setMinimumContractUpgradeDelay(zeroDelay)).to.be.revertedWithCustomError(
+      router,
+      "UpgradeDelayTooShort",
+    );
+  });
+
+  it("should revert if non-owner tries to set minimumContractUpgradeDelay", async () => {
+    const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
+
+    await expect(router.connect(user).setMinimumContractUpgradeDelay(newDelay)).to.be.revertedWithCustomError(
+      router,
+      "AccessControlUnauthorizedAccount",
+    );
   });
 });
 
