@@ -52,7 +52,10 @@ For the deployment documentation, please see the deployment [guide here](./scrip
 
 #### Code Coverage
 
-To run foundry coverage:
+The smart contract tests are written primarily using **[Hardhat](https://hardhat.org/)**.  
+
+To generate a code coverage report, run:
+
 ```bash
 npx hardhat coverage
 ```
