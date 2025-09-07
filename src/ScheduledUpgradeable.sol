@@ -156,7 +156,7 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
 
     /// @notice Converts contract upgrade parameters to a BLS G1 point and its byte representation.
     /// @param action The action being performed ("schedule" or "cancel")
-    /// @param alreadyPendingImplementation The address of the already pending implementation (or zero address if none)
+    /// @param pendingImplementation The address of the already pending implementation (or zero address if none)
     /// @param newImplementation The address of the new implementation contract
     /// @param upgradeCalldata The calldata to be executed during the upgrade
     /// @param upgradeTime The timestamp after which the upgrade can be executed
@@ -166,14 +166,14 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
     /// @return messageAsG1Point The BLS G1 point representing the message
     function contractUpgradeParamsToBytes(
         string memory action,
-        address alreadyPendingImplementation,
+        address pendingImplementation,
         address newImplementation,
         bytes memory upgradeCalldata,
         uint256 upgradeTime,
         uint256 nonce
     ) public view virtual returns (bytes memory, bytes memory, BLS.PointG1 memory) {
         bytes memory message =
-            abi.encode(action, alreadyPendingImplementation, newImplementation, upgradeCalldata, upgradeTime, nonce);
+            abi.encode(action, pendingImplementation, newImplementation, upgradeCalldata, upgradeTime, nonce);
         (uint256 x, uint256 y) = contractUpgradeBlsValidator.hashToPoint(message);
         BLS.PointG1 memory messageAsG1Point = BLS.PointG1({x: x, y: y});
         bytes memory messageAsG1Bytes = abi.encode(messageAsG1Point.x, messageAsG1Point.y);

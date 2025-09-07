@@ -26,7 +26,7 @@ library DeploymentParamsCore {
 
     /// @dev The amount of tokens to be minted to each address that requests tokens from the faucet.
     uint256 constant FAUCET_AMOUNT = 1000 ether;
-    
+
     /// @dev The maximum basis points (BPS) for verification fees (i.e., 100% = 10,000 BPS).
     uint256 constant VERIFICATION_FEE_BPS = 500;
 

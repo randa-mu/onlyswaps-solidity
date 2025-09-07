@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
+import {BLS} from "bls-solidity/BLS.sol";
+
 import {ISignatureScheme} from "./ISignatureScheme.sol";
 
 /// @title IScheduledUpgradeable
@@ -74,4 +76,33 @@ interface IScheduledUpgradeable {
 
     /// @notice Returns the minimum delay required for scheduling contract upgrades.
     function minimumContractUpgradeDelay() external view returns (uint256);
+
+    /// @notice Converts contract upgrade parameters to a BLS G1 point and its byte representation.
+    /// @param action The action being performed ("schedule" or "cancel")
+    /// @param pendingImplementation The address of the already pending implementation (or zero address if none)
+    /// @param newImplementation The address of the new implementation contract
+    /// @param upgradeCalldata The calldata to be executed during the upgrade
+    /// @param upgradeTime The timestamp after which the upgrade can be executed
+    /// @param nonce The nonce for the upgrade request
+    /// @return message The original encoded message
+    /// @return messageAsG1Bytes The byte representation of the BLS G1 point
+    /// @return messageAsG1Point The BLS G1 point representing the message
+    function contractUpgradeParamsToBytes(
+        string memory action,
+        address pendingImplementation,
+        address newImplementation,
+        bytes memory upgradeCalldata,
+        uint256 upgradeTime,
+        uint256 nonce
+    ) external view returns (bytes memory, bytes memory, BLS.PointG1 memory);
+
+    /// @notice Converts BLS validator update parameters to a BLS G1 point and its byte representation.
+    /// @param blsValidator The address of the new BLS validator contract
+    /// @param nonce The nonce for the update request
+    /// @return message The original encoded message
+    /// @return messageAsG1Bytes The byte representation of the BLS G1 point
+    function blsValidatorUpdateParamsToBytes(address blsValidator, uint256 nonce)
+        external
+        view
+        returns (bytes memory, bytes memory, BLS.PointG1 memory);
 }
