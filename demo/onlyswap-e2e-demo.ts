@@ -85,12 +85,12 @@ async function main() {
     console.log(`Swap request created with requestId ${requestId}`);
     console.log("Swap request parameters:", formattedSwapRequestParams);
 
-    const [, , messageAsG1Point] = await RouterSrc.swapRequestParametersToBytes(
+    const [, messageAsG1Bytes] = await RouterSrc.swapRequestParametersToBytes(
       requestId, solverAddr
     );
 
     const sigAffine = signMessage(
-      { x: BigInt(messageAsG1Point[0]), y: BigInt(messageAsG1Point[1]) },
+      messageAsG1Bytes,
       privKeyBytes
     );
     const sigBytes = encodeSignature(sigAffine);

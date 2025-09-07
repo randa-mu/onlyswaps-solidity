@@ -9,9 +9,16 @@ export function generateBlsKeys() {
   return { privKeyBytes, pubKeyPoint };
 }
 
-export function signMessage(messageG1: { x: bigint, y: bigint }, privKey: Uint8Array) {
-  const M = bn254.G1.ProjectivePoint.fromAffine(messageG1);
-  return bn254.signShortSignature(M, privKey).toAffine();
+export function signMessage(messageAsG1Bytes: string, privKeyBytes: Uint8Array) {
+  // Remove "0x" prefix if present
+  const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+  // Unmarshall messageAsG1Bytes to a G1 point first
+  const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+  // Sign message
+  const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+  // Serialize signature (x, y) for EVM
+  const sigPointToAffine = sigPoint.toAffine();
+  return sigPointToAffine;
 }
 
 export function encodeSignature(sigAffine: { x: bigint, y: bigint }): string {
