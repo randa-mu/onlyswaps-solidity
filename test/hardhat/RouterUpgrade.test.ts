@@ -197,6 +197,25 @@ describe("RouterUpgrade", function () {
         .to.emit(router, "UpgradeScheduled")
         .withArgs(newImplAddress, upgradeTime);
     });
+
+    it("should revert if scheduled upgrade address is the same as a pending upgrade (bad path)", async () => {  
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
+      let currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
+
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
+
+      currentNonce = Number(await router.currentNonce()) + 1;
+      sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime + 1000, currentNonce);
+
+      await expect(
+        router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime + 1000, sigBytes),
+      ).to.be.revertedWithCustomError(router, "SameVersionUpgradeNotAllowed");
+    });
   });
 
   describe("cancelUpgrade", () => {
