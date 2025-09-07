@@ -16,12 +16,14 @@ The `Router` contract is the central entry point for swap requests and contract 
 
 Child contracts (like `Router`) inherit from `ScheduledUpgradeable` and can customize upgrade scheduling logic.
 
-### BN254SignatureScheme
+### BLSBN254SignatureScheme
 
-`BN254SignatureScheme` is a contract for BLS signature verification on the BN254 curve. It is used to verify off-chain signatures for swap requests and contract upgrades. The contract supports domain separation via a unique DST (Domain Separation Tag) for each use case (e.g., bridge swaps or upgrades), ensuring signatures cannot be replayed across domains.
+`BLSBN254SignatureScheme` is a contract for BLS signature verification on the BN254 curve, used to verify off-chain signatures for swap requests and contract upgrades. The contract enforces domain separation using a unique Domain Separation Tag (DST) that includes the chain ID, contract type, and version (e.g., `"swap-v1"` or `"upgrade-v1"`), preventing signature replay across different domains or versions.
 
-- The DST is set in the constructor and includes the chain ID and contract type (e.g., "bridge" or "upgrade").
+- The DST is set in the constructor and encodes both the contract type and version for each application.
 - The contract exposes functions for verifying BLS signatures and retrieving validator keys.
+- Example usage: `application` parameter in the constructor can be set to `"upgrade-v1"` for upgrade verification or `"swap-v1"` for swap requests.
+
 
 
 ## Usage
