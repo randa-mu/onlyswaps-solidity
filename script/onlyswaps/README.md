@@ -45,7 +45,7 @@ Example:
 To verify an already deployed contract, e.g., to verify a deployed BN254SignatureScheme contract on the Base Sepolia testnet, we can use the following command:
 
 ```bash
-forge verify-contract 0x778661105ca917fbCd81515C7814035f06c0be98 lib/onlysubs-solidity/src/signature-scheme/BN254SignatureScheme.sol:BN254SignatureScheme --chain-id 84532 --etherscan-api-key $BASE_SEPOLIA_ETHERSCAN_API_KEY
+forge verify-contract 0x778661105ca917fbCd81515C7814035f06c0be98 src/signature-schemes/BLSBN254SignatureScheme.sol:BN254SignatureScheme --chain-id 84532 --etherscan-api-key $BASE_SEPOLIA_ETHERSCAN_API_KEY
 ```
 
 ## Deploy a Single Contract
