@@ -1,0 +1,7 @@
+{
+  "bn254ContractUpgradeSignatureSchemeAddress": "0xebbEEA030Ca7D9814d9222901d7E4CB010f7a39C",
+  "bn254SwapRequestSignatureSchemeAddress": "0x38Ac12B85b7FD5725273AE468a71D80162c7Ff02",
+  "routerImplementationAddress": "0x57c692125127d0b70Bc9aFB7B653ceb36bCe0AAC",
+  "routerProxyAddress": "0x3dD1a497846d060Dce130B67b22E1F9DeE18c051",
+  "rusdFaucet": "0x908e1D85604E0e9e703d52D18f3f3f604Fe7Bb1b"
+}

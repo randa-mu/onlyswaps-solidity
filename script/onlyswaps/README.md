@@ -128,7 +128,7 @@ DST_CHAIN_ID=84532
 And it can be executed using the following command:
 
 ```bash
-forge script script/onlysubs/utils/ConfigureRouterScript.s.sol:ConfigureRouterScript \
+forge script script/onlyswaps/utils/ConfigureRouterScript.s.sol:ConfigureRouterScript \
 --rpc-url $RPC_URL \
 --private-key $PRIVATE_KEY \
 --broadcast
