@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {BLS} from "bls-solidity/BLS.sol";
+import {BLS} from "bls-solidity/libraries/BLS.sol";
 
 /// @title IRouter
 /// @author Randamu
@@ -281,11 +281,10 @@ interface IRouter {
     /// @param solver The address of the solver that fulfilled the request on the destination chain
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
-    /// @return messageAsG1Point The message hashed to BLS G1 point
     function swapRequestParametersToBytes(bytes32 requestId, address solver)
         external
         view
-        returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point);
+        returns (bytes memory message, bytes memory messageAsG1Bytes);
 
     // -------- Admin Functions --------
 

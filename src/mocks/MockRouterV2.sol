@@ -13,7 +13,7 @@ import {ScheduledUpgradeable} from "../ScheduledUpgradeable.sol";
 
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 
-import {ISignatureScheme} from "../interfaces/ISignatureScheme.sol";
+import {ISignatureScheme} from "bls-solidity/interfaces/ISignatureScheme.sol";
 import {IRouter, BLS} from "../interfaces/IRouter.sol";
 
 /// @title Mock Version 2 of the Router Contract for Cross-Chain Token Swaps
@@ -212,11 +212,9 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         /// @dev rebalancing of solvers happens on the source chain router
         require(params.srcChainId == getChainID(), ErrorsLib.SourceChainIdMismatch(params.srcChainId, getChainID()));
 
-        (, bytes memory messageAsG1Bytes,) = swapRequestParametersToBytes(requestId, solver);
+        (, bytes memory messageAsG1Bytes) = swapRequestParametersToBytes(requestId, solver);
         require(
-            swapRequestBlsValidator.verifySignature(
-                messageAsG1Bytes, signature, swapRequestBlsValidator.getPublicKeyBytes()
-            ),
+            swapRequestBlsValidator.verifySignature(messageAsG1Bytes, signature),
             ErrorsLib.BLSSignatureVerificationFailed()
         );
 
@@ -238,11 +236,10 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @param solver The address of the solver that fulfilled the request on the destination chain
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
-    /// @return messageAsG1Point The message hashed to BLS G1 point
     function swapRequestParametersToBytes(bytes32 requestId, address solver)
         public
         view
-        returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point)
+        returns (bytes memory message, bytes memory messageAsG1Bytes)
     {
         require(solver != address(0), ErrorsLib.ZeroAddress());
         SwapRequestParameters memory params = getSwapRequestParameters(requestId);
@@ -259,9 +256,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
             params.dstChainId,
             params.nonce
         );
-        (uint256 x, uint256 y) = swapRequestBlsValidator.hashToPoint(message);
-        messageAsG1Point = BLS.PointG1({x: x, y: y});
-        messageAsG1Bytes = abi.encode(messageAsG1Point.x, messageAsG1Point.y);
+        messageAsG1Bytes = swapRequestBlsValidator.hashToBytes(message);
     }
 
     /// @notice Builds swap request parameters based on the provided details
@@ -485,12 +480,10 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     function setSwapRequestBlsValidator(address _swapRequestBlsValidator, bytes calldata signature) external {
         require(_swapRequestBlsValidator != address(0), ErrorsLib.ZeroAddress());
         uint256 nonce = ++currentNonce;
-        (, bytes memory messageAsG1Bytes,) = blsValidatorUpdateParamsToBytes(_swapRequestBlsValidator, nonce);
+        (, bytes memory messageAsG1Bytes) = blsValidatorUpdateParamsToBytes(_swapRequestBlsValidator, nonce);
 
         require(
-            contractUpgradeBlsValidator.verifySignature(
-                messageAsG1Bytes, signature, contractUpgradeBlsValidator.getPublicKeyBytes()
-            ),
+            contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),
             ErrorsLib.BLSSignatureVerificationFailed()
         );
         swapRequestBlsValidator = ISignatureScheme(_swapRequestBlsValidator);

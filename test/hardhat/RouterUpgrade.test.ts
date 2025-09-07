@@ -5,8 +5,8 @@ import {
   MockRouterV2__factory,
   ERC20Token,
   ERC20Token__factory,
-  BN254SignatureScheme,
-  BN254SignatureScheme__factory,
+  BLSBN254SignatureScheme,
+  BLSBN254SignatureScheme__factory,
   UUPSProxy__factory,
 } from "../../typechain-types";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
@@ -39,14 +39,14 @@ describe("RouterUpgrade", function () {
   let router: Router;
   let srcToken: ERC20Token;
   let dstToken: ERC20Token;
-  let swapBn254SigScheme: BN254SignatureScheme;
-  let upgradeBn254SigScheme: BN254SignatureScheme;
+  let swapBn254SigScheme: BLSBN254SignatureScheme;
+  let upgradeBn254SigScheme: BLSBN254SignatureScheme;
 
   let privKeyBytes: Uint8Array;
   let ownerAddr: string, solverAddr: string, userAddr: string, recipientAddr: string;
 
-  const bridgeType = 0;
-  const upgradeType = 1;
+  const swapType = "swap-v1";
+  const upgradeType = "upgrade-v1";
 
   async function generateSignature(
     action: string,
@@ -55,7 +55,7 @@ describe("RouterUpgrade", function () {
     upgradeTime: number,
     currentNonce: number,
   ): Promise<string> {
-    const [, , messageAsG1Point] = await router.contractUpgradeParamsToBytes(
+    const [, messageAsG1Bytes] = await router.contractUpgradeParamsToBytes(
       action,
       await router.scheduledImplementation(),
       contractAddress,
@@ -63,11 +63,13 @@ describe("RouterUpgrade", function () {
       upgradeTime,
       currentNonce,
     );
-    const M = bn254.G1.ProjectivePoint.fromAffine({
-      x: BigInt(messageAsG1Point[0]),
-      y: BigInt(messageAsG1Point[1]),
-    });
+    // Remove "0x" prefix if present
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    // Unmarshall messageAsG1Bytes to a G1 point first
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    // Sign message
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    // Serialize signature (x, y) for EVM
     const sigPointToAffine = sigPoint.toAffine();
     return AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sigPointToAffine.x, sigPointToAffine.y]);
   }
@@ -93,10 +95,10 @@ describe("RouterUpgrade", function () {
     srcToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     // Deploy BLS signature scheme with the public key G2 point swapped around to be compatible with the BLS solidity library
-    swapBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0], bridgeType);
-    upgradeBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy(
-      [x.c1, x.c0],
-      [y.c1, y.c0],
+    swapBn254SigScheme = await new BLSBN254SignatureScheme__factory(owner).deploy([x.c0, x.c1], [y.c0, y.c1], swapType);
+    upgradeBn254SigScheme = await new BLSBN254SignatureScheme__factory(owner).deploy(
+      [x.c0, x.c1],
+      [y.c0, y.c1],
       upgradeType,
     );
 

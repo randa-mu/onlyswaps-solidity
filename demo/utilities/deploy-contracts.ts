@@ -3,7 +3,7 @@ import {
   Router__factory,
   ERC20Token__factory,
   UUPSProxy__factory,
-  BN254SignatureScheme__factory
+  BLSBN254SignatureScheme__factory
 } from "../../typechain-types";
 
 export async function deployContracts(srcSigner: ethers.Signer, dstSigner: ethers.Signer, pubKeyPoint: any) {
@@ -13,28 +13,28 @@ export async function deployContracts(srcSigner: ethers.Signer, dstSigner: ether
   const ERC20Dst = await new ERC20Token__factory(dstSigner).deploy("RUSD", "RUSD", 18);
 
   // Deploy BN254 signature schemes with swapped G2 point coordinates
-  const bridgeType = 0;
-  const upgradeType = 1;
+  const swapType = "swap-v1";
+  const upgradeType = "upgrade-v1";
 
-  const BN254SigAdminSrc = await new BN254SignatureScheme__factory(srcSigner).deploy(
-    [pubKeyPoint.x.c1, pubKeyPoint.x.c0],
-    [pubKeyPoint.y.c1, pubKeyPoint.y.c0],
-    bridgeType
+  const BN254SigAdminSrc = await new BLSBN254SignatureScheme__factory(srcSigner).deploy(
+    [pubKeyPoint.x.c0, pubKeyPoint.x.c1],
+    [pubKeyPoint.y.c0, pubKeyPoint.y.c1],
+    swapType
   );
-  const BN254SigUpgradeSrc = await new BN254SignatureScheme__factory(srcSigner).deploy(
-    [pubKeyPoint.x.c1, pubKeyPoint.x.c0],
-    [pubKeyPoint.y.c1, pubKeyPoint.y.c0],
+  const BN254SigUpgradeSrc = await new BLSBN254SignatureScheme__factory(srcSigner).deploy(
+    [pubKeyPoint.x.c0, pubKeyPoint.x.c1],
+    [pubKeyPoint.y.c0, pubKeyPoint.y.c1],
     upgradeType
   );
   
-  const BN254SigAdminDst = await new BN254SignatureScheme__factory(dstSigner).deploy(
-    [pubKeyPoint.x.c1, pubKeyPoint.x.c0],
-    [pubKeyPoint.y.c1, pubKeyPoint.y.c0],
-    bridgeType
+  const BN254SigAdminDst = await new BLSBN254SignatureScheme__factory(dstSigner).deploy(
+    [pubKeyPoint.x.c0, pubKeyPoint.x.c1],
+    [pubKeyPoint.y.c0, pubKeyPoint.y.c1],
+    swapType
   );
-  const BN254SigUpgradeDst = await new BN254SignatureScheme__factory(dstSigner).deploy(
-    [pubKeyPoint.x.c1, pubKeyPoint.x.c0],
-    [pubKeyPoint.y.c1, pubKeyPoint.y.c0],
+  const BN254SigUpgradeDst = await new BLSBN254SignatureScheme__factory(dstSigner).deploy(
+    [pubKeyPoint.x.c0, pubKeyPoint.x.c1],
+    [pubKeyPoint.y.c0, pubKeyPoint.y.c1],
     upgradeType
   );
 

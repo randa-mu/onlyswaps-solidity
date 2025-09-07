@@ -14,10 +14,10 @@ integrity = "eeb22da11d2b7a8202e43a3a91978f0d9e6cdabfe006cf799f57282065267a1a"
 
 [[dependencies]]
 name = "bls-solidity"
-version = "0.2.0"
-url = "https://github.com/randa-mu/bls-solidity/archive/refs/tags/v0.2.0.zip"
-checksum = "32cf6982a1841ca299916ac3ee4a8f3bca41af19c00eac943de2d987783a888a"
-integrity = "47fae3d0260db8f823600c156ce2112053c25f595ed23e72e25fcc99df56d7bc"
+version = "0.3.0"
+url = "https://github.com/randa-mu/bls-solidity/archive/refs/tags/v0.3.0.zip"
+checksum = "d533bb18a246cc73b11ca14fb5950c7bc50525e4ac39882c7c04601a3cca1c58"
+integrity = "6c9c930aa29d8bec92df355a27e76a1e26298576c3157604ba5344ce99584b3d"
 
 [[dependencies]]
 name = "forge-std"

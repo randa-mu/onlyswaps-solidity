@@ -5,7 +5,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IScheduledUpgradeable, ISignatureScheme} from "./interfaces/IScheduledUpgradeable.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
-import {BLS} from "bls-solidity/BLS.sol";
+import {BLS} from "bls-solidity/libraries/BLS.sol";
 
 /// @title ScheduledUpgradeable
 /// @author Randamu
@@ -68,14 +68,12 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
 
         string memory action = "schedule";
         uint256 nonce = ++currentNonce;
-        (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes(
+        (, bytes memory messageAsG1Bytes) = contractUpgradeParamsToBytes(
             action, scheduledImplementation, newImplementation, upgradeCalldata, upgradeTime, nonce
         );
 
         require(
-            contractUpgradeBlsValidator.verifySignature(
-                messageAsG1Bytes, signature, contractUpgradeBlsValidator.getPublicKeyBytes()
-            ),
+            contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),
             ErrorsLib.BLSSignatureVerificationFailed()
         );
 
@@ -96,7 +94,7 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
 
         string memory action = "cancel";
         uint256 nonce = ++currentNonce;
-        (, bytes memory messageAsG1Bytes,) = contractUpgradeParamsToBytes(
+        (, bytes memory messageAsG1Bytes) = contractUpgradeParamsToBytes(
             action,
             scheduledImplementation,
             scheduledImplementation,
@@ -106,9 +104,7 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
         );
 
         require(
-            contractUpgradeBlsValidator.verifySignature(
-                messageAsG1Bytes, signature, contractUpgradeBlsValidator.getPublicKeyBytes()
-            ),
+            contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),
             ErrorsLib.BLSSignatureVerificationFailed()
         );
 
@@ -163,7 +159,6 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
     /// @param nonce The nonce for the upgrade request
     /// @return message The original encoded message
     /// @return messageAsG1Bytes The byte representation of the BLS G1 point
-    /// @return messageAsG1Point The BLS G1 point representing the message
     function contractUpgradeParamsToBytes(
         string memory action,
         address pendingImplementation,
@@ -171,13 +166,11 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
         bytes memory upgradeCalldata,
         uint256 upgradeTime,
         uint256 nonce
-    ) public view virtual returns (bytes memory, bytes memory, BLS.PointG1 memory) {
+    ) public view virtual returns (bytes memory, bytes memory) {
         bytes memory message =
-            abi.encode(action, pendingImplementation, newImplementation, upgradeCalldata, upgradeTime, nonce);
-        (uint256 x, uint256 y) = contractUpgradeBlsValidator.hashToPoint(message);
-        BLS.PointG1 memory messageAsG1Point = BLS.PointG1({x: x, y: y});
-        bytes memory messageAsG1Bytes = abi.encode(messageAsG1Point.x, messageAsG1Point.y);
-        return (message, messageAsG1Bytes, messageAsG1Point);
+            abi.encode(action, pendingImplementation, newImplementation, upgradeCalldata, upgradeTime, nonce, getChainId());
+        bytes memory messageAsG1Bytes = contractUpgradeBlsValidator.hashToBytes(message);
+        return (message, messageAsG1Bytes);
     }
 
     /// @notice Converts BLS validator update parameters to a BLS G1 point and its byte representation.
@@ -189,13 +182,17 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
         public
         view
         virtual
-        returns (bytes memory, bytes memory, BLS.PointG1 memory)
+        returns (bytes memory, bytes memory)
     {
-        bytes memory message = abi.encode(blsValidator, nonce);
-        (uint256 x, uint256 y) = contractUpgradeBlsValidator.hashToPoint(message);
-        BLS.PointG1 memory messageAsG1Point = BLS.PointG1({x: x, y: y});
-        bytes memory messageAsG1Bytes = abi.encode(messageAsG1Point.x, messageAsG1Point.y);
-        return (message, messageAsG1Bytes, messageAsG1Point);
+        bytes memory message = abi.encode(blsValidator, nonce, getChainId());
+        bytes memory messageAsG1Bytes = contractUpgradeBlsValidator.hashToBytes(message);
+        return (message, messageAsG1Bytes);
+    }
+
+    /// @notice Returns the current chain ID.
+    /// @return chainId The current chain ID
+    function getChainId() public view returns (uint256 chainId) {
+        chainId = block.chainid;
     }
 
     // ---------------------- Internal Functions ----------------------
@@ -216,12 +213,10 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
     {
         require(_contractUpgradeBlsValidator != address(0), ErrorsLib.ZeroAddress());
         uint256 nonce = ++currentNonce;
-        (, bytes memory messageAsG1Bytes,) = blsValidatorUpdateParamsToBytes(_contractUpgradeBlsValidator, nonce);
+        (, bytes memory messageAsG1Bytes) = blsValidatorUpdateParamsToBytes(_contractUpgradeBlsValidator, nonce);
 
         require(
-            contractUpgradeBlsValidator.verifySignature(
-                messageAsG1Bytes, signature, contractUpgradeBlsValidator.getPublicKeyBytes()
-            ),
+            contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),
             ErrorsLib.BLSSignatureVerificationFailed()
         );
         contractUpgradeBlsValidator = ISignatureScheme(_contractUpgradeBlsValidator);

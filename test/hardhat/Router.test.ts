@@ -4,9 +4,10 @@ import {
   MockRouterV2__factory,
   ERC20Token,
   ERC20Token__factory,
-  BN254SignatureScheme,
-  BN254SignatureScheme__factory,
+  BLSBN254SignatureScheme,
+  BLSBN254SignatureScheme__factory,
   UUPSProxy__factory,
+  BLS__factory,
 } from "../../typechain-types";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
@@ -22,6 +23,7 @@ import {
   keccak256,
   toUtf8Bytes,
   ZeroAddress,
+  hexlify,
 } from "ethers";
 import { ethers } from "hardhat";
 
@@ -38,26 +40,28 @@ describe("Router", function () {
   let router: Router;
   let srcToken: ERC20Token;
   let dstToken: ERC20Token;
-  let swapBn254SigScheme: BN254SignatureScheme;
-  let upgradeBn254SigScheme: BN254SignatureScheme;
+  let swapBn254SigScheme: BLSBN254SignatureScheme;
+  let upgradeBn254SigScheme: BLSBN254SignatureScheme;
 
   let privKeyBytes: Uint8Array;
   let ownerAddr: string, solverAddr: string, userAddr: string, recipientAddr: string;
 
-  const bridgeType = 0;
-  const upgradeType = 1;
+  const swapType = "swap-v1";
+  const upgradeType = "upgrade-v1";
 
   async function generateSignatureForBlsValidatorUpdate(
     router: Router,
     invalidAddress: string,
     currentNonce: number,
   ): Promise<string> {
-    const [, , messageAsG1Point] = await router.blsValidatorUpdateParamsToBytes(invalidAddress, currentNonce);
-    const M = bn254.G1.ProjectivePoint.fromAffine({
-      x: BigInt(messageAsG1Point[0]),
-      y: BigInt(messageAsG1Point[1]),
-    });
+    const [, messageAsG1Bytes] = await router.blsValidatorUpdateParamsToBytes(invalidAddress, currentNonce);
+    // Remove "0x" prefix if present
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    // Unmarshall messageAsG1Bytes to a G1 point first
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    // Sign message
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    // Serialize signature (x, y) for EVM
     const sigPointToAffine = sigPoint.toAffine();
     return AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sigPointToAffine.x, sigPointToAffine.y]);
   }
@@ -83,10 +87,10 @@ describe("Router", function () {
     srcToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     // Deploy BLS signature scheme with the public key G2 point swapped around to be compatible with the BLS solidity library
-    swapBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0], bridgeType);
-    upgradeBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy(
-      [x.c1, x.c0],
-      [y.c1, y.c0],
+    swapBn254SigScheme = await new BLSBN254SignatureScheme__factory(owner).deploy([x.c0, x.c1], [y.c0, y.c1], swapType);
+    upgradeBn254SigScheme = await new BLSBN254SignatureScheme__factory(owner).deploy(
+      [x.c0, x.c1],
+      [y.c0, y.c1],
       upgradeType,
     );
 
@@ -448,22 +452,16 @@ describe("Router", function () {
     );
 
     // Message signing
-
-    // Step 1. Fetch transfer parameters from the chain using the request id
     const swapRequestParams = await router.getSwapRequestParameters(requestId);
 
-    const [, , messageAsG1Point] = await router.swapRequestParametersToBytes(requestId, solver.address);
-
-    // Step 2: Message from EVM
-    const M = bn254.G1.ProjectivePoint.fromAffine({
-      x: BigInt(messageAsG1Point[0]),
-      y: BigInt(messageAsG1Point[1]),
-    });
-
-    // Step 3: Sign message
+    const [, messageAsG1Bytes] = await router.swapRequestParametersToBytes(requestId, solver.address);
+    // Remove "0x" prefix if present
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    // Unmarshall messageAsG1Bytes to a G1 point first
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    // Sign message
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
-
-    // Step 4: Serialize signature (x, y) for EVM
+    // Serialize signature (x, y) for EVM
     const sigPointToAffine = sigPoint.toAffine();
     const sigBytes = AbiCoder.defaultAbiCoder().encode(
       ["uint256", "uint256"],
@@ -769,18 +767,20 @@ describe("Router", function () {
     );
 
     // Fulfill the request
-    const swapRequestParams = await router.getSwapRequestParameters(requestId);
-    const [, , messageAsG1Point] = await router.swapRequestParametersToBytes(requestId, solver.address);
-    const M = bn254.G1.ProjectivePoint.fromAffine({
-      x: BigInt(messageAsG1Point[0]),
-      y: BigInt(messageAsG1Point[1]),
-    });
+    const [, messageAsG1Bytes] = await router.swapRequestParametersToBytes(requestId, solver.address);
+    // Remove "0x" prefix if present
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    // Unmarshall messageAsG1Bytes to a G1 point first
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    // Sign message
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    // Serialize signature (x, y) for EVM
     const sigPointToAffine = sigPoint.toAffine();
     const sigBytes = AbiCoder.defaultAbiCoder().encode(
       ["uint256", "uint256"],
       [sigPointToAffine.x, sigPointToAffine.y],
     );
+
     await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
 
     // Try to update fee after fulfillment
@@ -984,29 +984,6 @@ describe("Router", function () {
     const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
 
     await expect(router.connect(user).setContractUpgradeBlsValidator(validAddress, sigBytes)).to.not.be.reverted;
-  });
-
-  it("should return the correct public key from BN254SignatureScheme", async () => {
-    // Get public key from the swap signature scheme contract
-    const [x, y] = await swapBn254SigScheme.getPublicKey();
-
-    // The public key used for deployment
-    const pk = bn254.getPublicKeyForShortSignatures(privKeyBytes);
-    const pubKeyPoint = bn254.G2.ProjectivePoint.fromHex(pk).toAffine();
-
-    // Compare each coordinate
-    expect(x[0]).to.equal(pubKeyPoint.x.c1);
-    expect(x[1]).to.equal(pubKeyPoint.x.c0);
-    expect(y[0]).to.equal(pubKeyPoint.y.c1);
-    expect(y[1]).to.equal(pubKeyPoint.y.c0);
-  });
-
-  it("should revert if BN254SignatureScheme is constructed with an invalid contract type", async () => {
-    const invalidType = 2; // Not 0 (Bridge) or 1 (Upgrade)
-
-    await expect(new BN254SignatureScheme__factory(owner).deploy([1n, 2n], [3n, 4n], invalidType)).to.be.reverted;
-
-    await expect(new BN254SignatureScheme__factory(owner).deploy([1n, 2n], [3n, 4n], bridgeType)).to.not.be.reverted;
   });
 
   it("should update minimumContractUpgradeDelay and emit event if delay is greater than 2 days", async () => {
@@ -1225,6 +1202,28 @@ describe("Router", function () {
       .withArgs(newFeeBps);
 
     expect(await router.getVerificationFeeBps()).to.equal(newFeeBps);
+  });
+
+  it("should return the correct public key bytes from BN254SignatureScheme", async () => {
+    // Get marshaled public key bytes from the contract
+    const pubKeyBytesFromContract = await swapBn254SigScheme.getPublicKeyBytes();
+    // unmarshal to a G2 point using noble-bn254
+    // Remove "0x" prefix if present
+    const pubKeyHex = pubKeyBytesFromContract.startsWith("0x")
+      ? pubKeyBytesFromContract.slice(2)
+      : pubKeyBytesFromContract;
+    const pubKeyPointFromContract = bn254.G2.ProjectivePoint.fromHex(pubKeyHex).toAffine();
+
+    // Get public key directly from the private key (G2 point)
+    const pk = bn254.getPublicKeyForShortSignatures(privKeyBytes);
+    const pubKeyPoint = bn254.G2.ProjectivePoint.fromHex(pk).toAffine();
+
+    // Compare the points
+    expect(pubKeyPointFromContract.x.c0).to.equal(pubKeyPoint.x.c0);
+    expect(pubKeyPointFromContract.y.c0).to.equal(pubKeyPoint.y.c0);
+
+    expect(pubKeyPointFromContract.x.c1).to.equal(pubKeyPoint.x.c1);
+    expect(pubKeyPointFromContract.y.c1).to.equal(pubKeyPoint.y.c1);
   });
 });
 

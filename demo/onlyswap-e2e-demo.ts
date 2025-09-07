@@ -86,7 +86,7 @@ async function main() {
     console.log("Swap request parameters:", formattedSwapRequestParams);
 
     const [, , messageAsG1Point] = await RouterSrc.swapRequestParametersToBytes(
-      requestId
+      requestId, solverAddr
     );
 
     const sigAffine = signMessage(

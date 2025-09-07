@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {BLS} from "bls-solidity/BLS.sol";
+import {BLS} from "bls-solidity/libraries/BLS.sol";
 
-import {ISignatureScheme} from "./ISignatureScheme.sol";
+import {ISignatureScheme} from "bls-solidity/interfaces/ISignatureScheme.sol";
 
 /// @title IScheduledUpgradeable
 /// @author Randamu
@@ -86,7 +86,6 @@ interface IScheduledUpgradeable {
     /// @param nonce The nonce for the upgrade request
     /// @return message The original encoded message
     /// @return messageAsG1Bytes The byte representation of the BLS G1 point
-    /// @return messageAsG1Point The BLS G1 point representing the message
     function contractUpgradeParamsToBytes(
         string memory action,
         address pendingImplementation,
@@ -94,7 +93,7 @@ interface IScheduledUpgradeable {
         bytes memory upgradeCalldata,
         uint256 upgradeTime,
         uint256 nonce
-    ) external view returns (bytes memory, bytes memory, BLS.PointG1 memory);
+    ) external view returns (bytes memory, bytes memory);
 
     /// @notice Converts BLS validator update parameters to a BLS G1 point and its byte representation.
     /// @param blsValidator The address of the new BLS validator contract
@@ -104,5 +103,9 @@ interface IScheduledUpgradeable {
     function blsValidatorUpdateParamsToBytes(address blsValidator, uint256 nonce)
         external
         view
-        returns (bytes memory, bytes memory, BLS.PointG1 memory);
+        returns (bytes memory, bytes memory);
+
+    /// @notice Returns the current chain ID.
+    /// @return chainId The current chain ID
+    function getChainId() external view returns (uint256 chainId);
 }

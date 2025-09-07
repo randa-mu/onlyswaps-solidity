@@ -30,6 +30,6 @@ no_match_coverage = "(script|test)"
 forge-std = "1.10.0"
 "@openzeppelin-contracts" = "5.4.0"
 "@openzeppelin-contracts-upgradeable" = "5.4.0"
-bls-solidity = { version = "0.2.0", url = "https://github.com/randa-mu/bls-solidity/archive/refs/tags/v0.2.0.zip" }
+bls-solidity = { version = "0.3.0", url = "https://github.com/randa-mu/bls-solidity/archive/refs/tags/v0.3.0.zip" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
