@@ -167,8 +167,9 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
         uint256 upgradeTime,
         uint256 nonce
     ) public view virtual returns (bytes memory, bytes memory) {
-        bytes memory message =
-            abi.encode(action, pendingImplementation, newImplementation, upgradeCalldata, upgradeTime, nonce, getChainId());
+        bytes memory message = abi.encode(
+            action, pendingImplementation, newImplementation, upgradeCalldata, upgradeTime, nonce, getChainId()
+        );
         bytes memory messageAsG1Bytes = contractUpgradeBlsValidator.hashToBytes(message);
         return (message, messageAsG1Bytes);
     }
