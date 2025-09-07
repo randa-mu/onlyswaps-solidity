@@ -989,7 +989,10 @@ describe("Router", function () {
     await newImplementation.waitForDeployment();
     const newImplAddress = await newImplementation.getAddress();
     const upgradeCalldata = "0x";
-    const upgradeTime = Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60; // 3 days from now  
+    // Ensure upgradeTime is at least block.timestamp + minimumContractUpgradeDelay
+    const minimumDelay = await router.minimumContractUpgradeDelay();
+    const latestBlock = await ethers.provider.getBlock("latest");
+    const upgradeTime = Number(latestBlock!.timestamp) + Number(minimumDelay) + 1;
     const invalidSignature = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
 
     await expect(
