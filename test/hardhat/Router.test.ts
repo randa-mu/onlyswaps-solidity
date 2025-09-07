@@ -826,6 +826,16 @@ describe("Router", function () {
     expect(updatedValidator).to.equal(validAddress);
   });
 
+  it("should fail to update the upgradeBlsValidator if called with invalid signature", async () => {
+    const validAddress = await owner.getAddress();
+    // Use an invalid signature
+    const invalidSigBytes = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
+
+    await expect(
+      router.connect(owner).setContractUpgradeBlsValidator(validAddress, invalidSigBytes),
+    ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed()");
+  });
+
   it("should revert if setContractUpgradeBlsValidator is called with zero address", async () => {
     const invalidAddress = ZeroAddress;
     const currentNonce = Number(await router.currentNonce()) + 1;
