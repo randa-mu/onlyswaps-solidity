@@ -92,7 +92,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         __ScheduledUpgradeable_init(_contractUpgradeBlsValidator, 2 days);
 
         require(_verificationFeeBps > 0 && _verificationFeeBps <= MAX_FEE_BPS, ErrorsLib.InvalidFeeBps());
-        require(_contractUpgradeBlsValidator != address(0), ErrorsLib.ZeroAddress());
+        require(_swapRequestBlsValidator != address(0), ErrorsLib.ZeroAddress());
         require(_grantRole(ADMIN_ROLE, _owner), ErrorsLib.GrantRoleFailed());
         require(_grantRole(DEFAULT_ADMIN_ROLE, _owner), ErrorsLib.GrantRoleFailed());
 

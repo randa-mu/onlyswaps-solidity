@@ -93,7 +93,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         __ScheduledUpgradeable_init(_contractUpgradeBlsValidator, 2 days);
 
         require(_verificationFeeBps > 0 && _verificationFeeBps <= MAX_FEE_BPS, ErrorsLib.InvalidFeeBps());
-        require(_contractUpgradeBlsValidator != address(0), ErrorsLib.ZeroAddress());
+        require(_swapRequestBlsValidator != address(0), ErrorsLib.ZeroAddress());
         require(_grantRole(ADMIN_ROLE, _owner), ErrorsLib.GrantRoleFailed());
         require(_grantRole(DEFAULT_ADMIN_ROLE, _owner), ErrorsLib.GrantRoleFailed());
 
@@ -306,7 +306,6 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @return The calculated verification fee amount
     /// @return The amount after deducting the verification fee
     function getVerificationFeeAmount(uint256 amountToSwap) public view returns (uint256, uint256) {
-        require(verificationFeeBps > 0, ErrorsLib.InvalidFeeBps());
         uint256 verificationFee = (amountToSwap * verificationFeeBps) / BPS_DIVISOR;
         return (verificationFee, amountToSwap - verificationFee);
     }

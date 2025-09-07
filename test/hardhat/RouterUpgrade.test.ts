@@ -198,7 +198,7 @@ describe("RouterUpgrade", function () {
         .withArgs(newImplAddress, upgradeTime);
     });
 
-    it("should revert if scheduled upgrade address is the same as a pending upgrade (bad path)", async () => {  
+    it("should revert if scheduled upgrade address is the same as a pending upgrade (bad path)", async () => {
       const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();

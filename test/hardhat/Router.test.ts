@@ -118,6 +118,80 @@ describe("Router", function () {
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
 
+  it("should revert initialize if _verificationFeeBps is zero or exceeds MAX_FEE_BPS", async () => {
+    const routerImpl = await ethers.getContractFactory("Router", owner);
+    const implementation = await routerImpl.deploy();
+    await implementation.waitForDeployment();
+
+    const proxyFactory = await ethers.getContractFactory("UUPSProxy", owner);
+
+    // Case 1: _verificationFeeBps is zero
+    await expect(
+      proxyFactory.deploy(
+        await implementation.getAddress(),
+        routerImpl.interface.encodeFunctionData("initialize", [
+          ownerAddr,
+          await swapBn254SigScheme.getAddress(),
+          await upgradeBn254SigScheme.getAddress(),
+          0, // invalid fee
+        ]),
+      ),
+    ).to.be.revertedWithCustomError(implementation, "InvalidFeeBps");
+
+    // Case 2: _verificationFeeBps exceeds MAX_FEE_BPS
+    const maxFeeBps = await implementation.MAX_FEE_BPS();
+    await expect(
+      proxyFactory.deploy(
+        await implementation.getAddress(),
+        routerImpl.interface.encodeFunctionData("initialize", [
+          ownerAddr,
+          await swapBn254SigScheme.getAddress(),
+          await upgradeBn254SigScheme.getAddress(),
+          Number(maxFeeBps) + 1, // invalid fee
+        ]),
+      ),
+    ).to.be.revertedWithCustomError(implementation, "InvalidFeeBps");
+  });
+
+  it("should revert initialize if _contractUpgradeBlsValidator or _swapRequestBlsValidator is zero address", async () => {
+    const routerImpl = await ethers.getContractFactory("Router", owner);
+    const implementation = await routerImpl.deploy();
+    await implementation.waitForDeployment();
+
+    const proxyFactory = await ethers.getContractFactory("UUPSProxy", owner);
+
+    // Case 1: _contractUpgradeBlsValidator is zero address
+    await expect(
+      proxyFactory.deploy(
+        await implementation.getAddress(),
+        routerImpl.interface.encodeFunctionData("initialize", [
+          ownerAddr,
+          await swapBn254SigScheme.getAddress(),
+          ZeroAddress, // invalid validator
+          VERIFICATION_FEE_BPS,
+        ]),
+      ),
+    ).to.be.revertedWithCustomError(implementation, "ZeroAddress");
+
+    // Case 2: _swapRequestBlsValidator is zero address
+    await expect(
+      proxyFactory.deploy(
+        await implementation.getAddress(),
+        routerImpl.interface.encodeFunctionData("initialize", [
+          ownerAddr,
+          ZeroAddress, // invalid validator
+          await upgradeBn254SigScheme.getAddress(),
+          VERIFICATION_FEE_BPS,
+        ]),
+      ),
+    ).to.be.revertedWithCustomError(implementation, "ZeroAddress");
+  });
+
+  it("should return non-zero address for the swap request BLS validator", async () => {
+    const validatorAddr = await router.getSwapRequestBlsValidator();
+    expect(validatorAddr).to.not.equal(ZeroAddress);
+  });
+
   it("should remove the token mapping for a specific destination chain", async () => {
     // Ensure the token mapping exists before removal
     expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await dstToken.getAddress())).to.be
@@ -262,6 +336,18 @@ describe("Router", function () {
 
     expect(await srcToken.balanceOf(userAddr)).to.equal(newFee - fee);
 
+    // Check: only sender can update fee
+    await expect(router.connect(solver).updateSolverFeesIfUnfulfilled(requestId, newFee)).to.be.revertedWithCustomError(
+      router,
+      "UnauthorisedCaller",
+    );
+
+    // Check: newFee must be greater than current solverFee
+    await expect(router.connect(user).updateSolverFeesIfUnfulfilled(requestId, fee)).to.be.revertedWithCustomError(
+      router,
+      "NewFeeTooLow",
+    );
+
     await expect(router.connect(user).updateSolverFeesIfUnfulfilled(requestId, newFee)).to.emit(
       router,
       "SwapRequestSolverFeeUpdated",
@@ -395,6 +481,14 @@ describe("Router", function () {
     expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(1);
 
     // Rebalance Solver
+
+    // Try with invalid request ID first
+    const invalidRequestId = keccak256(toUtf8Bytes("invalid"));
+    await expect(
+      router.connect(owner).rebalanceSolver(solver.address, invalidRequestId, sigBytes),
+    ).to.be.revertedWithCustomError(router, "SourceChainIdMismatch");
+
+    // Rebalance with valid request ID
     await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
 
     const after = await srcToken.balanceOf(solverAddr);
@@ -403,6 +497,11 @@ describe("Router", function () {
 
     expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(1);
     expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(0);
+
+    // Try to rebalance again
+    await expect(
+      router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes),
+    ).to.be.revertedWithCustomError(router, "AlreadyFulfilled()");
   });
 
   it("should relay tokens and store a receipt", async () => {
@@ -441,6 +540,29 @@ describe("Router", function () {
     ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
 
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+  });
+
+  it("should return correct verification fee amount for a given swap amount", async () => {
+    const feeBps = 250;
+    await router.connect(owner).setVerificationFeeBps(feeBps);
+
+    const amountToSwap = parseEther("100");
+    const [feeAmount, amountOut] = await router.getVerificationFeeAmount(amountToSwap);
+
+    // feeAmount = (amountToSwap * feeBps) / 10000
+    const expectedFee = (amountToSwap * BigInt(feeBps)) / BigInt(10000);
+    const expectedamountOut = amountToSwap - expectedFee;
+
+    expect(feeAmount).to.equal(expectedFee);
+    expect(amountOut).to.equal(expectedamountOut);
+  });
+
+  it("should revert swapRequestParametersToBytes if solver is zero address", async () => {
+    const requestId = keccak256(toUtf8Bytes("test-request"));
+    await expect(router.swapRequestParametersToBytes(requestId, ZeroAddress)).to.be.revertedWithCustomError(
+      router,
+      "ZeroAddress",
+    );
   });
 
   it("should not allow double fulfillment", async () => {
@@ -789,6 +911,8 @@ describe("Router", function () {
     await expect(
       router.connect(owner).setSwapRequestBlsValidator(invalidAddress, sigBytes),
     ).to.be.revertedWithCustomError(router, "ZeroAddress()");
+
+    expect(await router.swapRequestBlsValidator()).to.not.equal(ZeroAddress);
   });
 
   it("should revert if BLS signature verification fails", async () => {
@@ -824,6 +948,7 @@ describe("Router", function () {
 
     const updatedValidator = await router.contractUpgradeBlsValidator();
     expect(updatedValidator).to.equal(validAddress);
+    expect(await router.getContractUpgradeBlsValidator()).to.equal(validAddress);
   });
 
   it("should fail to update the upgradeBlsValidator if called with invalid signature", async () => {
@@ -1008,6 +1133,98 @@ describe("Router", function () {
     await expect(
       router.scheduleUpgrade(newImplAddress, upgradeCalldata, upgradeTime, invalidSignature),
     ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
+  });
+
+  it("should revert removeTokenMapping if called by non-admin", async () => {
+    const dstChainId = 137;
+
+    // Try to remove mapping as a non-admin
+    await expect(router.connect(user).removeTokenMapping(dstChainId, dstToken, srcToken)).to.be.revertedWithCustomError(
+      router,
+      "AccessControlUnauthorizedAccount",
+    );
+  });
+
+  it("should revert removeTokenMapping if destination chain is not permitted", async () => {
+    const dstChainId = 999; // not permitted
+
+    await expect(
+      router.connect(owner).removeTokenMapping(dstChainId, dstToken, srcToken),
+    ).to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported");
+  });
+
+  it("should revert removeTokenMapping if token mapping does not exist", async () => {
+    const dstChainId = 137;
+
+    await expect(
+      router.connect(owner).removeTokenMapping(dstChainId, srcToken, srcToken),
+    ).to.be.revertedWithCustomError(router, "TokenNotSupported");
+  });
+
+  it("should remove token mapping if called by admin and mapping exists", async () => {
+    const dstChainId = 138;
+
+    await router.connect(owner).permitDestinationChainId(dstChainId);
+    expect(await router.getAllowedDstChainId(dstChainId)).to.be.true;
+
+    // Set up mapping first
+    await router.connect(owner).setTokenMapping(dstChainId, dstToken, srcToken);
+
+    await expect(router.connect(owner).removeTokenMapping(dstChainId, dstToken, srcToken))
+      .to.emit(router, "TokenMappingRemoved")
+      .withArgs(dstChainId, dstToken, srcToken);
+
+    // Mapping should not exist anymore
+    expect(await router.isDstTokenMapped(srcToken, dstChainId, dstToken)).to.be.false;
+  });
+
+  it("should revert blockDestinationChainId if called by non-admin", async () => {
+    const chainId = 555;
+    await router.connect(owner).permitDestinationChainId(chainId);
+
+    await expect(router.connect(user).blockDestinationChainId(chainId)).to.be.revertedWithCustomError(
+      router,
+      "AccessControlUnauthorizedAccount",
+    );
+  });
+
+  it("should block a permitted destination chain id and emit event", async () => {
+    const chainId = 555;
+    await router.connect(owner).permitDestinationChainId(chainId);
+
+    await expect(router.connect(owner).blockDestinationChainId(chainId))
+      .to.emit(router, "DestinationChainIdBlocked")
+      .withArgs(chainId);
+    expect(await router.getAllowedDstChainId(chainId)).to.be.false;
+  });
+
+  it("should revert setVerificationFeeBps if called by non-admin", async () => {
+    const newFeeBps = 100;
+    await expect(router.connect(user).setVerificationFeeBps(newFeeBps)).to.be.revertedWithCustomError(
+      router,
+      "AccessControlUnauthorizedAccount",
+    );
+  });
+
+  it("should revert if setVerificationFeeBps is called with value above MAX_FEE_BPS", async () => {
+    const maxFeeBps = await router.MAX_FEE_BPS();
+    await expect(router.connect(owner).setVerificationFeeBps(Number(maxFeeBps) + 1)).to.be.revertedWithCustomError(
+      router,
+      "FeeBpsExceedsThreshold",
+    );
+  });
+
+  it("should revert if setVerificationFeeBps is called with zero", async () => {
+    await expect(router.connect(owner).setVerificationFeeBps(0)).to.be.revertedWithCustomError(router, "InvalidFeeBps");
+  });
+
+  it("should update verificationFeeBps and emit event if called by admin with valid value", async () => {
+    const newFeeBps = 250;
+    await expect(router.connect(owner).setVerificationFeeBps(newFeeBps))
+      .to.emit(router, "VerificationFeeBpsUpdated")
+      .withArgs(newFeeBps);
+
+    expect(await router.getVerificationFeeBps()).to.equal(newFeeBps);
   });
 });
 
