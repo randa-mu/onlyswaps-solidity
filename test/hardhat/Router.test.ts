@@ -1,6 +1,7 @@
 import {
   Router,
   Router__factory,
+  MockRouterV2__factory,
   ERC20Token,
   ERC20Token__factory,
   BN254SignatureScheme,
@@ -904,6 +905,96 @@ describe("Router", function () {
       router,
       "AccessControlUnauthorizedAccount",
     );
+  });
+
+  it("should initialize ScheduledUpgradeable with valid parameters", async () => {
+    const validValidator = await upgradeBn254SigScheme.getAddress();
+
+    // Deploy a Router (or a mock child contract) with valid params
+    const routerImpl = await ethers.getContractFactory("Router", owner);
+    const implementation = await routerImpl.deploy();
+    await implementation.waitForDeployment();
+
+    const proxyFactory = await ethers.getContractFactory("UUPSProxy", owner);
+    const proxy = await proxyFactory.deploy(
+      await implementation.getAddress(),
+      routerImpl.interface.encodeFunctionData("initialize", [
+        ownerAddr,
+        await swapBn254SigScheme.getAddress(),
+        validValidator,
+        VERIFICATION_FEE_BPS,
+      ]),
+    );
+    await proxy.waitForDeployment();
+
+    const router: any = routerImpl.attach(await proxy.getAddress());
+    expect(await router.contractUpgradeBlsValidator()).to.equal(validValidator);
+    expect(await router.minimumContractUpgradeDelay()).to.equal(172800); // 2 days in seconds
+  });
+
+  it("should revert if _contractUpgradeBlsValidator is zero address", async () => {
+    const routerImpl = await ethers.getContractFactory("Router", owner);
+    const implementation = await routerImpl.deploy();
+    await implementation.waitForDeployment();
+
+    const proxyFactory = await ethers.getContractFactory("UUPSProxy", owner);
+
+    await expect(
+      proxyFactory.deploy(
+        await implementation.getAddress(),
+        routerImpl.interface.encodeFunctionData("initialize", [
+          ownerAddr,
+          await swapBn254SigScheme.getAddress(),
+          ZeroAddress, // zero address for contractUpgradeBlsValidator
+          VERIFICATION_FEE_BPS,
+        ]),
+      ),
+    ).to.be.revertedWithCustomError(implementation, "ZeroAddress");
+  });
+
+  it("should revert if scheduleUpgrade is called with zero address not having getVersion() function", async () => {
+    const upgradeCalldata = "0x";
+    const upgradeTime = Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60; // 3 days from now
+    const signature = "0x1234";
+
+    await expect(router.scheduleUpgrade(ZeroAddress, upgradeCalldata, upgradeTime, signature)).to.be.reverted;
+  });
+
+  it("should revert if scheduleUpgrade is called with same implementation address", async () => {
+    const upgradeCalldata = "0x";
+    const upgradeTime = Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60;
+    const signature = "0x1234";
+    const currentImpl = await router.getAddress();
+
+    await expect(
+      router.scheduleUpgrade(currentImpl, upgradeCalldata, upgradeTime, signature),
+    ).to.be.revertedWithCustomError(router, "SameVersionUpgradeNotAllowed");
+  });
+
+  it("should revert if upgradeTime is less than minimumContractUpgradeDelay", async () => {
+    const upgradeCalldata = "0x";
+    const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+    await newImplementation.waitForDeployment();
+    const newImplAddress = await newImplementation.getAddress();
+    const upgradeTime = Math.floor(Date.now() / 1000) + 1; // Too soon
+    const signature = "0x1234";
+
+    await expect(
+      router.scheduleUpgrade(newImplAddress, upgradeCalldata, upgradeTime, signature),
+    ).to.be.revertedWithCustomError(router, "UpgradeTimeMustRespectDelay");
+  });
+
+  it("should revert if BLS signature verification fails", async () => {
+    const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+    await newImplementation.waitForDeployment();
+    const newImplAddress = await newImplementation.getAddress();
+    const upgradeCalldata = "0x";
+    const upgradeTime = Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60;
+    const invalidSignature = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
+
+    await expect(
+      router.scheduleUpgrade(newImplAddress, upgradeCalldata, upgradeTime, invalidSignature),
+    ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
   });
 });
 
