@@ -588,11 +588,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
     // ---------------------- Internal Functions ----------------------
 
-    /// @dev Required by UUPS to restrict upgrades.
-    function _authorizeUpgrade(address newImplementation) internal view override {
-        super._authorizeUpgrade(newImplementation);
-    }
-
     /// @notice Stores a swap request and marks as unfulfilled
     function storeSwapRequest(bytes32 requestId, SwapRequestParameters memory params) internal {
         swapRequestParameters[requestId] = params;

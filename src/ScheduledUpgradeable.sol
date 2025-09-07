@@ -156,7 +156,7 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
 
     /// @notice Converts contract upgrade parameters to a BLS G1 point and its byte representation.
     /// @param action The action being performed ("schedule" or "cancel")
-    /// @param alreadyPendingImplementation The address of the already pending implementation (if any)
+    /// @param alreadyPendingImplementation The address of the already pending implementation (or zero address if none)
     /// @param newImplementation The address of the new implementation contract
     /// @param upgradeCalldata The calldata to be executed during the upgrade
     /// @param upgradeTime The timestamp after which the upgrade can be executed
