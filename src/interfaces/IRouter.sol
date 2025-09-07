@@ -1,8 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8;
 
-import {BLS} from "bls-solidity/BLS.sol";
+import {BLS} from "bls-solidity/libraries/BLS.sol";
 
+/// @title IRouter
+/// @author Randamu
+/// @notice Interface for a cross-chain token swap router with BLS (BN254) signature verification.
+/// @dev Defines the core functions, events, and data structures for managing cross-chain swaps,
+/// @dev including swap requests, fulfillment, fee management, and contract upgrades.
+/// @dev Utilizes BLS signatures for secure verification of swap requests and administrative actions.
+/// @dev This interface is designed to be implemented by a contract that handles cross-chain token swaps.
+/// @dev The contract implementing this interface should manage token transfers, fee calculations,
+/// @dev and interaction with BLS signature schemes for security and authenticity.
+/// @dev The interface includes events for tracking swap requests, fulfillments, fee updates, and contract upgrades.
 interface IRouter {
     // -------- Structs --------
 
@@ -84,32 +94,11 @@ interface IRouter {
     /// @param srcToken The source token address
     event TokenMappingRemoved(uint256 dstChainId, address dstToken, address srcToken);
 
-    /// @notice Emitted when the minimum contract upgrade delay is updated
-    /// @param newDelay The new minimum delay for upgrade operations
-    event MinimumContractUpgradeDelayUpdated(uint256 newDelay);
-
     /// @notice Emitted when swap fees have been withdrawn to a recipient address
     /// @param token The token address of the withdrawn fees
     /// @param recipient The address receiving the withdrawn fees
     /// @param amountOut The amount of fees withdrawn
     event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amountOut);
-
-    /// @notice Emitted when a contract upgrade is scheduled
-    /// @param newImplementation The address of the new implementation contract
-    /// @param executeAfter The timestamp after which the upgrade can be executed
-    event UpgradeScheduled(address indexed newImplementation, uint256 executeAfter);
-
-    /// @notice Emitted when a scheduled upgrade is cancelled
-    /// @param cancelledImplementation The address of the cancelled implementation contract
-    event UpgradeCancelled(address indexed cancelledImplementation);
-
-    /// @notice Emitted when a scheduled upgrade is executed
-    /// @param newImplementation The address of the new implementation contract
-    event UpgradeExecuted(address indexed newImplementation);
-
-    /// @notice Emitted when the BLS validator contract is updated
-    /// @param contractUpgradeBlsValidator The new BLS validator contract address
-    event ContractUpgradeBLSValidatorUpdated(address indexed contractUpgradeBlsValidator);
 
     // -------- Core Transfer Logic --------
 
@@ -289,28 +278,13 @@ interface IRouter {
 
     /// @notice Converts swap request parameters to a message as bytes and BLS format for signing
     /// @param requestId The unique request ID
+    /// @param solver The address of the solver that fulfilled the request on the destination chain
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
-    /// @return messageAsG1Point The message hashed to BLS G1 point
-    function swapRequestParametersToBytes(bytes32 requestId)
+    function swapRequestParametersToBytes(bytes32 requestId, address solver)
         external
         view
-        returns (bytes memory message, bytes memory messageAsG1Bytes, BLS.PointG1 memory messageAsG1Point);
-
-    /// @notice Converts contract upgrade parameters to a message as bytes and BLS format for signing
-    /// @param action The action being performed (e.g., "schedule", "cancel", "execute")
-    /// @param newImplementation The address of the new implementation contract
-    /// @param upgradeCalldata The calldata to be sent to the new implementation
-    /// @param upgradeTime The time at which the upgrade can be executed
-    /// @return message The encoded message bytes
-    /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
-    /// @return messageAsG1Point The message hashed to BLS G1 point
-    function contractUpgradeParamsToBytes(
-        string memory action,
-        address newImplementation,
-        bytes memory upgradeCalldata,
-        uint256 upgradeTime
-    ) external view returns (bytes memory, bytes memory, BLS.PointG1 memory);
+        returns (bytes memory message, bytes memory messageAsG1Bytes);
 
     // -------- Admin Functions --------
 
@@ -324,11 +298,13 @@ interface IRouter {
 
     /// @notice Updates the swap request BLS signature validator contract
     /// @param _swapRequestBlsValidator The new swap request BLS validator contract address
-    function setSwapRequestBlsValidator(address _swapRequestBlsValidator) external;
+    /// @param signature The BLS signature authorizing the update
+    function setSwapRequestBlsValidator(address _swapRequestBlsValidator, bytes calldata signature) external;
 
     /// @notice Updates the contract upgrade BLS validator contract
     /// @param _contractUpgradeBlsValidator The new contract upgrade BLS validator contract address
-    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator) external;
+    /// @param signature The BLS signature authorizing the update
+    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator, bytes calldata signature) external;
 
     /// @notice Schedules a contract upgrade
     /// @param _newImplementation The address of the new implementation contract

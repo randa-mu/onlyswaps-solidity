@@ -1,4 +1,4 @@
-import { ethers, formatEther } from "ethers";
+import { ethers, formatEther, parseEther } from "ethers";
 import { launchAnvilPair } from "./utilities/anvil-helper";
 import { generateBlsKeys, signMessage, encodeSignature } from "./utilities/signing";
 import { deployContracts } from "./utilities/deploy-contracts";
@@ -85,12 +85,12 @@ async function main() {
     console.log(`Swap request created with requestId ${requestId}`);
     console.log("Swap request parameters:", formattedSwapRequestParams);
 
-    const [, , messageAsG1Point] = await RouterSrc.swapRequestParametersToBytes(
-      requestId
+    const [, messageAsG1Bytes] = await RouterSrc.swapRequestParametersToBytes(
+      requestId, solverAddr
     );
 
     const sigAffine = signMessage(
-      { x: BigInt(messageAsG1Point[0]), y: BigInt(messageAsG1Point[1]) },
+      messageAsG1Bytes,
       privKeyBytes
     );
     const sigBytes = encodeSignature(sigAffine);
@@ -100,7 +100,7 @@ async function main() {
     await RouterDst.relayTokens(
       await ERC20Dst.getAddress(),
       recipientAddr,
-      amount,
+      parseEther(formattedSwapRequestParams.amountOut.toString()),
       requestId,
       SRC_CHAIN_ID
     );

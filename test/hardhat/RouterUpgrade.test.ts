@@ -5,8 +5,8 @@ import {
   MockRouterV2__factory,
   ERC20Token,
   ERC20Token__factory,
-  BN254SignatureScheme,
-  BN254SignatureScheme__factory,
+  BLSBN254SignatureScheme,
+  BLSBN254SignatureScheme__factory,
   UUPSProxy__factory,
 } from "../../typechain-types";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
@@ -39,32 +39,37 @@ describe("RouterUpgrade", function () {
   let router: Router;
   let srcToken: ERC20Token;
   let dstToken: ERC20Token;
-  let swapBn254SigScheme: BN254SignatureScheme;
-  let upgradeBn254SigScheme: BN254SignatureScheme;
+  let swapBn254SigScheme: BLSBN254SignatureScheme;
+  let upgradeBn254SigScheme: BLSBN254SignatureScheme;
 
   let privKeyBytes: Uint8Array;
   let ownerAddr: string, solverAddr: string, userAddr: string, recipientAddr: string;
 
-  const bridgeType = 0;
-  const upgradeType = 1;
+  const swapType = "swap-v1";
+  const upgradeType = "upgrade-v1";
 
   async function generateSignature(
     action: string,
     contractAddress: string,
     calldata: string,
     upgradeTime: number,
+    currentNonce: number,
   ): Promise<string> {
-    const [, , messageAsG1Point] = await router.contractUpgradeParamsToBytes(
+    const [, messageAsG1Bytes] = await router.contractUpgradeParamsToBytes(
       action,
+      await router.scheduledImplementation(),
       contractAddress,
       calldata,
       upgradeTime,
+      currentNonce,
     );
-    const M = bn254.G1.ProjectivePoint.fromAffine({
-      x: BigInt(messageAsG1Point[0]),
-      y: BigInt(messageAsG1Point[1]),
-    });
+    // Remove "0x" prefix if present
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    // Unmarshall messageAsG1Bytes to a G1 point first
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    // Sign message
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    // Serialize signature (x, y) for EVM
     const sigPointToAffine = sigPoint.toAffine();
     return AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sigPointToAffine.x, sigPointToAffine.y]);
   }
@@ -90,10 +95,10 @@ describe("RouterUpgrade", function () {
     srcToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     // Deploy BLS signature scheme with the public key G2 point swapped around to be compatible with the BLS solidity library
-    swapBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0], bridgeType);
-    upgradeBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy(
-      [x.c1, x.c0],
-      [y.c1, y.c0],
+    swapBn254SigScheme = await new BLSBN254SignatureScheme__factory(owner).deploy([x.c0, x.c1], [y.c0, y.c1], swapType);
+    upgradeBn254SigScheme = await new BLSBN254SignatureScheme__factory(owner).deploy(
+      [x.c0, x.c1],
+      [y.c0, y.c1],
       upgradeType,
     );
 
@@ -135,7 +140,8 @@ describe("RouterUpgrade", function () {
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
       await expect(router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes))
         .to.emit(router, "UpgradeScheduled")
         .withArgs(newImplAddress, upgradeTime);
@@ -144,10 +150,9 @@ describe("RouterUpgrade", function () {
     it("should revert if new implementation address is zero (bad path)", async () => {
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", ZeroAddress, "0x", upgradeTime);
-      await expect(
-        router.connect(owner).scheduleUpgrade(ZeroAddress, "0x", upgradeTime, sigBytes),
-      ).to.be.revertedWithCustomError(router, "ZeroAddress()");
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", ZeroAddress, "0x", upgradeTime, currentNonce);
+      await expect(router.connect(owner).scheduleUpgrade(ZeroAddress, "0x", upgradeTime, sigBytes)).to.be.reverted;
     });
 
     it("should revert if upgrade time is not in the future (bad path)", async () => {
@@ -156,7 +161,8 @@ describe("RouterUpgrade", function () {
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp - 10 : 0; // 10 seconds in the past
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
       await expect(router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes))
         .to.be.revertedWithCustomError(router, "UpgradeTimeMustRespectDelay")
         .withArgs(await router.getMinimumContractUpgradeDelay());
@@ -169,7 +175,8 @@ describe("RouterUpgrade", function () {
       const latestBlock = await ethers.provider.getBlock("latest");
 
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
 
       const tx = await router.connect(user).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
       await expect(tx).to.emit(router, "UpgradeScheduled").withArgs(newImplAddress, upgradeTime);
@@ -185,11 +192,31 @@ describe("RouterUpgrade", function () {
       // Prepare initialization data for the new implementation
       const calldata = router.interface.encodeFunctionData("getVersion");
 
-      let sigBytes = await generateSignature("schedule", newImplAddress, calldata, upgradeTime);
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, calldata, upgradeTime, currentNonce);
 
       await expect(router.connect(owner).scheduleUpgrade(newImplAddress, calldata, upgradeTime, sigBytes))
         .to.emit(router, "UpgradeScheduled")
         .withArgs(newImplAddress, upgradeTime);
+    });
+
+    it("should revert if scheduled upgrade address is the same as a pending upgrade (bad path)", async () => {
+      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
+      let currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
+
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
+
+      currentNonce = Number(await router.currentNonce()) + 1;
+      sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime + 1000, currentNonce);
+
+      await expect(
+        router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime + 1000, sigBytes),
+      ).to.be.revertedWithCustomError(router, "SameVersionUpgradeNotAllowed");
     });
   });
 
@@ -200,11 +227,13 @@ describe("RouterUpgrade", function () {
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      let currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
 
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
 
-      sigBytes = await generateSignature("cancel", newImplAddress, "0x", upgradeTime);
+      currentNonce = Number(await router.currentNonce()) + 1;
+      sigBytes = await generateSignature("cancel", newImplAddress, "0x", upgradeTime, currentNonce);
 
       // Cancel the upgrade
       await expect(router.connect(owner).cancelUpgrade(sigBytes))
@@ -218,7 +247,8 @@ describe("RouterUpgrade", function () {
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
 
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
 
@@ -241,13 +271,15 @@ describe("RouterUpgrade", function () {
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      let currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
 
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
       await ethers.provider.send("evm_increaseTime", [upgradeTime + 1]); // Increase time by 20 seconds
       await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change
 
-      sigBytes = await generateSignature("cancel", newImplAddress, "0x", upgradeTime);
+      currentNonce = Number(await router.currentNonce()) + 1;
+      sigBytes = await generateSignature("cancel", newImplAddress, "0x", upgradeTime, currentNonce);
 
       await expect(router.connect(owner).cancelUpgrade(sigBytes))
         .to.be.revertedWithCustomError(router, "TooLateToCancelUpgrade")
@@ -265,7 +297,8 @@ describe("RouterUpgrade", function () {
       const latestBlock = await ethers.provider.getBlock("latest");
 
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
 
       await ethers.provider.send("evm_increaseTime", [upgradeTime]);
@@ -284,7 +317,8 @@ describe("RouterUpgrade", function () {
       const latestBlock = await ethers.provider.getBlock("latest");
 
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
 
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
       await expect(router.connect(user).upgradeToAndCall(newImplAddress, "0x")).to.be.revertedWithCustomError(
@@ -303,7 +337,8 @@ describe("RouterUpgrade", function () {
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
       await expect(router.connect(user).executeUpgrade())
         .to.be.revertedWithCustomError(router, "UpgradeTooEarly")
@@ -325,7 +360,8 @@ describe("RouterUpgrade", function () {
       const latestBlock = await ethers.provider.getBlock("latest");
 
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
       await ethers.provider.send("evm_increaseTime", [upgradeTime]);
       await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change
@@ -349,7 +385,8 @@ describe("RouterUpgrade", function () {
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
       await ethers.provider.send("evm_increaseTime", [upgradeTime]);
       await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change
@@ -365,7 +402,8 @@ describe("RouterUpgrade", function () {
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
-      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime);
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
       await ethers.provider.send("evm_increaseTime", [upgradeTime]);
       await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change

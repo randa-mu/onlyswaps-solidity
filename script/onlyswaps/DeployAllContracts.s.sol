@@ -6,7 +6,7 @@ import {Script} from "forge-std/Script.sol";
 import {Constants} from "./libraries/Constants.sol";
 
 import {
-    BN254SignatureScheme,
+    BLSBN254SignatureScheme,
     DeployBN254SwapRequestSignatureScheme
 } from "./single-deployment/DeployBN254SwapRequestSignatureScheme.s.sol";
 import {DeployBN254ContractUpgradeSignatureScheme} from
@@ -42,8 +42,8 @@ contract DeployAllContracts is
     function deployAll()
         public
         returns (
-            BN254SignatureScheme bn254SwapRequestSignatureScheme,
-            BN254SignatureScheme bn254ContractUpgradeSignatureScheme,
+            BLSBN254SignatureScheme bn254SwapRequestSignatureScheme,
+            BLSBN254SignatureScheme bn254ContractUpgradeSignatureScheme,
             Router router,
             ERC20FaucetToken rusd
         )
@@ -51,9 +51,9 @@ contract DeployAllContracts is
         // for upgrades, run deployment script for individual contract in single-deployments
         bool isUpgrade = false;
 
-        // BN254SignatureScheme for swap requests
+        // BLSBN254SignatureScheme for swap requests
         bn254SwapRequestSignatureScheme = deployBN254SwapRequestSignatureScheme();
-        // BN254SignatureScheme for contract upgrades
+        // BLSBN254SignatureScheme for contract upgrades
         bn254ContractUpgradeSignatureScheme = deployBN254ContractUpgradeSignatureScheme();
         // Router
         router = deployRouterProxy(

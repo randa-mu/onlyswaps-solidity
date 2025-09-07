@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8;
 
 library ErrorsLib {
     /// @dev Custom errors
@@ -26,4 +26,5 @@ library ErrorsLib {
     error UpgradeFailed();
     error UpgradeDelayTooShort();
     error UpgradeTimeMustRespectDelay(uint256 earliestTime);
+    error SameVersionUpgradeNotAllowed();
 }

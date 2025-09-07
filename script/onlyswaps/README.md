@@ -113,7 +113,7 @@ bash utils/generate-contract-addresses.sh > contract-addresses.json
 ```
 
 
-## Post-deployment
+## Post-deployment
 
 ### Router contract configuration
 The `ConfigureRouterScript` script enables the deployer or Router contract admin to configure the contract on any chain, i.e., set supported tokens and destination chain ids. It requires the following environment variables:

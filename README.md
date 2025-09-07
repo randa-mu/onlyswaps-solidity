@@ -1,6 +1,29 @@
 # OnlySwaps
 
-Solidity smart contract that enables **cross-chain token swap** requests from a source chain to a destination chain. The requests are fulfilled by solvers on the destination chain in exchange for the liquidity and fee / incentive on the source chain.
+Solidity smart contracts for **cross-chain token swaps** with upgradeability and BLS signature verification.
+
+## Architecture Overview
+
+### Router
+
+The `Router` contract is the central entry point for swap requests and contract upgrades. It manages cross-chain token swap requests, swap execution, and upgrade scheduling. The Router inherits from `ScheduledUpgradeable` to support secure, scheduled implementation contract upgrades based on ERC-1822, the [Universal Upgradeable Proxy Standard (UUPS)](https://docs.openzeppelin.com/contracts/4.x/api/proxy#UUPSUpgradeable).
+
+### ScheduledUpgradeable
+
+`ScheduledUpgradeable` is an abstract, upgradeable base contract that provides:
+- Scheduling logic for contract upgrades, including time delays and BLS signature verification.
+- Functions to schedule, execute, and cancel upgrades, ensuring upgrades are authorized and transparent.
+
+Child contracts (like `Router`) inherit from `ScheduledUpgradeable` and can customize upgrade scheduling logic.
+
+### BLSBN254SignatureScheme
+
+`BLSBN254SignatureScheme` is a contract for BLS signature verification on the BN254 curve, used to verify off-chain signatures for swap requests and contract upgrades. The contract enforces domain separation using a unique Domain Separation Tag (DST) that includes the chain ID, contract type, and version (e.g., `"swap-v1"` or `"upgrade-v1"`), preventing signature replay across different domains or versions.
+
+- The DST is set in the constructor and encodes both the contract type and version for each application.
+- The contract exposes functions for verifying BLS signatures and retrieving validator keys.
+- Example usage: `application` parameter in the constructor can be set to `"upgrade-v1"` for upgrade verification or `"swap-v1"` for swap requests.
+
 
 
 ## Usage
@@ -28,23 +51,34 @@ git clone https://github.com/randa-mu/onlysubs-solidity
 ```
 
 ### Install dependencies
+
 ```bash
 npm install
 ```
 
 ### Build
+
 ```bash
 npm run build
 ```
 
 ### Test
+
 ```bash
 npm run test
 ```
 
+### Deployment
+
+For the deployment documentation, please see the deployment [guide here](./script/onlyswaps/README.md).
+
+
 #### Code Coverage
 
-To run foundry coverage:
+The smart contract tests are written primarily using **[Hardhat](https://hardhat.org/)**.  
+
+To generate a code coverage report, run:
+
 ```bash
 npx hardhat coverage
 ```
@@ -75,7 +109,7 @@ The script automatically spawns two Anvil blockchains at port 8545 (with chain i
 To run the demo script, run the following command: 
 
 ```bash
-npx hardhat compile
+npm run build
 npx ts-node demo/onlyswap-e2e-demo.ts
 ```
 
@@ -87,22 +121,23 @@ Example output:
 Anvil instances ready...
 Configuring routers...
 Recipient balance before swap request: 0.0 RUSD
-Swap request created with requestId 0x2d0d7b3ffeaa37b249923f2bd6679462d018572c30760af2867f1a8c9db65793
+Swap request created with requestId 0xc8e424bef2a726381716973580834e29713efb17b3af76c0f741bc7ff4a8cc4a
 Swap request parameters: {
   sender: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   recipient: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
-  token: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-  amount: '10.0',
+  tokenIn: '0x0165878A594ca255338adfa4d48449f69242Eb8F',
+  tokenOut: '0x8464135c8F25Da09e49BC8782676a84730C318bC',
+  amountOut: '9.5',
   srcChainId: 31337n,
   dstChainId: 31338n,
-  swapFee: '0.05',
-  solverFee: '0.95',
+  verificationFee: '0.5',
+  solverFee: '1.0',
   nonce: 1n,
   executed: false
 }
-Recipient balance after relay: 10.0 RUSD
+Recipient balance after relay: 9.5 RUSD
 Solver balance before rebalance: 0.0 RUSD
-Solver balance after rebalance: 10.95 RUSD
+Solver balance after rebalance: 10.5 RUSD
 Anvil instances stopped.
 ```
 

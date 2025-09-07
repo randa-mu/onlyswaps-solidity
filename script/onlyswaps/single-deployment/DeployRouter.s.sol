@@ -19,7 +19,7 @@ import {Constants} from "../libraries/Constants.sol";
 import {Router} from "src/Router.sol";
 
 import {UUPSProxy} from "src/proxy/UUPSProxy.sol";
-import {BN254SignatureScheme} from "src/signature-scheme/BN254SignatureScheme.sol";
+import {BN254SignatureScheme} from "bls-solidity/signature-schemes/BN254SignatureScheme.sol";
 
 /// @title DeployRouter
 /// @dev Script for deploying upgradable Router contract using UUPSProxy.

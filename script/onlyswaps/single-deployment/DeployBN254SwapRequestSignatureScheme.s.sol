@@ -16,7 +16,7 @@ import {
 
 import {Constants} from "../libraries/Constants.sol";
 
-import {BN254SignatureScheme} from "src/signature-scheme/BN254SignatureScheme.sol";
+import {BLSBN254SignatureScheme} from "src/signature-schemes/BLSBN254SignatureScheme.sol";
 
 /// @title DeployBN254SwapRequestSignatureScheme
 /// @dev Script for deploying BN254SwapRequestSignatureScheme contract.
@@ -25,24 +25,28 @@ contract DeployBN254SwapRequestSignatureScheme is JsonUtils, EnvReader {
         deployBN254SwapRequestSignatureScheme();
     }
 
-    function deployBN254SwapRequestSignatureScheme() internal returns (BN254SignatureScheme bn254SignatureScheme) {
+    function deployBN254SwapRequestSignatureScheme() internal returns (BLSBN254SignatureScheme bn254SignatureScheme) {
         DeploymentParameters memory deploymentParameters = DeploymentParamsSelector.getDeploymentParams(block.chainid);
 
         bytes memory code = abi.encodePacked(
-            type(BN254SignatureScheme).creationCode,
-            abi.encode(deploymentParameters.blsSwapRequestPublicKey.x, deploymentParameters.blsSwapRequestPublicKey.y)
+            type(BLSBN254SignatureScheme).creationCode,
+            abi.encode(
+                deploymentParameters.blsSwapRequestPublicKey.x,
+                deploymentParameters.blsSwapRequestPublicKey.y,
+                "swap-v1"
+            )
         );
 
         vm.broadcast();
         if (deploymentParameters.customCREATE2FactoryContractAddress != DeploymentParamsCore.DEFAULT_CREATE2_DEPLOYER) {
             address contractAddress =
                 Factory(deploymentParameters.customCREATE2FactoryContractAddress).deploy(Constants.SALT, code);
-            bn254SignatureScheme = BN254SignatureScheme(contractAddress);
+            bn254SignatureScheme = BLSBN254SignatureScheme(contractAddress);
         } else {
-            bn254SignatureScheme = new BN254SignatureScheme{salt: Constants.SALT}(
+            bn254SignatureScheme = new BLSBN254SignatureScheme{salt: Constants.SALT}(
                 deploymentParameters.blsSwapRequestPublicKey.x,
                 deploymentParameters.blsSwapRequestPublicKey.y,
-                BN254SignatureScheme.ContractType.Bridge
+                "swap-v1"
             );
         }
 

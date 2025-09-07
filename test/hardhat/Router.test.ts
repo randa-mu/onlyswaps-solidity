@@ -1,11 +1,13 @@
 import {
   Router,
   Router__factory,
+  MockRouterV2__factory,
   ERC20Token,
   ERC20Token__factory,
-  BN254SignatureScheme,
-  BN254SignatureScheme__factory,
+  BLSBN254SignatureScheme,
+  BLSBN254SignatureScheme__factory,
   UUPSProxy__factory,
+  BLS__factory,
 } from "../../typechain-types";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
@@ -21,6 +23,7 @@ import {
   keccak256,
   toUtf8Bytes,
   ZeroAddress,
+  hexlify,
 } from "ethers";
 import { ethers } from "hardhat";
 
@@ -37,14 +40,31 @@ describe("Router", function () {
   let router: Router;
   let srcToken: ERC20Token;
   let dstToken: ERC20Token;
-  let swapBn254SigScheme: BN254SignatureScheme;
-  let upgradeBn254SigScheme: BN254SignatureScheme;
+  let swapBn254SigScheme: BLSBN254SignatureScheme;
+  let upgradeBn254SigScheme: BLSBN254SignatureScheme;
 
   let privKeyBytes: Uint8Array;
   let ownerAddr: string, solverAddr: string, userAddr: string, recipientAddr: string;
 
-  const bridgeType = 0;
-  const upgradeType = 1;
+  const swapType = "swap-v1";
+  const upgradeType = "upgrade-v1";
+
+  async function generateSignatureForBlsValidatorUpdate(
+    router: Router,
+    invalidAddress: string,
+    currentNonce: number,
+  ): Promise<string> {
+    const [, messageAsG1Bytes] = await router.blsValidatorUpdateParamsToBytes(invalidAddress, currentNonce);
+    // Remove "0x" prefix if present
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    // Unmarshall messageAsG1Bytes to a G1 point first
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    // Sign message
+    const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    // Serialize signature (x, y) for EVM
+    const sigPointToAffine = sigPoint.toAffine();
+    return AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sigPointToAffine.x, sigPointToAffine.y]);
+  }
 
   beforeEach(async () => {
     [owner, user, solver, recipient] = await ethers.getSigners();
@@ -67,10 +87,10 @@ describe("Router", function () {
     srcToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 18);
     // Deploy BLS signature scheme with the public key G2 point swapped around to be compatible with the BLS solidity library
-    swapBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy([x.c1, x.c0], [y.c1, y.c0], bridgeType);
-    upgradeBn254SigScheme = await new BN254SignatureScheme__factory(owner).deploy(
-      [x.c1, x.c0],
-      [y.c1, y.c0],
+    swapBn254SigScheme = await new BLSBN254SignatureScheme__factory(owner).deploy([x.c0, x.c1], [y.c0, y.c1], swapType);
+    upgradeBn254SigScheme = await new BLSBN254SignatureScheme__factory(owner).deploy(
+      [x.c0, x.c1],
+      [y.c0, y.c1],
       upgradeType,
     );
 
@@ -100,6 +120,80 @@ describe("Router", function () {
     // Router contract configuration
     await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
+  });
+
+  it("should revert initialize if _verificationFeeBps is zero or exceeds MAX_FEE_BPS", async () => {
+    const routerImpl = await ethers.getContractFactory("Router", owner);
+    const implementation = await routerImpl.deploy();
+    await implementation.waitForDeployment();
+
+    const proxyFactory = await ethers.getContractFactory("UUPSProxy", owner);
+
+    // Case 1: _verificationFeeBps is zero
+    await expect(
+      proxyFactory.deploy(
+        await implementation.getAddress(),
+        routerImpl.interface.encodeFunctionData("initialize", [
+          ownerAddr,
+          await swapBn254SigScheme.getAddress(),
+          await upgradeBn254SigScheme.getAddress(),
+          0, // invalid fee
+        ]),
+      ),
+    ).to.be.revertedWithCustomError(implementation, "InvalidFeeBps");
+
+    // Case 2: _verificationFeeBps exceeds MAX_FEE_BPS
+    const maxFeeBps = await implementation.MAX_FEE_BPS();
+    await expect(
+      proxyFactory.deploy(
+        await implementation.getAddress(),
+        routerImpl.interface.encodeFunctionData("initialize", [
+          ownerAddr,
+          await swapBn254SigScheme.getAddress(),
+          await upgradeBn254SigScheme.getAddress(),
+          Number(maxFeeBps) + 1, // invalid fee
+        ]),
+      ),
+    ).to.be.revertedWithCustomError(implementation, "InvalidFeeBps");
+  });
+
+  it("should revert initialize if _contractUpgradeBlsValidator or _swapRequestBlsValidator is zero address", async () => {
+    const routerImpl = await ethers.getContractFactory("Router", owner);
+    const implementation = await routerImpl.deploy();
+    await implementation.waitForDeployment();
+
+    const proxyFactory = await ethers.getContractFactory("UUPSProxy", owner);
+
+    // Case 1: _contractUpgradeBlsValidator is zero address
+    await expect(
+      proxyFactory.deploy(
+        await implementation.getAddress(),
+        routerImpl.interface.encodeFunctionData("initialize", [
+          ownerAddr,
+          await swapBn254SigScheme.getAddress(),
+          ZeroAddress, // invalid validator
+          VERIFICATION_FEE_BPS,
+        ]),
+      ),
+    ).to.be.revertedWithCustomError(implementation, "ZeroAddress");
+
+    // Case 2: _swapRequestBlsValidator is zero address
+    await expect(
+      proxyFactory.deploy(
+        await implementation.getAddress(),
+        routerImpl.interface.encodeFunctionData("initialize", [
+          ownerAddr,
+          ZeroAddress, // invalid validator
+          await upgradeBn254SigScheme.getAddress(),
+          VERIFICATION_FEE_BPS,
+        ]),
+      ),
+    ).to.be.revertedWithCustomError(implementation, "ZeroAddress");
+  });
+
+  it("should return non-zero address for the swap request BLS validator", async () => {
+    const validatorAddr = await router.getSwapRequestBlsValidator();
+    expect(validatorAddr).to.not.equal(ZeroAddress);
   });
 
   it("should remove the token mapping for a specific destination chain", async () => {
@@ -246,6 +340,18 @@ describe("Router", function () {
 
     expect(await srcToken.balanceOf(userAddr)).to.equal(newFee - fee);
 
+    // Check: only sender can update fee
+    await expect(router.connect(solver).updateSolverFeesIfUnfulfilled(requestId, newFee)).to.be.revertedWithCustomError(
+      router,
+      "UnauthorisedCaller",
+    );
+
+    // Check: newFee must be greater than current solverFee
+    await expect(router.connect(user).updateSolverFeesIfUnfulfilled(requestId, fee)).to.be.revertedWithCustomError(
+      router,
+      "NewFeeTooLow",
+    );
+
     await expect(router.connect(user).updateSolverFeesIfUnfulfilled(requestId, newFee)).to.emit(
       router,
       "SwapRequestSolverFeeUpdated",
@@ -346,22 +452,16 @@ describe("Router", function () {
     );
 
     // Message signing
-
-    // Step 1. Fetch transfer parameters from the chain using the request id
     const swapRequestParams = await router.getSwapRequestParameters(requestId);
 
-    const [, , messageAsG1Point] = await router.swapRequestParametersToBytes(requestId);
-
-    // Step 2: Message from EVM
-    const M = bn254.G1.ProjectivePoint.fromAffine({
-      x: BigInt(messageAsG1Point[0]),
-      y: BigInt(messageAsG1Point[1]),
-    });
-
-    // Step 3: Sign message
+    const [, messageAsG1Bytes] = await router.swapRequestParametersToBytes(requestId, solver.address);
+    // Remove "0x" prefix if present
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    // Unmarshall messageAsG1Bytes to a G1 point first
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    // Sign message
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
-
-    // Step 4: Serialize signature (x, y) for EVM
+    // Serialize signature (x, y) for EVM
     const sigPointToAffine = sigPoint.toAffine();
     const sigBytes = AbiCoder.defaultAbiCoder().encode(
       ["uint256", "uint256"],
@@ -379,6 +479,14 @@ describe("Router", function () {
     expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(1);
 
     // Rebalance Solver
+
+    // Try with invalid request ID first
+    const invalidRequestId = keccak256(toUtf8Bytes("invalid"));
+    await expect(
+      router.connect(owner).rebalanceSolver(solver.address, invalidRequestId, sigBytes),
+    ).to.be.revertedWithCustomError(router, "SourceChainIdMismatch");
+
+    // Rebalance with valid request ID
     await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
 
     const after = await srcToken.balanceOf(solverAddr);
@@ -387,6 +495,11 @@ describe("Router", function () {
 
     expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(1);
     expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(0);
+
+    // Try to rebalance again
+    await expect(
+      router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes),
+    ).to.be.revertedWithCustomError(router, "AlreadyFulfilled()");
   });
 
   it("should relay tokens and store a receipt", async () => {
@@ -425,6 +538,29 @@ describe("Router", function () {
     ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
 
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+  });
+
+  it("should return correct verification fee amount for a given swap amount", async () => {
+    const feeBps = 250;
+    await router.connect(owner).setVerificationFeeBps(feeBps);
+
+    const amountToSwap = parseEther("100");
+    const [feeAmount, amountOut] = await router.getVerificationFeeAmount(amountToSwap);
+
+    // feeAmount = (amountToSwap * feeBps) / 10000
+    const expectedFee = (amountToSwap * BigInt(feeBps)) / BigInt(10000);
+    const expectedamountOut = amountToSwap - expectedFee;
+
+    expect(feeAmount).to.equal(expectedFee);
+    expect(amountOut).to.equal(expectedamountOut);
+  });
+
+  it("should revert swapRequestParametersToBytes if solver is zero address", async () => {
+    const requestId = keccak256(toUtf8Bytes("test-request"));
+    await expect(router.swapRequestParametersToBytes(requestId, ZeroAddress)).to.be.revertedWithCustomError(
+      router,
+      "ZeroAddress",
+    );
   });
 
   it("should not allow double fulfillment", async () => {
@@ -631,18 +767,20 @@ describe("Router", function () {
     );
 
     // Fulfill the request
-    const swapRequestParams = await router.getSwapRequestParameters(requestId);
-    const [, , messageAsG1Point] = await router.swapRequestParametersToBytes(requestId);
-    const M = bn254.G1.ProjectivePoint.fromAffine({
-      x: BigInt(messageAsG1Point[0]),
-      y: BigInt(messageAsG1Point[1]),
-    });
+    const [, messageAsG1Bytes] = await router.swapRequestParametersToBytes(requestId, solver.address);
+    // Remove "0x" prefix if present
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    // Unmarshall messageAsG1Bytes to a G1 point first
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    // Sign message
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    // Serialize signature (x, y) for EVM
     const sigPointToAffine = sigPoint.toAffine();
     const sigBytes = AbiCoder.defaultAbiCoder().encode(
       ["uint256", "uint256"],
       [sigPointToAffine.x, sigPointToAffine.y],
     );
+
     await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
 
     // Try to update fee after fulfillment
@@ -764,6 +902,328 @@ describe("Router", function () {
   it("should return correct contract version", async () => {
     const version = await router.getVersion();
     expect(version).to.equal("1.0.0");
+  });
+
+  it("should revert if setSwapRequestBlsValidator is called with zero address", async () => {
+    const invalidAddress = ZeroAddress;
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, invalidAddress, currentNonce);
+    await expect(
+      router.connect(owner).setSwapRequestBlsValidator(invalidAddress, sigBytes),
+    ).to.be.revertedWithCustomError(router, "ZeroAddress()");
+
+    expect(await router.swapRequestBlsValidator()).to.not.equal(ZeroAddress);
+  });
+
+  it("should revert if BLS signature verification fails", async () => {
+    const validAddress = await owner.getAddress();
+    const invalidSignature = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
+
+    await expect(
+      router.connect(owner).setSwapRequestBlsValidator(validAddress, invalidSignature),
+    ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed()");
+  });
+
+  it("should update the swapRequestBlsValidator if called with valid parameters", async () => {
+    const validAddress = await owner.getAddress();
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+
+    await expect(router.connect(owner).setSwapRequestBlsValidator(validAddress, sigBytes))
+      .to.emit(router, "BLSValidatorUpdated")
+      .withArgs(validAddress);
+
+    const updatedValidator = await router.swapRequestBlsValidator();
+    expect(updatedValidator).to.equal(validAddress);
+  });
+
+  it("should update the upgradeBlsValidator if called with valid parameters", async () => {
+    const validAddress = await owner.getAddress();
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+
+    await expect(router.connect(owner).setContractUpgradeBlsValidator(validAddress, sigBytes))
+      .to.emit(router, "ContractUpgradeBLSValidatorUpdated")
+      .withArgs(validAddress);
+
+    const updatedValidator = await router.contractUpgradeBlsValidator();
+    expect(updatedValidator).to.equal(validAddress);
+    expect(await router.getContractUpgradeBlsValidator()).to.equal(validAddress);
+  });
+
+  it("should fail to update the upgradeBlsValidator if called with invalid signature", async () => {
+    const validAddress = await owner.getAddress();
+    // Use an invalid signature
+    const invalidSigBytes = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
+
+    await expect(
+      router.connect(owner).setContractUpgradeBlsValidator(validAddress, invalidSigBytes),
+    ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed()");
+  });
+
+  it("should revert if setContractUpgradeBlsValidator is called with zero address", async () => {
+    const invalidAddress = ZeroAddress;
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, invalidAddress, currentNonce);
+    await expect(
+      router.connect(owner).setContractUpgradeBlsValidator(invalidAddress, sigBytes),
+    ).to.be.revertedWithCustomError(router, "ZeroAddress()");
+  });
+
+  it("should not revert if non-owner tries to call setSwapRequestBlsValidator", async () => {
+    const validAddress = await owner.getAddress();
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+
+    await expect(router.connect(user).setSwapRequestBlsValidator(validAddress, sigBytes)).to.not.be.reverted;
+  });
+
+  it("should not revert if non-owner tries to call setContractUpgradeBlsValidator", async () => {
+    const validAddress = await owner.getAddress();
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+
+    await expect(router.connect(user).setContractUpgradeBlsValidator(validAddress, sigBytes)).to.not.be.reverted;
+  });
+
+  it("should update minimumContractUpgradeDelay and emit event if delay is greater than 2 days", async () => {
+    const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
+
+    const tx = await router.setMinimumContractUpgradeDelay(newDelay);
+    await expect(tx).to.emit(router, "MinimumContractUpgradeDelayUpdated").withArgs(newDelay);
+
+    expect(await router.minimumContractUpgradeDelay()).to.equal(newDelay);
+  });
+
+  it("should revert if minimumContractUpgradeDelay is less than or equal to 2 days", async () => {
+    const invalidDelay = 2 * 24 * 60 * 60; // 2 days in seconds
+
+    await expect(router.setMinimumContractUpgradeDelay(invalidDelay)).to.be.revertedWithCustomError(
+      router,
+      "UpgradeDelayTooShort",
+    );
+
+    const zeroDelay = 0;
+    await expect(router.setMinimumContractUpgradeDelay(zeroDelay)).to.be.revertedWithCustomError(
+      router,
+      "UpgradeDelayTooShort",
+    );
+  });
+
+  it("should revert if non-owner tries to set minimumContractUpgradeDelay", async () => {
+    const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
+
+    await expect(router.connect(user).setMinimumContractUpgradeDelay(newDelay)).to.be.revertedWithCustomError(
+      router,
+      "AccessControlUnauthorizedAccount",
+    );
+  });
+
+  it("should initialize ScheduledUpgradeable with valid parameters", async () => {
+    const validValidator = await upgradeBn254SigScheme.getAddress();
+
+    // Deploy a Router (or a mock child contract) with valid params
+    const routerImpl = await ethers.getContractFactory("Router", owner);
+    const implementation = await routerImpl.deploy();
+    await implementation.waitForDeployment();
+
+    const proxyFactory = await ethers.getContractFactory("UUPSProxy", owner);
+    const proxy = await proxyFactory.deploy(
+      await implementation.getAddress(),
+      routerImpl.interface.encodeFunctionData("initialize", [
+        ownerAddr,
+        await swapBn254SigScheme.getAddress(),
+        validValidator,
+        VERIFICATION_FEE_BPS,
+      ]),
+    );
+    await proxy.waitForDeployment();
+
+    const router: any = routerImpl.attach(await proxy.getAddress());
+    expect(await router.contractUpgradeBlsValidator()).to.equal(validValidator);
+    expect(await router.minimumContractUpgradeDelay()).to.equal(172800); // 2 days in seconds
+  });
+
+  it("should revert if _contractUpgradeBlsValidator is zero address", async () => {
+    const routerImpl = await ethers.getContractFactory("Router", owner);
+    const implementation = await routerImpl.deploy();
+    await implementation.waitForDeployment();
+
+    const proxyFactory = await ethers.getContractFactory("UUPSProxy", owner);
+
+    await expect(
+      proxyFactory.deploy(
+        await implementation.getAddress(),
+        routerImpl.interface.encodeFunctionData("initialize", [
+          ownerAddr,
+          await swapBn254SigScheme.getAddress(),
+          ZeroAddress, // zero address for contractUpgradeBlsValidator
+          VERIFICATION_FEE_BPS,
+        ]),
+      ),
+    ).to.be.revertedWithCustomError(implementation, "ZeroAddress");
+  });
+
+  it("should revert if scheduleUpgrade is called with zero address not having getVersion() function", async () => {
+    const upgradeCalldata = "0x";
+    const upgradeTime = Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60; // 3 days from now
+    const signature = "0x1234";
+
+    await expect(router.scheduleUpgrade(ZeroAddress, upgradeCalldata, upgradeTime, signature)).to.be.reverted;
+  });
+
+  it("should revert if scheduleUpgrade is called with same implementation address", async () => {
+    const upgradeCalldata = "0x";
+    const upgradeTime = Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60;
+    const signature = "0x1234";
+    const currentImpl = await router.getAddress();
+
+    await expect(
+      router.scheduleUpgrade(currentImpl, upgradeCalldata, upgradeTime, signature),
+    ).to.be.revertedWithCustomError(router, "SameVersionUpgradeNotAllowed");
+  });
+
+  it("should revert if upgradeTime is less than minimumContractUpgradeDelay", async () => {
+    const upgradeCalldata = "0x";
+    const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+    await newImplementation.waitForDeployment();
+    const newImplAddress = await newImplementation.getAddress();
+    const upgradeTime = Math.floor(Date.now() / 1000) + 1; // Too soon
+    const signature = "0x1234";
+
+    await expect(
+      router.scheduleUpgrade(newImplAddress, upgradeCalldata, upgradeTime, signature),
+    ).to.be.revertedWithCustomError(router, "UpgradeTimeMustRespectDelay");
+  });
+
+  it("should revert if BLS signature verification fails", async () => {
+    const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+    await newImplementation.waitForDeployment();
+    const newImplAddress = await newImplementation.getAddress();
+    const upgradeCalldata = "0x";
+    // Ensure upgradeTime is at least block.timestamp + minimumContractUpgradeDelay
+    const minimumDelay = await router.minimumContractUpgradeDelay();
+    const latestBlock = await ethers.provider.getBlock("latest");
+    const upgradeTime = Number(latestBlock!.timestamp) + Number(minimumDelay) + 1;
+    const invalidSignature = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
+
+    await expect(
+      router.scheduleUpgrade(newImplAddress, upgradeCalldata, upgradeTime, invalidSignature),
+    ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
+  });
+
+  it("should revert removeTokenMapping if called by non-admin", async () => {
+    const dstChainId = 137;
+
+    // Try to remove mapping as a non-admin
+    await expect(router.connect(user).removeTokenMapping(dstChainId, dstToken, srcToken)).to.be.revertedWithCustomError(
+      router,
+      "AccessControlUnauthorizedAccount",
+    );
+  });
+
+  it("should revert removeTokenMapping if destination chain is not permitted", async () => {
+    const dstChainId = 999; // not permitted
+
+    await expect(
+      router.connect(owner).removeTokenMapping(dstChainId, dstToken, srcToken),
+    ).to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported");
+  });
+
+  it("should revert removeTokenMapping if token mapping does not exist", async () => {
+    const dstChainId = 137;
+
+    await expect(
+      router.connect(owner).removeTokenMapping(dstChainId, srcToken, srcToken),
+    ).to.be.revertedWithCustomError(router, "TokenNotSupported");
+  });
+
+  it("should remove token mapping if called by admin and mapping exists", async () => {
+    const dstChainId = 138;
+
+    await router.connect(owner).permitDestinationChainId(dstChainId);
+    expect(await router.getAllowedDstChainId(dstChainId)).to.be.true;
+
+    // Set up mapping first
+    await router.connect(owner).setTokenMapping(dstChainId, dstToken, srcToken);
+
+    await expect(router.connect(owner).removeTokenMapping(dstChainId, dstToken, srcToken))
+      .to.emit(router, "TokenMappingRemoved")
+      .withArgs(dstChainId, dstToken, srcToken);
+
+    // Mapping should not exist anymore
+    expect(await router.isDstTokenMapped(srcToken, dstChainId, dstToken)).to.be.false;
+  });
+
+  it("should revert blockDestinationChainId if called by non-admin", async () => {
+    const chainId = 555;
+    await router.connect(owner).permitDestinationChainId(chainId);
+
+    await expect(router.connect(user).blockDestinationChainId(chainId)).to.be.revertedWithCustomError(
+      router,
+      "AccessControlUnauthorizedAccount",
+    );
+  });
+
+  it("should block a permitted destination chain id and emit event", async () => {
+    const chainId = 555;
+    await router.connect(owner).permitDestinationChainId(chainId);
+
+    await expect(router.connect(owner).blockDestinationChainId(chainId))
+      .to.emit(router, "DestinationChainIdBlocked")
+      .withArgs(chainId);
+    expect(await router.getAllowedDstChainId(chainId)).to.be.false;
+  });
+
+  it("should revert setVerificationFeeBps if called by non-admin", async () => {
+    const newFeeBps = 100;
+    await expect(router.connect(user).setVerificationFeeBps(newFeeBps)).to.be.revertedWithCustomError(
+      router,
+      "AccessControlUnauthorizedAccount",
+    );
+  });
+
+  it("should revert if setVerificationFeeBps is called with value above MAX_FEE_BPS", async () => {
+    const maxFeeBps = await router.MAX_FEE_BPS();
+    await expect(router.connect(owner).setVerificationFeeBps(Number(maxFeeBps) + 1)).to.be.revertedWithCustomError(
+      router,
+      "FeeBpsExceedsThreshold",
+    );
+  });
+
+  it("should revert if setVerificationFeeBps is called with zero", async () => {
+    await expect(router.connect(owner).setVerificationFeeBps(0)).to.be.revertedWithCustomError(router, "InvalidFeeBps");
+  });
+
+  it("should update verificationFeeBps and emit event if called by admin with valid value", async () => {
+    const newFeeBps = 250;
+    await expect(router.connect(owner).setVerificationFeeBps(newFeeBps))
+      .to.emit(router, "VerificationFeeBpsUpdated")
+      .withArgs(newFeeBps);
+
+    expect(await router.getVerificationFeeBps()).to.equal(newFeeBps);
+  });
+
+  it("should return the correct public key bytes from BN254SignatureScheme", async () => {
+    // Get marshaled public key bytes from the contract
+    const pubKeyBytesFromContract = await swapBn254SigScheme.getPublicKeyBytes();
+    // unmarshal to a G2 point using noble-bn254
+    // Remove "0x" prefix if present
+    const pubKeyHex = pubKeyBytesFromContract.startsWith("0x")
+      ? pubKeyBytesFromContract.slice(2)
+      : pubKeyBytesFromContract;
+    const pubKeyPointFromContract = bn254.G2.ProjectivePoint.fromHex(pubKeyHex).toAffine();
+
+    // Get public key directly from the private key (G2 point)
+    const pk = bn254.getPublicKeyForShortSignatures(privKeyBytes);
+    const pubKeyPoint = bn254.G2.ProjectivePoint.fromHex(pk).toAffine();
+
+    // Compare the points
+    expect(pubKeyPointFromContract.x.c0).to.equal(pubKeyPoint.x.c0);
+    expect(pubKeyPointFromContract.y.c0).to.equal(pubKeyPoint.y.c0);
+
+    expect(pubKeyPointFromContract.x.c1).to.equal(pubKeyPoint.x.c1);
+    expect(pubKeyPointFromContract.y.c1).to.equal(pubKeyPoint.y.c1);
   });
 });
 
