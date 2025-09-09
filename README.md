@@ -98,9 +98,8 @@ To correctly format the Solidity and JS code, run the following command:
 npm run lint:fix
 ```
 
-## Demo
 
-### OnlySwaps
+## Running the Demo
 
 The OnlySwaps [demo script](demo/onlyswap-e2e-demo.ts) shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs. 
 
@@ -140,6 +139,83 @@ Solver balance before rebalance: 0.0 RUSD
 Solver balance after rebalance: 10.5 RUSD
 Anvil instances stopped.
 ```
+
+
+## BLS Signature Verification Workflows
+
+Several critical functions in the OnlySwaps contracts require BLS (BN254) signature verification to ensure secure, threshold-authorized actions. Each function expects a BLS signature over a specific message, which can be generated off-chain using the helper functions provided in the contracts. The message generated is already hashed to a point on G1 using the correct Domain Separation Tag (DST). Below is a description of each function, how BLS verification is used, and how to obtain the message to sign.
+
+
+### Swap Request & Solver Rebalancing
+
+#### `rebalanceSolver`
+- **Purpose:** Compensates the solver on the source chain (including solver fees) after the solver has sent liquidity from their wallet to the recipient address on the destination chain to fulfill a swap request.
+- **BLS Verification:** Requires a valid BLS signature from the swap request validator over the swap request parameters.
+- **Message Construction:**  
+  - **Helper function called:**  
+    `swapRequestParametersToBytes(bytes32 requestId, address solver)`
+  - **Returns:**  
+    - `message`: raw message bytes  
+    - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
+  - **To sign:** Use `messageAsG1Bytes` as the message for BLS signing.
+
+
+#### `setSwapRequestBlsValidator`
+- **Purpose:** Updates the swap request BLS validator contract.
+- **BLS Verification:** Requires a valid BLS signature from the current validator over the update parameters.
+- **Message Construction:**  
+  - **Helper function called:**  
+    `swapRequestBlsValidatorUpdateParamsToBytes(address newValidator, uint256 nonce)`
+  - **Returns:**  
+    - `message`: raw message bytes  
+    - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
+  - **To sign:** Use `messageAsG1Bytes` for BLS signing.
+
+
+### Contract Upgrade Scheduling & Management
+
+#### `scheduleUpgrade`
+- **Purpose:** Schedules a contract upgrade to a new implementation.
+- **BLS Verification:** Requires a valid BLS signature from the contract upgrade validator over the upgrade parameters.
+- **Message Construction:**  
+  - **Helper function called:**  
+    `contractUpgradeParamsToBytes(string action, address pendingImplementation, address newImplementation, bytes upgradeCalldata, uint256 upgradeTime, uint256 nonce)` with action = `schedule`.
+  - **Returns:**  
+    - `message`: raw message bytes  
+    - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
+  - **To sign:** Use `messageAsG1Bytes` for BLS signing, with `action` set to `"schedule"`.
+
+
+#### `cancelUpgrade`
+- **Purpose:** Cancels a previously scheduled contract upgrade.
+- **BLS Verification:** Requires a valid BLS signature from the contract upgrade validator over the cancellation parameters.
+- **Message Construction:**  
+  - **Helper function called:**  
+    `contractUpgradeParamsToBytes(string action, address pendingImplementation, address newImplementation, bytes upgradeCalldata, uint256 upgradeTime, uint256 nonce)` with action = `cancel`.
+  - **Returns:**  
+    - `message`: raw message bytes  
+    - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
+  - **To sign:** Use `messageAsG1Bytes` for BLS signing, with `action` set to `"cancel"`.
+
+#### `setContractUpgradeBlsValidator`
+- **Purpose:** Updates the contract upgrade BLS validator contract.
+- **BLS Verification:** Requires a valid BLS signature from the current validator over the validator update parameters.
+- **Message Construction:**  
+  - **Helper function called:**  
+    `blsValidatorUpdateParamsToBytes(address blsValidator, uint256 nonce)`
+  - **Returns:**  
+    - `message`: raw message bytes  
+    - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
+  - **To sign:** Use `messageAsG1Bytes` for BLS signing.
+
+### How to Use Off-Chain
+
+1. **Call the relevant helper function** on the contract to get the message bytes (`messageAsG1Bytes`) for signing.
+2. **Sign the message** off-chain using your BLS key.
+3. **Submit the signature** as part of the transaction to the contract function.
+
+This design ensures that all critical actions (swap validation, upgrade scheduling/cancellation, validator updates) are authorized by a threshold of BLS signers, and the message format is always available on-chain for off-
+
 
 ## Licensing
 
