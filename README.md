@@ -211,7 +211,7 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 ### How to Use Off-Chain
 
 1. **Call the relevant helper function** on the contract to get the message bytes (`messageAsG1Bytes`) for signing.
-2. **Sign the message** off-chain using your BLS key.
+2. **Sign the message** off-chain using your BLS key and aggregate signatures up to the required threshold.
 3. **Submit the signature** as part of the transaction to the contract function.
 
 This design ensures that all critical actions (swap validation, upgrade scheduling/cancellation, validator updates) are authorized by a threshold of BLS signers, and the message format is always available on-chain for off-
