@@ -161,8 +161,8 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 
 
 #### `setSwapRequestBlsValidator`
-- **Purpose:** Updates the swap request BLS validator contract.
-- **BLS Verification:** Requires a valid BLS signature from the current validator `swapRequestBlsValidator` over the update parameters.
+- **Purpose:** Updates the swap request BLS validator contract. This will also allow switching the public key to a new one in the new validator contract.
+- **BLS Verification:** Requires a valid BLS signature from the current validator `swapRequestBlsValidator` over the update parameters. 
 - **Message Construction:**  
   - **Helper function called:**  
     `swapRequestBlsValidatorUpdateParamsToBytes(address newValidator, uint256 nonce)`
@@ -198,8 +198,8 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
   - **To sign:** Use `messageAsG1Bytes` for BLS signing, with `action` set to `"cancel"`.
 
 #### `setContractUpgradeBlsValidator`
-- **Purpose:** Updates the contract upgrade BLS validator contract.
-- **BLS Verification:** Requires a valid BLS signature from the current contract upgrade validator `contractUpgradeBlsValidator` over the validator update parameters.
+- **Purpose:** Updates the contract upgrade BLS validator contract. This will also allow switching the public key to a new one in the new validator contract.
+- **BLS Verification:** Requires a valid BLS signature from the current contract upgrade validator `contractUpgradeBlsValidator` over the validator update parameters. 
 - **Message Construction:**  
   - **Helper function called:**  
     `blsValidatorUpdateParamsToBytes(address blsValidator, uint256 nonce)`
