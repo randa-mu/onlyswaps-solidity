@@ -162,7 +162,7 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 
 #### `setSwapRequestBlsValidator`
 - **Purpose:** Updates the swap request BLS validator contract.
-- **BLS Verification:** Requires a valid BLS signature from the current validator over the update parameters.
+- **BLS Verification:** Requires a valid BLS signature from the current validator `swapRequestBlsValidator` over the update parameters.
 - **Message Construction:**  
   - **Helper function called:**  
     `swapRequestBlsValidatorUpdateParamsToBytes(address newValidator, uint256 nonce)`
@@ -188,7 +188,7 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 
 #### `cancelUpgrade`
 - **Purpose:** Cancels a previously scheduled contract upgrade.
-- **BLS Verification:** Requires a valid BLS signature from the contract upgrade validator over the cancellation parameters.
+- **BLS Verification:** Requires a valid BLS signature from the contract upgrade validator `contractUpgradeBlsValidator` over the cancellation parameters.
 - **Message Construction:**  
   - **Helper function called:**  
     `contractUpgradeParamsToBytes(string action, address pendingImplementation, address newImplementation, bytes upgradeCalldata, uint256 upgradeTime, uint256 nonce)` with action = `cancel`.
@@ -199,7 +199,7 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 
 #### `setContractUpgradeBlsValidator`
 - **Purpose:** Updates the contract upgrade BLS validator contract.
-- **BLS Verification:** Requires a valid BLS signature from the current validator over the validator update parameters.
+- **BLS Verification:** Requires a valid BLS signature from the current contract upgrade validator `contractUpgradeBlsValidator` over the validator update parameters.
 - **Message Construction:**  
   - **Helper function called:**  
     `blsValidatorUpdateParamsToBytes(address blsValidator, uint256 nonce)`
@@ -211,8 +211,8 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 ### How to Use Off-Chain
 
 1. **Call the relevant helper function** on the contract to get the message bytes (`messageAsG1Bytes`) for signing.
-2. **Sign the message** off-chain using your BLS key and aggregate signatures up to the required threshold.
-3. **Submit the signature** as part of the transaction to the contract function.
+2. **Sign the message** off-chain using your share of the threshold BLS key set in either the `swapRequestBlsValidator` contract or `contractUpgradeBlsValidator` contract and aggregate signatures up to the required threshold.
+3. **Submit the aggregated signature** as part of the transaction to the contract function.
 
 This design ensures that all critical actions (swap validation, upgrade scheduling/cancellation, validator updates) are authorized by a threshold of BLS signers, and the message format is always available on-chain for off-
 
