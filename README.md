@@ -150,7 +150,7 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 
 #### `rebalanceSolver`
 - **Purpose:** Compensates the solver on the source chain (including solver fees) after the solver has sent liquidity from their wallet to the recipient address on the destination chain to fulfill a swap request.
-- **BLS Verification:** Requires a valid BLS signature from the swap request validator over the swap request parameters.
+- **BLS Verification:** Requires a valid BLS signature from the swap request validator `swapRequestBlsValidator` contract over the swap request parameters.
 - **Message Construction:**  
   - **Helper function called:**  
     `swapRequestParametersToBytes(bytes32 requestId, address solver)`
@@ -176,7 +176,7 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 
 #### `scheduleUpgrade`
 - **Purpose:** Schedules a contract upgrade to a new implementation.
-- **BLS Verification:** Requires a valid BLS signature from the contract upgrade validator over the upgrade parameters.
+- **BLS Verification:** Requires a valid BLS signature from the contract upgrade validator `contractUpgradeBlsValidator` over the upgrade parameters.
 - **Message Construction:**  
   - **Helper function called:**  
     `contractUpgradeParamsToBytes(string action, address pendingImplementation, address newImplementation, bytes upgradeCalldata, uint256 upgradeTime, uint256 nonce)` with action = `schedule`.
