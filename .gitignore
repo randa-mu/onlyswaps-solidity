@@ -170,3 +170,6 @@ flat/
 
 # Soldeer
 dependencies/
+
+# Audit 
+audit/audit-response.md
