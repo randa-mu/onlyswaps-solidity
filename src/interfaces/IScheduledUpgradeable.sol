@@ -58,7 +58,8 @@ interface IScheduledUpgradeable {
 
     /// @notice Sets the minimum delay required for scheduling contract upgrades.
     /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
-    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay) external;
+    /// @param signature BLS signature from the admin threshold validating the update
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay, bytes calldata signature) external;
 
     // ---------------------- Getters ----------------------
 

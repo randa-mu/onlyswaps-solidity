@@ -142,7 +142,7 @@ interface IRouter {
         external;
 
     /// @notice Cancels a scheduled upgrade
-    /// @param signature The BLS signature authorizing the cancellation
+    /// @param signature The BLS signature authorising the cancellation
     function cancelUpgrade(bytes calldata signature) external;
 
     /// @notice Executes a scheduled upgrade
@@ -292,25 +292,26 @@ interface IRouter {
     /// @param _verificationFeeBps The new verification fee in basis points
     function setVerificationFeeBps(uint256 _verificationFeeBps) external;
 
-    /// @notice Sets the minimum contract upgrade delay
-    /// @param _minimumContractUpgradeDelay The new minimum delay for upgrade operations
-    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay) external;
+    /// @notice Sets the minimum delay required for scheduling contract upgrades.
+    /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
+    /// @param signature BLS signature from the admin threshold validating the update
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay, bytes calldata signature) external;
 
     /// @notice Updates the swap request BLS signature validator contract
     /// @param _swapRequestBlsValidator The new swap request BLS validator contract address
-    /// @param signature The BLS signature authorizing the update
+    /// @param signature The BLS signature authorising the update
     function setSwapRequestBlsValidator(address _swapRequestBlsValidator, bytes calldata signature) external;
 
     /// @notice Updates the contract upgrade BLS validator contract
     /// @param _contractUpgradeBlsValidator The new contract upgrade BLS validator contract address
-    /// @param signature The BLS signature authorizing the update
+    /// @param signature The BLS signature authorising the update
     function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator, bytes calldata signature) external;
 
     /// @notice Schedules a contract upgrade
     /// @param _newImplementation The address of the new implementation contract
     /// @param _upgradeCalldata The calldata to be sent to the new implementation
     /// @param _upgradeTime The time at which the upgrade can be executed
-    /// @param signature The BLS signature authorizing the upgrade
+    /// @param signature The BLS signature authorising the upgrade
     function scheduleUpgrade(
         address _newImplementation,
         bytes calldata _upgradeCalldata,
