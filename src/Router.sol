@@ -196,7 +196,10 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             ErrorsLib.InvalidTokenOrRecipient()
         );
         require(amountOut > 0, ErrorsLib.ZeroAmount());
-        require(srcChainId != getChainID(), ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainID()));
+        require(
+            srcChainId != getChainID(),
+            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainID())
+        );
         require(
             requestId
                 == keccak256(

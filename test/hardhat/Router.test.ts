@@ -244,8 +244,8 @@ describe("Router", function () {
       router.connect(owner).setTokenMapping(dstChainId, await dstToken.getAddress(), await srcToken.getAddress()),
     ).to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported");
 
-    expect(await router.isDstTokenMapped(await srcToken.getAddress(), dstChainId, await secondDstToken.getAddress()))
-      .to.be.false;
+    expect(await router.isDstTokenMapped(await srcToken.getAddress(), dstChainId, await secondDstToken.getAddress())).to
+      .be.false;
   });
 
   it("should map two tokens on different dst chain ids to a single src token", async () => {
@@ -642,7 +642,9 @@ describe("Router", function () {
           srcChainId,
           nonce,
         ),
-    ).to.be.revertedWithCustomError(router, "SourceChainIdShouldBeDifferentFromDestination").withArgs(srcChainId, dstChainId);
+    )
+      .to.be.revertedWithCustomError(router, "SourceChainIdShouldBeDifferentFromDestination")
+      .withArgs(srcChainId, dstChainId);
 
     // Check recipient balance after transfer
     expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);

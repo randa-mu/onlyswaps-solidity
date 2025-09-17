@@ -105,7 +105,7 @@ interface IScheduledUpgradeable {
         external
         view
         returns (bytes memory, bytes memory);
-    
+
     /// @notice Converts minimum contract upgrade delay parameters to a BLS G1 point and its byte representation.
     /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
     /// @param nonce The nonce for the update request

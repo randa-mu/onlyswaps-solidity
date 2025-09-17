@@ -194,7 +194,10 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
             ErrorsLib.InvalidTokenOrRecipient()
         );
         require(amountOut > 0, ErrorsLib.ZeroAmount());
-        require(srcChainId != getChainID(), ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainID()));
+        require(
+            srcChainId != getChainID(),
+            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainID())
+        );
         require(
             requestId
                 == keccak256(
