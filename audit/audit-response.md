@@ -46,4 +46,4 @@ We have addressed this issue by updating the `relayTokens` function to require a
 ## Others
 
 **SwapRequestReceipt parameters updated**
-We have updated the `SwapRequestReceipt` parameters to include the `tokenIn` and `tokenOut` instead of only a `token` parameter representing the `tokenOut`. Also updated the `getSwapRequestReceipt` function accordingly.
+We have updated the `SwapRequestReceipt` parameters to include the `tokenIn` and `tokenOut` instead of only a `token` parameter representing the `tokenOut`. Also updated the `getSwapRequestReceipt` function accordingly. See commit [`71de7485f4ed169b8b1c4ce5983233ecf718a184`](https://github.com/randa-mu/onlyswaps-solidity/pull/74/commits/71de7485f4ed169b8b1c4ce5983233ecf718a184) for details.
