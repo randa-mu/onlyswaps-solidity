@@ -121,6 +121,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         address recipient
     ) external nonReentrant returns (bytes32 requestId) {
         require(amount > 0, ErrorsLib.ZeroAmount());
+        require(recipient != address(0), ErrorsLib.ZeroAddress());
+        require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
         require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
 
         // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
@@ -170,28 +172,61 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     }
 
     /// @notice Relays tokens to the recipient and stores a receipt
-    /// @param token The token being relayed
-    /// @param recipient The target recipient of the tokens
-    /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param requestId The original request ID from the source chain
+    /// @param sender The sender of the swap request on the source chain
+    /// @param recipient The target recipient of the tokens
+    /// @param tokenIn The token being relayed on the destination chain
+    /// @param tokenOut The output token on the destination chain
+    /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
-    function relayTokens(address token, address recipient, uint256 amountOut, bytes32 requestId, uint256 srcChainId)
-        external
-        nonReentrant
-    {
+    /// @param nonce The nonce used for the swap request
+    function relayTokens(
+        bytes32 requestId,
+        address sender,
+        address recipient,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut,
+        uint256 srcChainId,
+        uint256 nonce
+    ) external nonReentrant {
         require(!swapRequestReceipts[requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
-        require(token != address(0) && recipient != address(0), ErrorsLib.InvalidTokenOrRecipient());
+        require(
+            tokenIn != address(0) && tokenOut != address(0) && sender != address(0) && recipient != address(0),
+            ErrorsLib.InvalidTokenOrRecipient()
+        );
         require(amountOut > 0, ErrorsLib.ZeroAmount());
+        require(
+            srcChainId != getChainID(),
+            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainID())
+        );
+        require(
+            requestId
+                == keccak256(
+                    abi.encode(
+                        sender,
+                        recipient,
+                        tokenIn,
+                        tokenOut,
+                        amountOut,
+                        srcChainId,
+                        // the relayTokens function is called on the destination chain, so dstChainId is the current chain ID
+                        getChainID(),
+                        nonce
+                    )
+                ),
+            ErrorsLib.SwapRequestParametersMismatch()
+        );
 
         fulfilledTransfers.add(requestId);
 
-        IERC20(token).safeTransferFrom(msg.sender, recipient, amountOut);
+        IERC20(tokenIn).safeTransferFrom(msg.sender, recipient, amountOut);
 
         swapRequestReceipts[requestId] = SwapRequestReceipt({
             requestId: requestId,
             srcChainId: srcChainId,
             dstChainId: getChainID(),
-            token: token,
+            token: tokenOut, // tokenOut is the token being received on the destination chain
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
             solver: msg.sender,
             recipient: recipient,
@@ -471,14 +506,14 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         emit VerificationFeeBpsUpdated(verificationFeeBps);
     }
 
-    /// @notice Sets the minimum contract upgrade delay
-    /// @param _minimumContractUpgradeDelay The new minimum delay for upgrade operations
-    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay)
+    /// @notice Sets the minimum delay required for scheduling contract upgrades.
+    /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
+    /// @param signature BLS signature from the admin threshold validating the update
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay, bytes calldata signature)
         public
         override (IRouter, ScheduledUpgradeable)
-        onlyAdmin
     {
-        super.setMinimumContractUpgradeDelay(_minimumContractUpgradeDelay);
+        super.setMinimumContractUpgradeDelay(_minimumContractUpgradeDelay, signature);
     }
 
     /// @notice Updates the swap request BLS signature validator contract
@@ -576,7 +611,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     }
 
     /// @notice Cancels a scheduled upgrade
-    /// @param signature The BLS signature authorizing the cancellation
+    /// @param signature The BLS signature authorising the cancellation
     function cancelUpgrade(bytes calldata signature) public override (IRouter, ScheduledUpgradeable) {
         super.cancelUpgrade(signature);
     }

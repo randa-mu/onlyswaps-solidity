@@ -133,16 +133,27 @@ interface IRouter {
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external;
 
     /// @notice Relays tokens to the recipient and stores a receipt
-    /// @param token The token being relayed
-    /// @param recipient The target recipient of the tokens
-    /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param requestId The original request ID from the source chain
+    /// @param sender The sender of the swap request on the source chain
+    /// @param recipient The target recipient of the tokens
+    /// @param tokenIn The token being relayed on the destination chain
+    /// @param tokenOut The output token on the destination chain
+    /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
-    function relayTokens(address token, address recipient, uint256 amountOut, bytes32 requestId, uint256 srcChainId)
-        external;
+    /// @param nonce The nonce used for the swap request
+    function relayTokens(
+        bytes32 requestId,
+        address sender,
+        address recipient,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut,
+        uint256 srcChainId,
+        uint256 nonce
+    ) external;
 
     /// @notice Cancels a scheduled upgrade
-    /// @param signature The BLS signature authorizing the cancellation
+    /// @param signature The BLS signature authorising the cancellation
     function cancelUpgrade(bytes calldata signature) external;
 
     /// @notice Executes a scheduled upgrade
@@ -292,25 +303,26 @@ interface IRouter {
     /// @param _verificationFeeBps The new verification fee in basis points
     function setVerificationFeeBps(uint256 _verificationFeeBps) external;
 
-    /// @notice Sets the minimum contract upgrade delay
-    /// @param _minimumContractUpgradeDelay The new minimum delay for upgrade operations
-    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay) external;
+    /// @notice Sets the minimum delay required for scheduling contract upgrades.
+    /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
+    /// @param signature BLS signature from the admin threshold validating the update
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay, bytes calldata signature) external;
 
     /// @notice Updates the swap request BLS signature validator contract
     /// @param _swapRequestBlsValidator The new swap request BLS validator contract address
-    /// @param signature The BLS signature authorizing the update
+    /// @param signature The BLS signature authorising the update
     function setSwapRequestBlsValidator(address _swapRequestBlsValidator, bytes calldata signature) external;
 
     /// @notice Updates the contract upgrade BLS validator contract
     /// @param _contractUpgradeBlsValidator The new contract upgrade BLS validator contract address
-    /// @param signature The BLS signature authorizing the update
+    /// @param signature The BLS signature authorising the update
     function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator, bytes calldata signature) external;
 
     /// @notice Schedules a contract upgrade
     /// @param _newImplementation The address of the new implementation contract
     /// @param _upgradeCalldata The calldata to be sent to the new implementation
     /// @param _upgradeTime The time at which the upgrade can be executed
-    /// @param signature The BLS signature authorizing the upgrade
+    /// @param signature The BLS signature authorising the upgrade
     function scheduleUpgrade(
         address _newImplementation,
         bytes calldata _upgradeCalldata,

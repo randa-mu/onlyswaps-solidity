@@ -190,6 +190,22 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
         return (message, messageAsG1Bytes);
     }
 
+    /// @notice Converts minimum contract upgrade delay parameters to a BLS G1 point and its byte representation.
+    /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
+    /// @param nonce The nonce for the update request
+    /// @return message The original encoded message
+    /// @return messageAsG1Bytes The byte representation of the BLS G1 point
+    function minimumContractUpgradeDelayParamsToBytes(uint256 _minimumContractUpgradeDelay, uint256 nonce)
+        public
+        view
+        virtual
+        returns (bytes memory, bytes memory)
+    {
+        bytes memory message = abi.encode(_minimumContractUpgradeDelay, nonce, getChainId());
+        bytes memory messageAsG1Bytes = contractUpgradeBlsValidator.hashToBytes(message);
+        return (message, messageAsG1Bytes);
+    }
+
     /// @notice Returns the current chain ID.
     /// @return chainId The current chain ID
     function getChainId() public view returns (uint256 chainId) {
@@ -226,8 +242,20 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
 
     /// @notice Updates the minimum delay required for scheduling contract upgrades.
     /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
-    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay) public virtual {
-        require(_minimumContractUpgradeDelay > 2 days, ErrorsLib.UpgradeDelayTooShort());
+    /// @param signature BLS signature from the current BLS validator validating the update
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay, bytes calldata signature)
+        public
+        virtual
+    {
+        require(_minimumContractUpgradeDelay >= 2 days, ErrorsLib.UpgradeDelayTooShort());
+        uint256 nonce = ++currentNonce;
+        (, bytes memory messageAsG1Bytes) =
+            minimumContractUpgradeDelayParamsToBytes(_minimumContractUpgradeDelay, nonce);
+
+        require(
+            contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),
+            ErrorsLib.BLSSignatureVerificationFailed()
+        );
         minimumContractUpgradeDelay = _minimumContractUpgradeDelay;
         emit MinimumContractUpgradeDelayUpdated(minimumContractUpgradeDelay);
     }

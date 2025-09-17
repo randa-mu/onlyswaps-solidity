@@ -26,6 +26,7 @@ import {
   hexlify,
 } from "ethers";
 import { ethers } from "hardhat";
+import { parse } from "path";
 
 const DST_CHAIN_ID = 137;
 
@@ -232,6 +233,19 @@ describe("Router", function () {
       .setTokenMapping(DST_CHAIN_ID, await secondDstToken.getAddress(), await srcToken.getAddress());
     expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await secondDstToken.getAddress()))
       .to.be.true;
+  });
+
+  it("should revert if dst chain id is not permitted", async () => {
+    const secondDstToken = await new ERC20Token__factory(owner).deploy("RUSD2", "RUSD2", 18);
+    const dstChainId = 1000; // Not permitted in beforeEach
+
+    // First destination token already mapped in beforeEach
+    await expect(
+      router.connect(owner).setTokenMapping(dstChainId, await dstToken.getAddress(), await srcToken.getAddress()),
+    ).to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported");
+
+    expect(await router.isDstTokenMapped(await srcToken.getAddress(), dstChainId, await secondDstToken.getAddress())).to
+      .be.false;
   });
 
   it("should map two tokens on different dst chain ids to a single src token", async () => {
@@ -504,8 +518,9 @@ describe("Router", function () {
 
   it("should relay tokens and store a receipt", async () => {
     const amount = parseEther("10");
-    const requestId = keccak256(toUtf8Bytes("test"));
     const srcChainId = 1;
+    const dstChainId = 31337;
+    const nonce = 1;
 
     // Check recipient balance before transfer
     expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
@@ -516,9 +531,38 @@ describe("Router", function () {
     // Approve Router to spend user's tokens
     await srcToken.connect(user).approve(await router.getAddress(), amount);
 
+    // Pre-compute valid requestId
+    const abiCoder = new AbiCoder();
+    const requestId: string = keccak256(
+      abiCoder.encode(
+        ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+        [
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          dstChainId,
+          nonce,
+        ],
+      ),
+    );
+
     // Relay tokens
     await expect(
-      router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+      router
+        .connect(user)
+        .relayTokens(
+          requestId,
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          nonce,
+        ),
     ).to.emit(router, "SwapRequestFulfilled");
 
     // Check recipient balance after transfer
@@ -534,10 +578,129 @@ describe("Router", function () {
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
 
     await expect(
-      router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+      router
+        .connect(user)
+        .relayTokens(
+          requestId,
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          nonce,
+        ),
     ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
 
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+  });
+
+  it("should revert if source chain id is the same as the destination chain id", async () => {
+    const amount = parseEther("10");
+    const srcChainId = 31337;
+    const dstChainId = 31337;
+    const nonce = 1;
+
+    // Check recipient balance before transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+
+    // Mint tokens for user
+    await srcToken.mint(userAddr, amount);
+
+    // Approve Router to spend user's tokens
+    await srcToken.connect(user).approve(await router.getAddress(), amount);
+
+    // Pre-compute valid requestId
+    const abiCoder = new AbiCoder();
+    const requestId: string = keccak256(
+      abiCoder.encode(
+        ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+        [
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          dstChainId,
+          nonce,
+        ],
+      ),
+    );
+
+    // Relay tokens
+    await expect(
+      router
+        .connect(user)
+        .relayTokens(
+          requestId,
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          nonce,
+        ),
+    )
+      .to.be.revertedWithCustomError(router, "SourceChainIdShouldBeDifferentFromDestination")
+      .withArgs(srcChainId, dstChainId);
+
+    // Check recipient balance after transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+  });
+
+  it("should revert if requestId reconstruction fails", async () => {
+    const amount = parseEther("10");
+    const srcChainId = 1;
+    const dstChainId = 31337;
+    const nonce = 1;
+
+    // Check recipient balance before transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+
+    // Mint tokens for user
+    await srcToken.mint(userAddr, amount);
+
+    // Approve Router to spend user's tokens
+    await srcToken.connect(user).approve(await router.getAddress(), amount);
+
+    // Pre-compute valid requestId
+    const abiCoder = new AbiCoder();
+    const requestId: string = keccak256(
+      abiCoder.encode(
+        ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+        [
+          userAddr,
+          recipientAddr,
+          await dstToken.getAddress(), // Intentionally swap srcToken and dstToken here to cause mismatch
+          await srcToken.getAddress(),
+          amount,
+          srcChainId,
+          dstChainId,
+          nonce,
+        ],
+      ),
+    );
+
+    // Relay tokens
+    await expect(
+      router
+        .connect(user)
+        .relayTokens(
+          requestId,
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          nonce,
+        ),
+    ).to.be.revertedWithCustomError(router, "SwapRequestParametersMismatch()");
+
+    // Check recipient balance after transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
   });
 
   it("should return correct verification fee amount for a given swap amount", async () => {
@@ -564,26 +727,57 @@ describe("Router", function () {
   });
 
   it("should not allow double fulfillment", async () => {
-    const amount = parseEther("5");
-    const requestId = keccak256(toUtf8Bytes("duplicate"));
-    const srcChainId = 100;
+    const amount = parseEther("10");
+    const srcChainId = 1;
+    const dstChainId = 31337;
+    const nonce = 1;
+
+    // Check recipient balance before transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await dstToken.mint(userAddr, amount);
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
+    await srcToken.mint(userAddr, amount);
+
+    // Approve Router to spend user's tokens
+    await srcToken.connect(user).approve(await router.getAddress(), amount);
+
+    // Pre-compute valid requestId
+    const abiCoder = new AbiCoder();
+    const requestId: string = keccak256(
+      abiCoder.encode(
+        ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+        [
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          dstChainId,
+          nonce,
+        ],
+      ),
+    );
     const tx = await router
       .connect(user)
-      .relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+      .relayTokens(
+        requestId,
+        userAddr,
+        recipientAddr,
+        await srcToken.getAddress(),
+        await dstToken.getAddress(),
+        amount,
+        srcChainId,
+        nonce,
+      );
     const receipt = await tx.wait();
-    const blockNumber = await ethers.provider.getBlock(receipt!.blockNumber);
-    const timestamp = blockNumber!.timestamp;
 
     if (!receipt) {
       throw new Error("transaction has not been mined");
     }
 
     const routerInterface = Router__factory.createInterface();
-    const [reqId, sourceChainId, token, solver, recipient, , fulfilledAt] = extractSingleLog(
+    const [reqId, sourceChainId] = extractSingleLog(
       routerInterface,
       receipt,
       await router.getAddress(),
@@ -596,7 +790,18 @@ describe("Router", function () {
     // Try again with same requestId
     await dstToken.connect(user).approve(await router.getAddress(), amount);
     await expect(
-      router.connect(user).relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+      router
+        .connect(user)
+        .relayTokens(
+          reqId,
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          sourceChainId,
+          nonce,
+        ),
     ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
@@ -604,16 +809,49 @@ describe("Router", function () {
   });
 
   it("relay receipt parameters should match event parameters", async () => {
-    const amount = parseEther("5");
-    const requestId = keccak256(toUtf8Bytes("duplicate"));
-    const srcChainId = 100;
+    const amount = parseEther("10");
+    const srcChainId = 1;
+    let destinationChainId = 31337;
+    const nonce = 1;
+
+    // Check recipient balance before transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await dstToken.mint(userAddr, amount);
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
+    await srcToken.mint(userAddr, amount);
+
+    // Approve Router to spend user's tokens
+    await srcToken.connect(user).approve(await router.getAddress(), amount);
+
+    // Pre-compute valid requestId
+    const abiCoder = new AbiCoder();
+    const requestId: string = keccak256(
+      abiCoder.encode(
+        ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+        [
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          destinationChainId,
+          nonce,
+        ],
+      ),
+    );
     const tx = await router
       .connect(user)
-      .relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+      .relayTokens(
+        requestId,
+        userAddr,
+        recipientAddr,
+        await srcToken.getAddress(),
+        await dstToken.getAddress(),
+        amount,
+        srcChainId,
+        nonce,
+      );
     const receipt = await tx.wait();
 
     if (!receipt) {
@@ -649,14 +887,49 @@ describe("Router", function () {
   });
 
   it("should return correct isFulfilled status", async () => {
-    const amount = parseEther("1");
-    const requestId = keccak256(toUtf8Bytes("status"));
-    const srcChainId = 250;
+    const amount = parseEther("10");
+    const srcChainId = 1;
+    let destinationChainId = 31337;
+    const nonce = 1;
+
+    // Check recipient balance before transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
     await srcToken.mint(userAddr, amount);
+
+    // Approve Router to spend user's tokens
     await srcToken.connect(user).approve(await router.getAddress(), amount);
-    await router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+
+    // Pre-compute valid requestId
+    const abiCoder = new AbiCoder();
+    const requestId: string = keccak256(
+      abiCoder.encode(
+        ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+        [
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          destinationChainId,
+          nonce,
+        ],
+      ),
+    );
+    const tx = await router
+      .connect(user)
+      .relayTokens(
+        requestId,
+        userAddr,
+        recipientAddr,
+        await srcToken.getAddress(),
+        await dstToken.getAddress(),
+        amount,
+        srcChainId,
+        nonce,
+      );
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.true;
     const fakeId = keccak256(toUtf8Bytes("non-existent"));
@@ -685,11 +958,11 @@ describe("Router", function () {
     ).to.be.revertedWithCustomError(router, "ZeroAmount()");
   });
 
-  it("should revert if destination chain is not permitted", async () => {
-    const amount = parseEther("10");
+  it("should revert if trying to request a swap with zero recipient address", async () => {
+    const amount = parseEther("1");
     const fee = parseEther("1");
     const amountToMint = amount + fee;
-    const invalidChainId = 9999;
+    recipientAddr = ZeroAddress;
 
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
@@ -702,10 +975,32 @@ describe("Router", function () {
           await dstToken.getAddress(),
           amount,
           fee,
-          invalidChainId,
+          DST_CHAIN_ID,
           recipientAddr,
         ),
-    ).to.be.revertedWithCustomError(router, "TokenNotSupported()");
+    ).to.be.revertedWithCustomError(router, "ZeroAddress()");
+  });
+
+  it("should revert if destination chain id is not supported", async () => {
+    const amount = parseEther("10");
+    const fee = parseEther("1");
+    // Do not permit the newChainId
+    const newChainId = 1234;
+
+    await expect(
+      router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          fee,
+          newChainId,
+          recipientAddr,
+        ),
+    )
+      .to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported")
+      .withArgs(newChainId);
   });
 
   it("should revert if token mapping does not exist", async () => {
@@ -811,28 +1106,101 @@ describe("Router", function () {
   });
 
   it("should revert if relayTokens is called with zero amount", async () => {
-    const amount = parseEther("0");
-    const requestId = keccak256(toUtf8Bytes("zero-amount"));
+    const amount = 0;
     const srcChainId = 1;
+    let destinationChainId = 31337;
+    const nonce = 1;
 
+    // Check recipient balance before transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+
+    // Mint tokens for user
     await srcToken.mint(userAddr, amount);
+
+    // Approve Router to spend user's tokens
     await srcToken.connect(user).approve(await router.getAddress(), amount);
 
+    // Pre-compute valid requestId
+    const abiCoder = new AbiCoder();
+    const requestId: string = keccak256(
+      abiCoder.encode(
+        ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+        [
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          destinationChainId,
+          nonce,
+        ],
+      ),
+    );
+
     await expect(
-      router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+      router
+        .connect(user)
+        .relayTokens(
+          requestId,
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          nonce,
+        ),
     ).to.be.revertedWithCustomError(router, "ZeroAmount()");
   });
 
   it("should revert if relayTokens is called with zero address as recipient", async () => {
-    const amount = parseEther("1");
-    const requestId = keccak256(toUtf8Bytes("zero-recipient"));
+    const amount = parseEther("10");
     const srcChainId = 1;
+    const dstChainId = 31337;
+    const nonce = 1;
+    recipientAddr = ZeroAddress;
 
+    // Check recipient balance before transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+
+    // Mint tokens for user
     await srcToken.mint(userAddr, amount);
+
+    // Approve Router to spend user's tokens
     await srcToken.connect(user).approve(await router.getAddress(), amount);
 
+    // Pre-compute valid requestId
+    const abiCoder = new AbiCoder();
+    const requestId: string = keccak256(
+      abiCoder.encode(
+        ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+        [
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          dstChainId,
+          nonce,
+        ],
+      ),
+    );
+
     await expect(
-      router.connect(user).relayTokens(await srcToken.getAddress(), ethers.ZeroAddress, amount, requestId, srcChainId),
+      router
+        .connect(user)
+        .relayTokens(
+          requestId,
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          nonce,
+        ),
     ).to.be.revertedWithCustomError(router, "InvalidTokenOrRecipient()");
   });
 
@@ -989,33 +1357,66 @@ describe("Router", function () {
   it("should update minimumContractUpgradeDelay and emit event if delay is greater than 2 days", async () => {
     const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
 
-    const tx = await router.setMinimumContractUpgradeDelay(newDelay);
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(newDelay, currentNonce);
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    const sigPointToAffine = sigPoint.toAffine();
+    const sigBytes = AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256"],
+      [sigPointToAffine.x, sigPointToAffine.y],
+    );
+
+    const tx = await router.setMinimumContractUpgradeDelay(newDelay, sigBytes);
     await expect(tx).to.emit(router, "MinimumContractUpgradeDelayUpdated").withArgs(newDelay);
 
     expect(await router.minimumContractUpgradeDelay()).to.equal(newDelay);
   });
 
-  it("should revert if minimumContractUpgradeDelay is less than or equal to 2 days", async () => {
-    const invalidDelay = 2 * 24 * 60 * 60; // 2 days in seconds
+  it("should revert if minimumContractUpgradeDelay is less than 2 days", async () => {
+    const invalidDelay = 1 * 24 * 60 * 60; // 1 day in seconds
 
-    await expect(router.setMinimumContractUpgradeDelay(invalidDelay)).to.be.revertedWithCustomError(
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(invalidDelay, currentNonce);
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    const sigPointToAffine = sigPoint.toAffine();
+    const sigBytes = AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256"],
+      [sigPointToAffine.x, sigPointToAffine.y],
+    );
+
+    await expect(router.setMinimumContractUpgradeDelay(invalidDelay, sigBytes)).to.be.revertedWithCustomError(
       router,
       "UpgradeDelayTooShort",
     );
 
     const zeroDelay = 0;
-    await expect(router.setMinimumContractUpgradeDelay(zeroDelay)).to.be.revertedWithCustomError(
+    const [, zeroMessageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(zeroDelay, currentNonce + 1);
+    const zeroMessageHex = zeroMessageAsG1Bytes.startsWith("0x") ? zeroMessageAsG1Bytes.slice(2) : zeroMessageAsG1Bytes;
+    const zeroM = bn254.G1.ProjectivePoint.fromHex(zeroMessageHex);
+    const zeroSigPoint = bn254.signShortSignature(zeroM, privKeyBytes);
+    const zeroSigPointToAffine = zeroSigPoint.toAffine();
+    const zeroSigBytes = AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256"],
+      [zeroSigPointToAffine.x, zeroSigPointToAffine.y],
+    );
+
+    await expect(router.setMinimumContractUpgradeDelay(zeroDelay, zeroSigBytes)).to.be.revertedWithCustomError(
       router,
       "UpgradeDelayTooShort",
     );
   });
 
-  it("should revert if non-owner tries to set minimumContractUpgradeDelay", async () => {
+  it("should revert if setMinimumContractUpgradeDelay is called with invalid signature", async () => {
     const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
+    const invalidSigBytes = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
 
-    await expect(router.connect(user).setMinimumContractUpgradeDelay(newDelay)).to.be.revertedWithCustomError(
+    await expect(router.setMinimumContractUpgradeDelay(newDelay, invalidSigBytes)).to.be.revertedWithCustomError(
       router,
-      "AccessControlUnauthorizedAccount",
+      "BLSSignatureVerificationFailed",
     );
   });
 
