@@ -42,3 +42,8 @@ Note that step 3 will correctly fail.
 *Response:* 
 We have addressed this issue by updating the `relayTokens` function to require all swap request parameters necessary to reconstruct the `requestId` on-chain. This ensures that the `requestId` is always derived from the actual parameters provided, preventing mismatches and mitigating the described denial-of-service vulnerability. See commit [`ab187063656f84894508b60d633c385c87fbda5f`](https://github.com/randa-mu/onlyswaps-solidity/pull/73/commits/ab187063656f84894508b60d633c385c87fbda5f) for details.
 
+
+## Others
+
+**SwapRequestReceipt parameters updated**
+We have updated the `SwapRequestReceipt` parameters to include the `tokenIn` and `tokenOut` instead of only a `token` parameter representing the `tokenOut`. Also updated the `getSwapRequestReceipt` function accordingly.
