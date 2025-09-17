@@ -40,6 +40,7 @@ interface IRouter {
         address tokenOut; // Token being received on the destination chain
         bool fulfilled; // Whether the transfer has been delivered
         address solver; // Address that fulfilled the request
+        address sender; // Address that initiated the swap on the source chain
         address recipient; // Recipient of the tokens on the destination chain
         uint256 amountOut; // Amount delivered to the recipient (after fees)
         uint256 fulfilledAt; // Timestamp when the request was fulfilled
@@ -235,6 +236,7 @@ interface IRouter {
     /// @return tokenOut The token being received on the destination chain
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
+    /// @return sender The address that initiated the swap on the source chain
     /// @return recipient The address that received the tokens on the destination chain
     /// @return amountOut The amount of tokens transferred to the recipient
     /// @return fulfilledAt The timestamp when the transfer was fulfilled
@@ -249,6 +251,7 @@ interface IRouter {
             address tokenOut,
             bool fulfilled,
             address solver,
+            address sender,
             address recipient,
             uint256 amountOut,
             uint256 fulfilledAt

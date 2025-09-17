@@ -120,8 +120,8 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     ) external nonReentrant returns (bytes32 requestId) {
         require(amount > 0, ErrorsLib.ZeroAmount());
         require(recipient != address(0), ErrorsLib.ZeroAddress());
-        require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
         require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
+        require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
 
         // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
         // based on the total fee provided
@@ -228,6 +228,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
             tokenOut: tokenOut, // tokenOut is the token being received on the destination chain
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
             solver: msg.sender,
+            sender: sender,
             recipient: recipient,
             amountOut: amountOut,
             fulfilledAt: block.timestamp
@@ -336,7 +337,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @return The calculated verification fee amount
     /// @return The amount after deducting the verification fee
     function getVerificationFeeAmount(uint256 amountToSwap) public view returns (uint256, uint256) {
-        require(verificationFeeBps > 0, ErrorsLib.InvalidFeeBps());
         uint256 verificationFee = (amountToSwap * verificationFeeBps) / BPS_DIVISOR;
         return (verificationFee, amountToSwap - verificationFee);
     }
@@ -451,6 +451,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @return tokenOut The token being received on the destination chain
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
+    /// @return sender The address that initiated the swap on the source chain
     /// @return recipient The address that received the tokens on the destination chain
     /// @return amountOut The amount of tokens transferred to the recipient
     /// @return fulfilledAt The timestamp when the transfer was fulfilled
@@ -465,6 +466,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
             address tokenOut,
             bool fulfilled,
             address solver,
+            address sender,
             address recipient,
             uint256 amountOut,
             uint256 fulfilledAt
@@ -478,6 +480,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         tokenOut = receipt.tokenOut;
         fulfilled = receipt.fulfilled;
         solver = receipt.solver;
+        sender = receipt.sender;
         recipient = receipt.recipient;
         amountOut = receipt.amountOut;
         fulfilledAt = receipt.fulfilledAt;
@@ -509,7 +512,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay, bytes calldata signature)
         public
         override (IRouter, ScheduledUpgradeable)
-        onlyAdmin
     {
         super.setMinimumContractUpgradeDelay(_minimumContractUpgradeDelay, signature);
     }
@@ -603,7 +605,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         require(
             keccak256(abi.encodePacked(IRouter(newImplementation).getVersion()))
                 != keccak256(abi.encodePacked(getVersion())),
-            "New version must be different from current version"
+            ErrorsLib.SameVersionUpgradeNotAllowed()
         );
         super.scheduleUpgrade(newImplementation, upgradeCalldata, upgradeTime, signature);
     }

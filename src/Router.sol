@@ -230,6 +230,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             tokenOut: tokenOut, // tokenOut is the token being received on the destination chain
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
             solver: msg.sender,
+            sender: sender,
             recipient: recipient,
             amountOut: amountOut,
             fulfilledAt: block.timestamp
@@ -458,6 +459,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @return tokenOut The token being received on the destination chain
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
+    /// @return sender The address that initiated the swap on the source chain
     /// @return recipient The address that received the tokens on the destination chain
     /// @return amountOut The amount of tokens transferred to the recipient
     /// @return fulfilledAt The timestamp when the transfer was fulfilled
@@ -472,6 +474,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             address tokenOut,
             bool fulfilled,
             address solver,
+            address sender,
             address recipient,
             uint256 amountOut,
             uint256 fulfilledAt
@@ -485,6 +488,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         tokenOut = receipt.tokenOut;
         fulfilled = receipt.fulfilled;
         solver = receipt.solver;
+        sender = receipt.sender;
         recipient = receipt.recipient;
         amountOut = receipt.amountOut;
         fulfilledAt = receipt.fulfilledAt;

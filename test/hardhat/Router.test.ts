@@ -878,8 +878,9 @@ describe("Router", function () {
     expect(swapRequestReceipt[4]).to.equal(await dstToken.getAddress());
     expect(swapRequestReceipt[5]).to.be.true;
     expect(swapRequestReceipt[6]).to.equal(userAddr);
-    expect(swapRequestReceipt[7]).to.equal(recipientAddr);
-    expect(swapRequestReceipt[8]).to.equal(amount);
+    expect(swapRequestReceipt[7]).to.equal(userAddr);
+    expect(swapRequestReceipt[8]).to.equal(recipientAddr);
+    expect(swapRequestReceipt[9]).to.equal(amount);
 
     // Check transaction receipt values compared to emitted event
     expect(reqId).to.equal(swapRequestReceipt[0]);
