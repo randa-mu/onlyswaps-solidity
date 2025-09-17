@@ -133,13 +133,24 @@ interface IRouter {
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external;
 
     /// @notice Relays tokens to the recipient and stores a receipt
-    /// @param token The token being relayed
-    /// @param recipient The target recipient of the tokens
-    /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param requestId The original request ID from the source chain
+    /// @param sender The sender of the swap request on the source chain
+    /// @param recipient The target recipient of the tokens
+    /// @param tokenIn The token being relayed on the destination chain
+    /// @param tokenOut The output token on the destination chain
+    /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
-    function relayTokens(address token, address recipient, uint256 amountOut, bytes32 requestId, uint256 srcChainId)
-        external;
+    /// @param nonce The nonce used for the swap request
+    function relayTokens(
+        bytes32 requestId,
+        address sender,
+        address recipient,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut,
+        uint256 srcChainId,
+        uint256 nonce
+    ) external;
 
     /// @notice Cancels a scheduled upgrade
     /// @param signature The BLS signature authorising the cancellation
