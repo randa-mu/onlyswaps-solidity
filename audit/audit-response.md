@@ -18,7 +18,7 @@ In addition to the check on the destination token mapping, we have added a valid
 
 **F4. Admin can [delay the scheduled upgrades](https://github.com/randa-mu/onlyswaps-solidity/blob/70d423aa6263bef123f409b6c38dbe5d63fb006a/src/Router.sol#L476) indefinitely.**  
 *Response:*  
-The ability for the admin to indefinitely delay scheduled upgrades has been addressed. The `onlyAdmin` modifier has been replaced with a requirement for a BLS signature as an input parameter, which is now used to validate changes to `minimumContractUpgradeDelay`. See commit [`27fee3c1c982fafe6b6c4a22578dc7221ad616b5`](https://github.com/randa-mu/onlyswaps-solidity/pull/72/commits/27fee3c1c982fafe6b6c4a22578dc7221ad616b5) for details.
+The ability for the admin to indefinitely delay scheduled upgrades has been addressed. The `onlyAdmin` modifier has been replaced with a requirement for a BLS signature as an input parameter, which is now used to validate changes to `minimumContractUpgradeDelay`. See commit [`27fee3c1c982fafe6b6c4a22578dc7221ad616b5`](https://github.com/randa-mu/onlyswaps-solidity/pull/72/commits/27fee3c1c982fafe6b6c4a22578dc7221ad616b5) for details. The [IScheduledUpgradeable.sol](src/interfaces/IScheduledUpgradeable.sol) interface has also been updated in this commit [`d7dfbbe73b39edd88ffc4e4314012fd2869a93be`](https://github.com/randa-mu/onlyswaps-solidity/pull/74/commits/d7dfbbe73b39edd88ffc4e4314012fd2869a93be).
 
 **F5. Probably there should be a timeout in `requestCrossChainSwap`. Right now the users cannot get their funds back if the solvers do not fulfil their order.**  
 *Response:*  
