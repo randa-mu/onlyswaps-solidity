@@ -518,7 +518,7 @@ describe("Router", function () {
 
     // Relay tokens
     await expect(
-      router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+      router.connect(user).relayTokens(userAddr, await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
     ).to.emit(router, "SwapRequestFulfilled");
 
     // Check recipient balance after transfer
@@ -534,8 +534,46 @@ describe("Router", function () {
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
 
     await expect(
-      router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+      router.connect(user).relayTokens(userAddr, await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
     ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
+
+    expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+  });
+
+  it("should revert relay tokens if solverRefundAddress is zero address", async () => {
+    const amount = parseEther("10");
+    const requestId = keccak256(toUtf8Bytes("test"));
+    const srcChainId = 1;
+
+    // Check recipient balance before transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+
+    // Mint tokens for user
+    await srcToken.mint(userAddr, amount);
+
+    // Approve Router to spend user's tokens
+    await srcToken.connect(user).approve(await router.getAddress(), amount);
+
+    // Relay tokens
+    await expect(
+      router.connect(user).relayTokens(ZeroAddress, await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+    ).to.revertedWithCustomError(router, "ZeroAddress()");
+
+    // Check recipient balance after transfer
+    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0n);
+
+    // Check receipt
+    const receipt = await router.swapRequestReceipts(requestId);
+    expect(receipt.fulfilled).to.be.false;
+    expect(receipt.amountOut).to.equal(0n);
+    expect(receipt.solver).to.equal(ZeroAddress);
+
+    expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(false);
+    expect((await router.getFulfilledTransfers()).length).to.be.equal(0n);
+
+    await expect(
+      router.connect(user).relayTokens(userAddr, await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+    ).to.not.be.reverted;
 
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
   });
@@ -573,7 +611,7 @@ describe("Router", function () {
     await dstToken.connect(user).approve(await router.getAddress(), amount);
     const tx = await router
       .connect(user)
-      .relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+      .relayTokens(userAddr, await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
     const receipt = await tx.wait();
     const blockNumber = await ethers.provider.getBlock(receipt!.blockNumber);
     const timestamp = blockNumber!.timestamp;
@@ -596,7 +634,7 @@ describe("Router", function () {
     // Try again with same requestId
     await dstToken.connect(user).approve(await router.getAddress(), amount);
     await expect(
-      router.connect(user).relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+      router.connect(user).relayTokens(userAddr, await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
     ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
@@ -613,7 +651,7 @@ describe("Router", function () {
     await dstToken.connect(user).approve(await router.getAddress(), amount);
     const tx = await router
       .connect(user)
-      .relayTokens(await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+      .relayTokens(userAddr, await dstToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
     const receipt = await tx.wait();
 
     if (!receipt) {
@@ -656,7 +694,7 @@ describe("Router", function () {
     // Mint tokens for user
     await srcToken.mint(userAddr, amount);
     await srcToken.connect(user).approve(await router.getAddress(), amount);
-    await router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
+    await router.connect(user).relayTokens(userAddr, await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId);
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.true;
     const fakeId = keccak256(toUtf8Bytes("non-existent"));
@@ -839,7 +877,7 @@ describe("Router", function () {
     await srcToken.connect(user).approve(await router.getAddress(), amount);
 
     await expect(
-      router.connect(user).relayTokens(await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
+      router.connect(user).relayTokens(userAddr, await srcToken.getAddress(), recipientAddr, amount, requestId, srcChainId),
     ).to.be.revertedWithCustomError(router, "ZeroAmount()");
   });
 
@@ -852,7 +890,7 @@ describe("Router", function () {
     await srcToken.connect(user).approve(await router.getAddress(), amount);
 
     await expect(
-      router.connect(user).relayTokens(await srcToken.getAddress(), ethers.ZeroAddress, amount, requestId, srcChainId),
+      router.connect(user).relayTokens(userAddr, await srcToken.getAddress(), ethers.ZeroAddress, amount, requestId, srcChainId),
     ).to.be.revertedWithCustomError(router, "InvalidTokenOrRecipient()");
   });
 

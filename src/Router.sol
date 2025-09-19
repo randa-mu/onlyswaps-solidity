@@ -172,17 +172,23 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     }
 
     /// @notice Relays tokens to the recipient and stores a receipt
+    /// @param solverRefundAddress The address to refund the solver on the source chain
     /// @param token The token being relayed
     /// @param recipient The target recipient of the tokens
     /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param requestId The original request ID from the source chain
     /// @param srcChainId The ID of the source chain where the request originated
-    function relayTokens(address token, address recipient, uint256 amountOut, bytes32 requestId, uint256 srcChainId)
-        external
-        nonReentrant
-    {
+    function relayTokens(
+        address solverRefundAddress,
+        address token,
+        address recipient,
+        uint256 amountOut,
+        bytes32 requestId,
+        uint256 srcChainId
+    ) external nonReentrant {
         require(!swapRequestReceipts[requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
         require(token != address(0) && recipient != address(0), ErrorsLib.InvalidTokenOrRecipient());
+        require(solverRefundAddress != address(0), ErrorsLib.ZeroAddress());
         require(amountOut > 0, ErrorsLib.ZeroAmount());
 
         fulfilledTransfers.add(requestId);
@@ -195,7 +201,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             dstChainId: getChainID(),
             token: token,
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
-            solver: msg.sender,
+            solver: solverRefundAddress,
             recipient: recipient,
             amountOut: amountOut,
             fulfilledAt: block.timestamp
