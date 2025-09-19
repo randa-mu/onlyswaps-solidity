@@ -1012,7 +1012,11 @@ describe("Router", function () {
     const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
 
     const currentNonce = Number(await router.currentNonce()) + 1;
-    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes("change-upgrade-delay", newDelay, currentNonce);
+    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(
+      "change-upgrade-delay",
+      newDelay,
+      currentNonce,
+    );
     const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
     const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
@@ -1032,7 +1036,11 @@ describe("Router", function () {
     const invalidDelay = 1 * 24 * 60 * 60; // 1 day in seconds
 
     const currentNonce = Number(await router.currentNonce()) + 1;
-    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes("change-upgrade-delay", invalidDelay, currentNonce);
+    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(
+      "change-upgrade-delay",
+      invalidDelay,
+      currentNonce,
+    );
     const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
     const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
@@ -1048,7 +1056,11 @@ describe("Router", function () {
     );
 
     const zeroDelay = 0;
-    const [, zeroMessageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes("change-upgrade-delay", zeroDelay, currentNonce + 1);
+    const [, zeroMessageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(
+      "change-upgrade-delay",
+      zeroDelay,
+      currentNonce + 1,
+    );
     const zeroMessageHex = zeroMessageAsG1Bytes.startsWith("0x") ? zeroMessageAsG1Bytes.slice(2) : zeroMessageAsG1Bytes;
     const zeroM = bn254.G1.ProjectivePoint.fromHex(zeroMessageHex);
     const zeroSigPoint = bn254.signShortSignature(zeroM, privKeyBytes);
