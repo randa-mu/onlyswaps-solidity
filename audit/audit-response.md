@@ -42,6 +42,11 @@ Note that step 3 will correctly fail.
 *Response:* 
 We have addressed this issue by updating the `relayTokens` function to require all swap request parameters necessary to reconstruct the `requestId` on-chain. This ensures that the `requestId` is always derived from the actual parameters provided, preventing mismatches and mitigating the described denial-of-service vulnerability. See commit [`ab187063656f84894508b60d633c385c87fbda5f`](https://github.com/randa-mu/onlyswaps-solidity/pull/73/commits/ab187063656f84894508b60d633c385c87fbda5f) for details.
 
+**F8. The solver should pass a solver address in the relayTokens, so in the receipt, you set that as the Solver address**
+The solver should pass a solver address in the `relayTokens`, so in the receipt, you set that as the Solver address. The issue is that the solver might not want to receive the funds in that particular address in the source chain (or based on which chains you support, he might not have control of the `msg.sender` address in the source chain).
+*Response:* 
+We have added an input parameter called `solverRefundAddress` to the `relayTokens` function in the `Router.sol` contract. See commit [0df79d6d267db0b9dcbc46f16b0aa2c2f087dc0b](https://github.com/randa-mu/onlyswaps-solidity/pull/75/commits/0df79d6d267db0b9dcbc46f16b0aa2c2f087dc0b).
+
 
 ## Others
 
