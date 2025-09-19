@@ -466,14 +466,15 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         emit VerificationFeeBpsUpdated(verificationFeeBps);
     }
 
-    /// @notice Sets the minimum contract upgrade delay
-    /// @param _minimumContractUpgradeDelay The new minimum delay for upgrade operations
-    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay)
+    /// @notice Sets the minimum delay required for scheduling contract upgrades.
+    /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
+    /// @param signature BLS signature from the admin threshold validating the update
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay, bytes calldata signature)
         public
         override (IRouter, ScheduledUpgradeable)
         onlyAdmin
     {
-        super.setMinimumContractUpgradeDelay(_minimumContractUpgradeDelay);
+        super.setMinimumContractUpgradeDelay(_minimumContractUpgradeDelay, signature);
     }
 
     /// @notice Updates the swap request BLS signature validator contract
@@ -571,7 +572,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     }
 
     /// @notice Cancels a scheduled upgrade
-    /// @param signature The BLS signature authorizing the cancellation
+    /// @param signature The BLS signature authorising the cancellation
     function cancelUpgrade(bytes calldata signature) public override (IRouter, ScheduledUpgradeable) {
         super.cancelUpgrade(signature);
     }

@@ -725,7 +725,9 @@ describe("Router", function () {
           newChainId,
           recipientAddr,
         ),
-    ).to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported").withArgs(newChainId);
+    )
+      .to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported")
+      .withArgs(newChainId);
   });
 
   it("should revert if token mapping does not exist", async () => {
@@ -1009,33 +1011,78 @@ describe("Router", function () {
   it("should update minimumContractUpgradeDelay and emit event if delay is greater than 2 days", async () => {
     const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
 
-    const tx = await router.setMinimumContractUpgradeDelay(newDelay);
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(
+      "change-upgrade-delay",
+      newDelay,
+      currentNonce,
+    );
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    const sigPointToAffine = sigPoint.toAffine();
+    const sigBytes = AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256"],
+      [sigPointToAffine.x, sigPointToAffine.y],
+    );
+
+    const tx = await router.setMinimumContractUpgradeDelay(newDelay, sigBytes);
     await expect(tx).to.emit(router, "MinimumContractUpgradeDelayUpdated").withArgs(newDelay);
 
     expect(await router.minimumContractUpgradeDelay()).to.equal(newDelay);
   });
 
-  it("should revert if minimumContractUpgradeDelay is less than or equal to 2 days", async () => {
-    const invalidDelay = 2 * 24 * 60 * 60; // 2 days in seconds
+  it("should revert if minimumContractUpgradeDelay is less than 2 days", async () => {
+    const invalidDelay = 1 * 24 * 60 * 60; // 1 day in seconds
 
-    await expect(router.setMinimumContractUpgradeDelay(invalidDelay)).to.be.revertedWithCustomError(
+    const currentNonce = Number(await router.currentNonce()) + 1;
+    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(
+      "change-upgrade-delay",
+      invalidDelay,
+      currentNonce,
+    );
+    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+    const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+    const sigPointToAffine = sigPoint.toAffine();
+    const sigBytes = AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256"],
+      [sigPointToAffine.x, sigPointToAffine.y],
+    );
+
+    await expect(router.setMinimumContractUpgradeDelay(invalidDelay, sigBytes)).to.be.revertedWithCustomError(
       router,
       "UpgradeDelayTooShort",
     );
 
     const zeroDelay = 0;
-    await expect(router.setMinimumContractUpgradeDelay(zeroDelay)).to.be.revertedWithCustomError(
+    const [, zeroMessageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(
+      "change-upgrade-delay",
+      zeroDelay,
+      currentNonce + 1,
+    );
+    const zeroMessageHex = zeroMessageAsG1Bytes.startsWith("0x") ? zeroMessageAsG1Bytes.slice(2) : zeroMessageAsG1Bytes;
+    const zeroM = bn254.G1.ProjectivePoint.fromHex(zeroMessageHex);
+    const zeroSigPoint = bn254.signShortSignature(zeroM, privKeyBytes);
+    const zeroSigPointToAffine = zeroSigPoint.toAffine();
+    const zeroSigBytes = AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256"],
+      [zeroSigPointToAffine.x, zeroSigPointToAffine.y],
+    );
+
+    await expect(router.setMinimumContractUpgradeDelay(zeroDelay, zeroSigBytes)).to.be.revertedWithCustomError(
       router,
       "UpgradeDelayTooShort",
     );
   });
 
-  it("should revert if non-owner tries to set minimumContractUpgradeDelay", async () => {
+  it("should revert if setMinimumContractUpgradeDelay is called with invalid signature", async () => {
     const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
+    const invalidSigBytes = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
 
-    await expect(router.connect(user).setMinimumContractUpgradeDelay(newDelay)).to.be.revertedWithCustomError(
+    await expect(router.setMinimumContractUpgradeDelay(newDelay, invalidSigBytes)).to.be.revertedWithCustomError(
       router,
-      "AccessControlUnauthorizedAccount",
+      "BLSSignatureVerificationFailed",
     );
   });
 
