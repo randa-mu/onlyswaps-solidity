@@ -208,6 +208,18 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
     - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
   - **To sign:** Use `messageAsG1Bytes` for BLS signing.
 
+#### `setMinimumContractUpgradeDelay`
+- **Purpose:** Updates the minimum delay required for scheduling contract upgrades.
+- **BLS Verification:** Requires a valid BLS signature from the contract upgrade validator `contractUpgradeBlsValidator` over the new delay parameters.
+- **Message Construction:**  
+  - **Helper function called:**  
+    `minimumContractUpgradeDelayParamsToBytes(string memory action, uint256 _minimumContractUpgradeDelay, uint256 nonce)` with action = `change-upgrade-delay`.
+  - **Returns:**  
+    - `message`: raw message bytes  
+    - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
+  - **To sign:** Use `messageAsG1Bytes` for BLS signing.
+
+
 ### How to Use Off-Chain
 
 1. **Call the relevant helper function** on the contract to get the message bytes (`messageAsG1Bytes`) for signing.

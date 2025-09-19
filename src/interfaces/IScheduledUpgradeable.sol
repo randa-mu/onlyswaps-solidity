@@ -106,6 +106,18 @@ interface IScheduledUpgradeable {
         view
         returns (bytes memory, bytes memory);
 
+    /// @notice Converts minimum contract upgrade delay parameters to a BLS G1 point and its byte representation.
+    /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
+    /// @param action The action being performed ("change-upgrade-delay")
+    /// @param nonce The nonce for the update request
+    /// @return message The original encoded message
+    /// @return messageAsG1Bytes The byte representation of the BLS G1 point
+    function minimumContractUpgradeDelayParamsToBytes(
+        string memory action,
+        uint256 _minimumContractUpgradeDelay,
+        uint256 nonce
+    ) external view returns (bytes memory, bytes memory);
+
     /// @notice Returns the current chain ID.
     /// @return chainId The current chain ID
     function getChainId() external view returns (uint256 chainId);
