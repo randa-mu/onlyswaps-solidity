@@ -36,7 +36,8 @@ interface IRouter {
         bytes32 requestId; // Reference to the original request on the source chain
         uint256 srcChainId; // Source chain ID from which the request originated
         uint256 dstChainId; // Destination chain ID where the request was fulfilled
-        address token; // Token being transferred
+        address tokenIn; // Token being sent on the source chain
+        address tokenOut; // Token being received on the destination chain
         bool fulfilled; // Whether the transfer has been delivered
         address solver; // Address that fulfilled the request
         address recipient; // Recipient of the tokens on the destination chain
@@ -136,8 +137,8 @@ interface IRouter {
     /// @param requestId The original request ID from the source chain
     /// @param sender The sender of the swap request on the source chain
     /// @param recipient The target recipient of the tokens
-    /// @param tokenIn The token being relayed on the destination chain
-    /// @param tokenOut The output token on the destination chain
+    /// @param tokenIn The token being sent on the source chain
+    /// @param tokenOut The token being received on the destination chain
     /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
     /// @param nonce The nonce used for the swap request
@@ -230,7 +231,8 @@ interface IRouter {
     /// @return requestId The unique ID of the swap request
     /// @return srcChainId The source chain ID from which the request originated
     /// @return dstChainId The destination chain ID where the tokens were delivered
-    /// @return token The address of the token involved in the transfer
+    /// @return tokenIn The token being sent on the source chain
+    /// @return tokenOut The token being received on the destination chain
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
     /// @return recipient The address that received the tokens on the destination chain
@@ -243,7 +245,8 @@ interface IRouter {
             bytes32 requestId,
             uint256 srcChainId,
             uint256 dstChainId,
-            address token,
+            address tokenIn,
+            address tokenOut,
             bool fulfilled,
             address solver,
             address recipient,

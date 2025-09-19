@@ -18,7 +18,7 @@ In addition to the check on the destination token mapping, we have added a valid
 
 **F4. Admin can [delay the scheduled upgrades](https://github.com/randa-mu/onlyswaps-solidity/blob/70d423aa6263bef123f409b6c38dbe5d63fb006a/src/Router.sol#L476) indefinitely.**  
 *Response:*  
-The ability for the admin to indefinitely delay scheduled upgrades has been addressed. The `onlyAdmin` modifier has been replaced with a requirement for a BLS signature as an input parameter, which is now used to validate changes to `minimumContractUpgradeDelay`. See commit [`27fee3c1c982fafe6b6c4a22578dc7221ad616b5`](https://github.com/randa-mu/onlyswaps-solidity/pull/72/commits/27fee3c1c982fafe6b6c4a22578dc7221ad616b5) for details.
+The ability for the admin to indefinitely delay scheduled upgrades has been addressed. The `onlyAdmin` modifier has been replaced with a requirement for a BLS signature as an input parameter, which is now used to validate changes to `minimumContractUpgradeDelay`. See commit [`27fee3c1c982fafe6b6c4a22578dc7221ad616b5`](https://github.com/randa-mu/onlyswaps-solidity/pull/72/commits/27fee3c1c982fafe6b6c4a22578dc7221ad616b5) for details. The [IScheduledUpgradeable.sol](src/interfaces/IScheduledUpgradeable.sol) interface has also been updated in this commit [`d7dfbbe73b39edd88ffc4e4314012fd2869a93be`](https://github.com/randa-mu/onlyswaps-solidity/pull/74/commits/d7dfbbe73b39edd88ffc4e4314012fd2869a93be).
 
 **F5. Probably there should be a timeout in `requestCrossChainSwap`. Right now the users cannot get their funds back if the solvers do not fulfil their order.**  
 *Response:*  
@@ -42,3 +42,8 @@ Note that step 3 will correctly fail.
 *Response:* 
 We have addressed this issue by updating the `relayTokens` function to require all swap request parameters necessary to reconstruct the `requestId` on-chain. This ensures that the `requestId` is always derived from the actual parameters provided, preventing mismatches and mitigating the described denial-of-service vulnerability. See commit [`ab187063656f84894508b60d633c385c87fbda5f`](https://github.com/randa-mu/onlyswaps-solidity/pull/73/commits/ab187063656f84894508b60d633c385c87fbda5f) for details.
 
+
+## Others
+
+**SwapRequestReceipt parameters updated**
+We have updated the `SwapRequestReceipt` parameters to include the `tokenIn` and `tokenOut` instead of only a `token` parameter representing the `tokenOut`. Also updated the `getSwapRequestReceipt` function accordingly. See commit [`71de7485f4ed169b8b1c4ce5983233ecf718a184`](https://github.com/randa-mu/onlyswaps-solidity/pull/74/commits/71de7485f4ed169b8b1c4ce5983233ecf718a184) for details.
