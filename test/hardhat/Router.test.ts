@@ -685,6 +685,29 @@ describe("Router", function () {
     ).to.be.revertedWithCustomError(router, "ZeroAmount()");
   });
 
+  it("should revert if trying to request a swap with zero recipient address", async () => {
+    const amount = parseEther("1");
+    const fee = parseEther("1");
+    const amountToMint = amount + fee;
+    recipientAddr = ZeroAddress;
+
+    await srcToken.mint(userAddr, amountToMint);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+    await expect(
+      router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          fee,
+          DST_CHAIN_ID,
+          recipientAddr,
+        ),
+    ).to.be.revertedWithCustomError(router, "ZeroAddress()");
+  });
+
   it("should revert if destination chain is not permitted", async () => {
     const amount = parseEther("10");
     const fee = parseEther("1");
