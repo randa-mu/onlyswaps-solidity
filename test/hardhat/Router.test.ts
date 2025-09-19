@@ -708,14 +708,11 @@ describe("Router", function () {
     ).to.be.revertedWithCustomError(router, "ZeroAddress()");
   });
 
-  it("should revert if destination chain is not permitted", async () => {
+  it("should revert if destination chain id is not supported", async () => {
     const amount = parseEther("10");
     const fee = parseEther("1");
-    const amountToMint = amount + fee;
-    const invalidChainId = 9999;
-
-    await srcToken.mint(userAddr, amountToMint);
-    await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+    // Do not permit the newChainId
+    const newChainId = 1234;
 
     await expect(
       router
@@ -725,10 +722,10 @@ describe("Router", function () {
           await dstToken.getAddress(),
           amount,
           fee,
-          invalidChainId,
+          newChainId,
           recipientAddr,
         ),
-    ).to.be.revertedWithCustomError(router, "TokenNotSupported()");
+    ).to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported").withArgs(newChainId);
   });
 
   it("should revert if token mapping does not exist", async () => {

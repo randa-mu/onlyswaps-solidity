@@ -122,6 +122,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     ) external nonReentrant returns (bytes32 requestId) {
         require(amount > 0, ErrorsLib.ZeroAmount());
         require(recipient != address(0), ErrorsLib.ZeroAddress());
+        require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
         require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
 
         // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
