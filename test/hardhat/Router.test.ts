@@ -52,10 +52,11 @@ describe("Router", function () {
 
   async function generateSignatureForBlsValidatorUpdate(
     router: Router,
-    invalidAddress: string,
+    action: string,
+    validatorAddress: string,
     currentNonce: number,
   ): Promise<string> {
-    const [, messageAsG1Bytes] = await router.blsValidatorUpdateParamsToBytes(invalidAddress, currentNonce);
+    const [, messageAsG1Bytes] = await router.blsValidatorUpdateParamsToBytes(action, validatorAddress, currentNonce);
     // Remove "0x" prefix if present
     const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
     // Unmarshall messageAsG1Bytes to a G1 point first
@@ -523,13 +524,13 @@ describe("Router", function () {
     const nonce = 1;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -566,7 +567,7 @@ describe("Router", function () {
     ).to.emit(router, "SwapRequestFulfilled");
 
     // Check recipient balance after transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(amount);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(amount);
 
     // Check receipt
     const receipt = await router.swapRequestReceipts(requestId);
@@ -733,13 +734,13 @@ describe("Router", function () {
     const nonce = 1;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -815,13 +816,13 @@ describe("Router", function () {
     const nonce = 1;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -893,13 +894,13 @@ describe("Router", function () {
     const nonce = 1;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -1275,7 +1276,12 @@ describe("Router", function () {
   it("should revert if setSwapRequestBlsValidator is called with zero address", async () => {
     const invalidAddress = ZeroAddress;
     const currentNonce = Number(await router.currentNonce()) + 1;
-    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, invalidAddress, currentNonce);
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(
+      router,
+      "change-swap-request-bls-validator",
+      invalidAddress,
+      currentNonce,
+    );
     await expect(
       router.connect(owner).setSwapRequestBlsValidator(invalidAddress, sigBytes),
     ).to.be.revertedWithCustomError(router, "ZeroAddress()");
@@ -1295,7 +1301,12 @@ describe("Router", function () {
   it("should update the swapRequestBlsValidator if called with valid parameters", async () => {
     const validAddress = await owner.getAddress();
     const currentNonce = Number(await router.currentNonce()) + 1;
-    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(
+      router,
+      "change-swap-request-bls-validator",
+      validAddress,
+      currentNonce,
+    );
 
     await expect(router.connect(owner).setSwapRequestBlsValidator(validAddress, sigBytes))
       .to.emit(router, "BLSValidatorUpdated")
@@ -1308,7 +1319,12 @@ describe("Router", function () {
   it("should update the upgradeBlsValidator if called with valid parameters", async () => {
     const validAddress = await owner.getAddress();
     const currentNonce = Number(await router.currentNonce()) + 1;
-    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(
+      router,
+      "change-contract-upgrade-bls-validator",
+      validAddress,
+      currentNonce,
+    );
 
     await expect(router.connect(owner).setContractUpgradeBlsValidator(validAddress, sigBytes))
       .to.emit(router, "ContractUpgradeBLSValidatorUpdated")
@@ -1332,7 +1348,12 @@ describe("Router", function () {
   it("should revert if setContractUpgradeBlsValidator is called with zero address", async () => {
     const invalidAddress = ZeroAddress;
     const currentNonce = Number(await router.currentNonce()) + 1;
-    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, invalidAddress, currentNonce);
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(
+      router,
+      "change-contract-upgrade-bls-validator",
+      invalidAddress,
+      currentNonce,
+    );
     await expect(
       router.connect(owner).setContractUpgradeBlsValidator(invalidAddress, sigBytes),
     ).to.be.revertedWithCustomError(router, "ZeroAddress()");
@@ -1341,7 +1362,12 @@ describe("Router", function () {
   it("should not revert if non-owner tries to call setSwapRequestBlsValidator", async () => {
     const validAddress = await owner.getAddress();
     const currentNonce = Number(await router.currentNonce()) + 1;
-    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(
+      router,
+      "change-swap-request-bls-validator",
+      validAddress,
+      currentNonce,
+    );
 
     await expect(router.connect(user).setSwapRequestBlsValidator(validAddress, sigBytes)).to.not.be.reverted;
   });
@@ -1349,7 +1375,12 @@ describe("Router", function () {
   it("should not revert if non-owner tries to call setContractUpgradeBlsValidator", async () => {
     const validAddress = await owner.getAddress();
     const currentNonce = Number(await router.currentNonce()) + 1;
-    const sigBytes = await generateSignatureForBlsValidatorUpdate(router, validAddress, currentNonce);
+    const sigBytes = await generateSignatureForBlsValidatorUpdate(
+      router,
+      "change-contract-upgrade-bls-validator",
+      validAddress,
+      currentNonce,
+    );
 
     await expect(router.connect(user).setContractUpgradeBlsValidator(validAddress, sigBytes)).to.not.be.reverted;
   });
@@ -1358,7 +1389,11 @@ describe("Router", function () {
     const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
 
     const currentNonce = Number(await router.currentNonce()) + 1;
-    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(newDelay, currentNonce);
+    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(
+      "change-upgrade-delay",
+      newDelay,
+      currentNonce,
+    );
     const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
     const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
@@ -1378,7 +1413,11 @@ describe("Router", function () {
     const invalidDelay = 1 * 24 * 60 * 60; // 1 day in seconds
 
     const currentNonce = Number(await router.currentNonce()) + 1;
-    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(invalidDelay, currentNonce);
+    const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(
+      "change-upgrade-delay",
+      invalidDelay,
+      currentNonce,
+    );
     const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
     const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
     const sigPoint = bn254.signShortSignature(M, privKeyBytes);
@@ -1394,7 +1433,11 @@ describe("Router", function () {
     );
 
     const zeroDelay = 0;
-    const [, zeroMessageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(zeroDelay, currentNonce + 1);
+    const [, zeroMessageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(
+      "change-upgrade-delay",
+      zeroDelay,
+      currentNonce + 1,
+    );
     const zeroMessageHex = zeroMessageAsG1Bytes.startsWith("0x") ? zeroMessageAsG1Bytes.slice(2) : zeroMessageAsG1Bytes;
     const zeroM = bn254.G1.ProjectivePoint.fromHex(zeroMessageHex);
     const zeroSigPoint = bn254.signShortSignature(zeroM, privKeyBytes);
