@@ -523,13 +523,13 @@ describe("Router", function () {
     const nonce = 1;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -566,7 +566,7 @@ describe("Router", function () {
     ).to.emit(router, "SwapRequestFulfilled");
 
     // Check recipient balance after transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(amount);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(amount);
 
     // Check receipt
     const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
@@ -604,13 +604,13 @@ describe("Router", function () {
     const nonce = 1;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -649,7 +649,7 @@ describe("Router", function () {
       .withArgs(srcChainId, dstChainId);
 
     // Check recipient balance after transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
   });
 
   it("should revert if requestId reconstruction fails", async () => {
@@ -659,13 +659,13 @@ describe("Router", function () {
     const nonce = 1;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -702,7 +702,7 @@ describe("Router", function () {
     ).to.be.revertedWithCustomError(router, "SwapRequestParametersMismatch()");
 
     // Check recipient balance after transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
   });
 
   it("should return correct verification fee amount for a given swap amount", async () => {
@@ -735,13 +735,13 @@ describe("Router", function () {
     const nonce = 1;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -817,13 +817,13 @@ describe("Router", function () {
     const nonce = 1;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -898,13 +898,13 @@ describe("Router", function () {
     const nonce = 1;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -1117,13 +1117,13 @@ describe("Router", function () {
     const nonce = 1;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -1167,13 +1167,13 @@ describe("Router", function () {
     recipientAddr = ZeroAddress;
 
     // Check recipient balance before transfer
-    expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await srcToken.mint(userAddr, amount);
+    await dstToken.mint(userAddr, amount);
 
     // Approve Router to spend user's tokens
-    await srcToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();

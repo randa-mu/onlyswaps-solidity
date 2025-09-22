@@ -218,7 +218,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
         fulfilledTransfers.add(requestId);
 
-        IERC20(tokenIn).safeTransferFrom(msg.sender, recipient, amountOut);
+        IERC20(tokenOut).safeTransferFrom(msg.sender, recipient, amountOut);
 
         swapRequestReceipts[requestId] = SwapRequestReceipt({
             requestId: requestId,
