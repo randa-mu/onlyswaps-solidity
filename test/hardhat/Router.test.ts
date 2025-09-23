@@ -6,7 +6,7 @@ import {
   ERC20Token__factory,
   BLSBN254SignatureScheme,
   BLSBN254SignatureScheme__factory,
-  UUPSProxy__factory
+  UUPSProxy__factory,
 } from "../../typechain-types";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
@@ -21,7 +21,7 @@ import {
   Result,
   keccak256,
   toUtf8Bytes,
-  ZeroAddress
+  ZeroAddress,
 } from "ethers";
 import { ethers } from "hardhat";
 
@@ -575,7 +575,9 @@ describe("Router", function () {
 
     expect(fulfilled).to.be.true;
     expect(amountOut).to.equal(amount);
+    // solver address in the receipt should match the solver who called relayTokens
     expect(solverFromReceipt).to.equal(solverRefundAddr);
+    expect(solverAddr).to.not.equal(solverRefundAddr);
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
@@ -625,29 +627,27 @@ describe("Router", function () {
 
     // Relay tokens
     await expect(
-      router
-        .connect(solver)
-        .relayTokens(
-          ZeroAddress,
-          requestId,
-          userAddr,
-          recipientAddr,
-          await srcToken.getAddress(),
-          await dstToken.getAddress(),
-          amount,
-          srcChainId,
-          nonce,
-        ),
+      router.connect(solver).relayTokens(
+        ZeroAddress, // zero address in place of solverRefundAddress should revert
+        requestId,
+        userAddr,
+        recipientAddr,
+        await srcToken.getAddress(),
+        await dstToken.getAddress(),
+        amount,
+        srcChainId,
+        nonce,
+      ),
     ).to.revertedWithCustomError(router, "ZeroAddress()");
 
     // Check recipient balance after transfer
     expect(await dstToken.balanceOf(recipientAddr)).to.equal(0n);
 
     // Check receipt
-    const receipt = await router.swapRequestReceipts(requestId);
-    expect(receipt.fulfilled).to.be.false;
-    expect(receipt.amountOut).to.equal(0n);
-    expect(receipt.solver).to.equal(ZeroAddress);
+    const [, , , , , fulfilled, solverFromReceipt, , amountOut] = await router.swapRequestReceipts(requestId);
+    expect(fulfilled).to.be.false;
+    expect(amountOut).to.equal(0n);
+    expect(solverFromReceipt).to.equal(ZeroAddress);
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(false);
     expect((await router.getFulfilledTransfers()).length).to.be.equal(0n);
@@ -663,7 +663,7 @@ describe("Router", function () {
       router
         .connect(solver)
         .relayTokens(
-          userAddr,
+          solverRefundAddr,
           requestId,
           userAddr,
           recipientAddr,
@@ -675,7 +675,11 @@ describe("Router", function () {
         ),
     ).to.emit(router, "SwapRequestFulfilled");
 
+    // Check fulfilled transfers
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+
+    // Check recipient balance after transfer
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(amount);
   });
 
   it("should revert if source chain id is the same as the destination chain id", async () => {
