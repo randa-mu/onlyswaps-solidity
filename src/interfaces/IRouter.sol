@@ -104,8 +104,8 @@ interface IRouter {
     // -------- Core Transfer Logic --------
 
     /// @notice Initiates a swap request
-    /// @param tokenIn Address of the input token on the source chain
-    /// @param tokenOut Address of the output token on the destination chain
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amount Amount of tokens to swap
     /// @param fee Total fee amount (in token units) to be paid by the user
     /// @param dstChainId Target chain ID
@@ -134,15 +134,17 @@ interface IRouter {
     function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external;
 
     /// @notice Relays tokens to the recipient and stores a receipt
+    /// @param solverRefundAddress The address to refund the solver on the source chain
     /// @param requestId The original request ID from the source chain
     /// @param sender The sender of the swap request on the source chain
     /// @param recipient The target recipient of the tokens
-    /// @param tokenIn The token being sent on the source chain
-    /// @param tokenOut The token being received on the destination chain
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
-    /// @param nonce The nonce used for the swap request
+    /// @param nonce The nonce used for the swap request on the source chain for replay protection
     function relayTokens(
+        address solverRefundAddress,
         bytes32 requestId,
         address sender,
         address recipient,
@@ -271,7 +273,7 @@ interface IRouter {
 
     /// @notice Builds swap request parameters based on the provided details
     /// @param tokenIn The address of the input token on the source chain
-    /// @param tokenOut The address of the output token on the destination chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amount The amount of tokens to be swapped
     /// @param verificationFeeAmount The verification fee amount
     /// @param solverFeeAmount The solver fee amount

@@ -105,8 +105,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     // ---------------------- Core Logic ----------------------
 
     /// @notice Initiates a swap request
-    /// @param tokenIn Address of the input token on the source chain
-    /// @param tokenOut Address of the output token on the destination chain
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amount Amount of tokens to swap
     /// @param solverFee The solver fee (in token units) to be paid by the user
     /// @param dstChainId Target chain ID
@@ -172,15 +172,17 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     }
 
     /// @notice Relays tokens to the recipient and stores a receipt
+    /// @param solverRefundAddress The address to refund the solver on the source chain
     /// @param requestId The original request ID from the source chain
     /// @param sender The sender of the swap request on the source chain
     /// @param recipient The target recipient of the tokens
-    /// @param tokenIn The token being relayed on the destination chain
-    /// @param tokenOut The output token on the destination chain
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
-    /// @param nonce The nonce used for the swap request
+    /// @param nonce The nonce used for the swap request on the source chain for replay protection
     function relayTokens(
+        address solverRefundAddress,
         bytes32 requestId,
         address sender,
         address recipient,
@@ -195,6 +197,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             tokenIn != address(0) && tokenOut != address(0) && sender != address(0) && recipient != address(0),
             ErrorsLib.InvalidTokenOrRecipient()
         );
+        require(solverRefundAddress != address(0), ErrorsLib.ZeroAddress());
         require(amountOut > 0, ErrorsLib.ZeroAmount());
         require(
             srcChainId != getChainID(),
@@ -220,7 +223,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
         fulfilledTransfers.add(requestId);
 
-        IERC20(tokenIn).safeTransferFrom(msg.sender, recipient, amountOut);
+        IERC20(tokenOut).safeTransferFrom(msg.sender, recipient, amountOut);
 
         swapRequestReceipts[requestId] = SwapRequestReceipt({
             requestId: requestId,
@@ -229,7 +232,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             tokenIn: tokenIn,
             tokenOut: tokenOut, // tokenOut is the token being received on the destination chain
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
-            solver: msg.sender,
+            solver: solverRefundAddress,
             recipient: recipient,
             amountOut: amountOut,
             fulfilledAt: block.timestamp
@@ -299,7 +302,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
     /// @notice Builds swap request parameters based on the provided details
     /// @param tokenIn The address of the input token on the source chain
-    /// @param tokenOut The address of the output token on the destination chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountOut The amount of tokens to be swapped
     /// @param verificationFeeAmount The verification fee amount
     /// @param solverFeeAmount The solver fee amount
@@ -525,8 +528,9 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param signature The BLS signature authorising the update
     function setSwapRequestBlsValidator(address _swapRequestBlsValidator, bytes calldata signature) external {
         require(_swapRequestBlsValidator != address(0), ErrorsLib.ZeroAddress());
+        string memory action = "change-swap-request-bls-validator";
         uint256 nonce = ++currentNonce;
-        (, bytes memory messageAsG1Bytes) = blsValidatorUpdateParamsToBytes(_swapRequestBlsValidator, nonce);
+        (, bytes memory messageAsG1Bytes) = blsValidatorUpdateParamsToBytes(action, _swapRequestBlsValidator, nonce);
 
         require(
             contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),

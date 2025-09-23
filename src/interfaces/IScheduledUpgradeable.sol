@@ -97,11 +97,12 @@ interface IScheduledUpgradeable {
     ) external view returns (bytes memory, bytes memory);
 
     /// @notice Converts BLS validator update parameters to a BLS G1 point and its byte representation.
+    /// @param action The action being performed (e.g., "change-contract-upgrade-bls-validator" or "change-swap-request-bls-validator")
     /// @param blsValidator The address of the new BLS validator contract
     /// @param nonce The nonce for the update request
     /// @return message The original encoded message
     /// @return messageAsG1Bytes The byte representation of the BLS G1 point
-    function blsValidatorUpdateParamsToBytes(address blsValidator, uint256 nonce)
+    function blsValidatorUpdateParamsToBytes(string memory action, address blsValidator, uint256 nonce)
         external
         view
         returns (bytes memory, bytes memory);
