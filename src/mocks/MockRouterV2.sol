@@ -103,8 +103,8 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     // ---------------------- Core Logic ----------------------
 
     /// @notice Initiates a swap request
-    /// @param tokenIn Address of the input token on the source chain
-    /// @param tokenOut Address of the output token on the destination chain
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amount Amount of tokens to swap
     /// @param solverFee The solver fee (in token units) to be paid by the user
     /// @param dstChainId Target chain ID
@@ -170,28 +170,61 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     }
 
     /// @notice Relays tokens to the recipient and stores a receipt
-    /// @param token The token being relayed
-    /// @param recipient The target recipient of the tokens
-    /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param requestId The original request ID from the source chain
+    /// @param sender The sender of the swap request on the source chain
+    /// @param recipient The target recipient of the tokens
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
+    /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
-    function relayTokens(address token, address recipient, uint256 amountOut, bytes32 requestId, uint256 srcChainId)
-        external
-        nonReentrant
-    {
+    /// @param nonce The nonce used for the swap request
+    function relayTokens(
+        bytes32 requestId,
+        address sender,
+        address recipient,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut,
+        uint256 srcChainId,
+        uint256 nonce
+    ) external nonReentrant {
         require(!swapRequestReceipts[requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
-        require(token != address(0) && recipient != address(0), ErrorsLib.InvalidTokenOrRecipient());
+        require(
+            tokenIn != address(0) && tokenOut != address(0) && sender != address(0) && recipient != address(0),
+            ErrorsLib.InvalidTokenOrRecipient()
+        );
         require(amountOut > 0, ErrorsLib.ZeroAmount());
+        require(
+            srcChainId != getChainID(),
+            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainID())
+        );
+        require(
+            requestId
+                == keccak256(
+                    abi.encode(
+                        sender,
+                        recipient,
+                        tokenIn,
+                        tokenOut,
+                        amountOut,
+                        srcChainId,
+                        // the relayTokens function is called on the destination chain, so dstChainId is the current chain ID
+                        getChainID(),
+                        nonce
+                    )
+                ),
+            ErrorsLib.SwapRequestParametersMismatch()
+        );
 
         fulfilledTransfers.add(requestId);
 
-        IERC20(token).safeTransferFrom(msg.sender, recipient, amountOut);
+        IERC20(tokenOut).safeTransferFrom(msg.sender, recipient, amountOut);
 
         swapRequestReceipts[requestId] = SwapRequestReceipt({
             requestId: requestId,
             srcChainId: srcChainId,
             dstChainId: getChainID(),
-            token: token,
+            token: tokenOut, // tokenOut is the token being received on the destination chain
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
             solver: msg.sender,
             recipient: recipient,
@@ -263,7 +296,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
     /// @notice Builds swap request parameters based on the provided details
     /// @param tokenIn The address of the input token on the source chain
-    /// @param tokenOut The address of the output token on the destination chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountOut The amount of tokens to be swapped
     /// @param verificationFeeAmount The verification fee amount
     /// @param solverFeeAmount The solver fee amount
@@ -482,8 +515,9 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @param signature The BLS signature authorising the update
     function setSwapRequestBlsValidator(address _swapRequestBlsValidator, bytes calldata signature) external {
         require(_swapRequestBlsValidator != address(0), ErrorsLib.ZeroAddress());
+        string memory action = "change-swap-request-bls-validator";
         uint256 nonce = ++currentNonce;
-        (, bytes memory messageAsG1Bytes) = blsValidatorUpdateParamsToBytes(_swapRequestBlsValidator, nonce);
+        (, bytes memory messageAsG1Bytes) = blsValidatorUpdateParamsToBytes(action, _swapRequestBlsValidator, nonce);
 
         require(
             contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),
