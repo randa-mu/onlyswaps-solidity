@@ -213,7 +213,7 @@ abstract contract ScheduledUpgradeable is IScheduledUpgradeable, Initializable, 
         bytes memory messageAsG1Bytes = contractUpgradeBlsValidator.hashToBytes(message);
         return (message, messageAsG1Bytes);
     }
-    
+
     /// @notice Returns the current chain ID.
     /// @return chainId The current chain ID
     function getChainId() public view returns (uint256 chainId) {
