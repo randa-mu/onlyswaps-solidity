@@ -7,12 +7,11 @@ import {
   BLSBN254SignatureScheme,
   BLSBN254SignatureScheme__factory,
   UUPSProxy__factory,
-  BLS__factory,
 } from "../../typechain-types";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import { expect, use } from "chai";
+import { expect } from "chai";
 import {
   AbiCoder,
   parseEther,
@@ -23,10 +22,8 @@ import {
   keccak256,
   toUtf8Bytes,
   ZeroAddress,
-  hexlify,
 } from "ethers";
 import { ethers } from "hardhat";
-import { parse } from "path";
 
 const DST_CHAIN_ID = 137;
 
@@ -344,7 +341,7 @@ describe("Router", function () {
     }
 
     const routerInterface = Router__factory.createInterface();
-    const [requestId, message] = extractSingleLog(
+    const [requestId] = extractSingleLog(
       routerInterface,
       receipt,
       await router.getAddress(),
@@ -410,7 +407,7 @@ describe("Router", function () {
     }
 
     const routerInterface = Router__factory.createInterface();
-    const [requestId, message] = extractSingleLog(
+    const [requestId] = extractSingleLog(
       routerInterface,
       receipt,
       await router.getAddress(),
@@ -573,10 +570,14 @@ describe("Router", function () {
     expect(await dstToken.balanceOf(recipientAddr)).to.equal(amount);
 
     // Check receipt
-    const receipt = await router.swapRequestReceipts(requestId);
-    expect(receipt.fulfilled).to.be.true;
-    expect(receipt.amountOut).to.equal(amount);
-    expect(receipt.solver).to.equal(solverRefundAddr);
+    const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
+    const [, , , , , fulfilled, solverFromReceipt, , amountOut] = swapRequestReceipt;
+
+    expect(fulfilled).to.be.true;
+    expect(amountOut).to.equal(amount);
+    // solver address in the receipt should match the solver who called relayTokens
+    expect(solverFromReceipt).to.equal(solverRefundAddr);
+    expect(solverAddr).to.not.equal(solverRefundAddr);
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
@@ -626,29 +627,27 @@ describe("Router", function () {
 
     // Relay tokens
     await expect(
-      router
-        .connect(solver)
-        .relayTokens(
-          ZeroAddress,
-          requestId,
-          userAddr,
-          recipientAddr,
-          await srcToken.getAddress(),
-          await dstToken.getAddress(),
-          amount,
-          srcChainId,
-          nonce,
-        ),
+      router.connect(solver).relayTokens(
+        ZeroAddress, // zero address in place of solverRefundAddress should revert
+        requestId,
+        userAddr,
+        recipientAddr,
+        await srcToken.getAddress(),
+        await dstToken.getAddress(),
+        amount,
+        srcChainId,
+        nonce,
+      ),
     ).to.revertedWithCustomError(router, "ZeroAddress()");
 
     // Check recipient balance after transfer
     expect(await dstToken.balanceOf(recipientAddr)).to.equal(0n);
 
     // Check receipt
-    const receipt = await router.swapRequestReceipts(requestId);
-    expect(receipt.fulfilled).to.be.false;
-    expect(receipt.amountOut).to.equal(0n);
-    expect(receipt.solver).to.equal(ZeroAddress);
+    const [, , , , , fulfilled, solverFromReceipt, , amountOut] = await router.swapRequestReceipts(requestId);
+    expect(fulfilled).to.be.false;
+    expect(amountOut).to.equal(0n);
+    expect(solverFromReceipt).to.equal(ZeroAddress);
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(false);
     expect((await router.getFulfilledTransfers()).length).to.be.equal(0n);
@@ -664,7 +663,7 @@ describe("Router", function () {
       router
         .connect(solver)
         .relayTokens(
-          userAddr,
+          solverRefundAddr,
           requestId,
           userAddr,
           recipientAddr,
@@ -676,7 +675,11 @@ describe("Router", function () {
         ),
     ).to.emit(router, "SwapRequestFulfilled");
 
+    // Check fulfilled transfers
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+
+    // Check recipient balance after transfer
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(amount);
   });
 
   it("should revert if source chain id is the same as the destination chain id", async () => {
@@ -952,20 +955,18 @@ describe("Router", function () {
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
 
     const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
-    // Check receipt values
-    expect(swapRequestReceipt[0]).to.equal(requestId);
-    expect(swapRequestReceipt[1]).to.equal(srcChainId);
-    expect(swapRequestReceipt[2]).to.equal(await router.getChainID());
-    expect(swapRequestReceipt[3]).to.equal(await dstToken.getAddress());
-    expect(swapRequestReceipt[4]).to.be.true;
-    expect(swapRequestReceipt[5]).to.equal(solverRefundAddr);
-    expect(swapRequestReceipt[6]).to.equal(recipientAddr);
-    expect(swapRequestReceipt[7]).to.equal(amount);
+    const [, , , srcTokenAddr, dstTokenAddr, fulfilled, sender, recipient, amountOut] = swapRequestReceipt;
 
-    // Check transaction receipt values compared to emitted event
-    expect(reqId).to.equal(swapRequestReceipt[0]);
-    expect(sourceChainId).to.equal(swapRequestReceipt[1]);
-    expect(dstChainId).to.equal(swapRequestReceipt[2]);
+    // Check receipt values
+    expect(reqId).to.equal(requestId);
+    expect(sourceChainId).to.equal(srcChainId);
+    expect(dstChainId).to.equal(await router.getChainID());
+    expect(srcTokenAddr).to.equal(await srcToken.getAddress());
+    expect(dstTokenAddr).to.equal(await dstToken.getAddress());
+    expect(fulfilled).to.be.true;
+    expect(sender).to.equal(solverRefundAddr);
+    expect(recipient).to.equal(recipientAddr);
+    expect(amountOut).to.equal(amount);
 
     // Check recipient balance after transfer
     expect(await dstToken.balanceOf(recipientAddr)).to.equal(amount);
@@ -1490,7 +1491,8 @@ describe("Router", function () {
       [sigPointToAffine.x, sigPointToAffine.y],
     );
 
-    const tx = await router.setMinimumContractUpgradeDelay(newDelay, sigBytes);
+    // anyone can call this function, not just owner
+    const tx = await router.connect(solver).setMinimumContractUpgradeDelay(newDelay, sigBytes);
     await expect(tx).to.emit(router, "MinimumContractUpgradeDelayUpdated").withArgs(newDelay);
 
     expect(await router.minimumContractUpgradeDelay()).to.equal(newDelay);

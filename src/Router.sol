@@ -229,7 +229,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             requestId: requestId,
             srcChainId: srcChainId,
             dstChainId: getChainID(),
-            token: tokenOut, // tokenOut is the token being received on the destination chain
+            tokenIn: tokenIn,
+            tokenOut: tokenOut, // tokenOut is the token being received on the destination chain
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
             solver: solverRefundAddress,
             recipient: recipient,
@@ -456,7 +457,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @return requestId The unique ID of the swap request
     /// @return srcChainId The source chain ID from which the request originated
     /// @return dstChainId The destination chain ID where the tokens were delivered
-    /// @return token The address of the token involved in the transfer
+    /// @return tokenIn The token being sent on the source chain
+    /// @return tokenOut The token being received on the destination chain
     /// @return fulfilled Indicates if the transfer was fulfilled
     /// @return solver The address of the solver who fulfilled the transfer
     /// @return recipient The address that received the tokens on the destination chain
@@ -469,7 +471,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             bytes32 requestId,
             uint256 srcChainId,
             uint256 dstChainId,
-            address token,
+            address tokenIn,
+            address tokenOut,
             bool fulfilled,
             address solver,
             address recipient,
@@ -481,7 +484,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         requestId = receipt.requestId;
         srcChainId = receipt.srcChainId;
         dstChainId = receipt.dstChainId;
-        token = receipt.token;
+        tokenIn = receipt.tokenIn;
+        tokenOut = receipt.tokenOut;
         fulfilled = receipt.fulfilled;
         solver = receipt.solver;
         recipient = receipt.recipient;
