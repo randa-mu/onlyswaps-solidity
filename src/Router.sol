@@ -180,6 +180,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
+    /// @param nonce The nonce used for the swap request on the source chain for replay protection
     function relayTokens(
         address solverRefundAddress,
         bytes32 requestId,
