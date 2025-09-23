@@ -17,6 +17,7 @@ library ErrorsLib {
     error BLSSignatureVerificationFailed();
     error SwapRequestParametersMismatch();
     error SourceChainIdMismatch(uint256 swapRequestParamsSrcChainId, uint256 contractChainId);
+    error SourceChainIdShouldBeDifferentFromDestination(uint256 srcChainId, uint256 dstChainId);
     error NoUpgradePending();
     error UpgradeTooEarly(uint256 upgradeTime);
     error TooLateToCancelUpgrade(uint256 upgradeTime);

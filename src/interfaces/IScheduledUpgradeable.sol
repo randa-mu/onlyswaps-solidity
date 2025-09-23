@@ -58,7 +58,8 @@ interface IScheduledUpgradeable {
 
     /// @notice Sets the minimum delay required for scheduling contract upgrades.
     /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
-    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay) external;
+    /// @param signature BLS signature from the admin threshold validating the update
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay, bytes calldata signature) external;
 
     // ---------------------- Getters ----------------------
 
@@ -96,14 +97,27 @@ interface IScheduledUpgradeable {
     ) external view returns (bytes memory, bytes memory);
 
     /// @notice Converts BLS validator update parameters to a BLS G1 point and its byte representation.
+    /// @param action The action being performed (e.g., "change-contract-upgrade-bls-validator" or "change-swap-request-bls-validator")
     /// @param blsValidator The address of the new BLS validator contract
     /// @param nonce The nonce for the update request
     /// @return message The original encoded message
     /// @return messageAsG1Bytes The byte representation of the BLS G1 point
-    function blsValidatorUpdateParamsToBytes(address blsValidator, uint256 nonce)
+    function blsValidatorUpdateParamsToBytes(string memory action, address blsValidator, uint256 nonce)
         external
         view
         returns (bytes memory, bytes memory);
+
+    /// @notice Converts minimum contract upgrade delay parameters to a BLS G1 point and its byte representation.
+    /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
+    /// @param action The action being performed ("change-upgrade-delay")
+    /// @param nonce The nonce for the update request
+    /// @return message The original encoded message
+    /// @return messageAsG1Bytes The byte representation of the BLS G1 point
+    function minimumContractUpgradeDelayParamsToBytes(
+        string memory action,
+        uint256 _minimumContractUpgradeDelay,
+        uint256 nonce
+    ) external view returns (bytes memory, bytes memory);
 
     /// @notice Returns the current chain ID.
     /// @return chainId The current chain ID
