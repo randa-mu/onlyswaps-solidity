@@ -296,7 +296,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
     /// @notice Builds swap request parameters based on the provided details
     /// @param tokenIn The address of the input token on the source chain
-    /// @param tokenOut The address of The token sent to the recipient on the destination chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountOut The amount of tokens to be swapped
     /// @param verificationFeeAmount The verification fee amount
     /// @param solverFeeAmount The solver fee amount
