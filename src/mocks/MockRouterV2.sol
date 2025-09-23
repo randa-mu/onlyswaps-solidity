@@ -512,7 +512,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay, bytes calldata signature)
         public
         override (IRouter, ScheduledUpgradeable)
-        onlyAdmin
     {
         super.setMinimumContractUpgradeDelay(_minimumContractUpgradeDelay, signature);
     }
