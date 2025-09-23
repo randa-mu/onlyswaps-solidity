@@ -632,4 +632,10 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         swapRequestParameters[requestId] = params;
         unfulfilledSolverRefunds.add(requestId);
     }
+
+    // todo: new logic for request cancellation and refunds
+
+    event SwapRequestCancellationStaged(bytes32 indexed requestId, address indexed user, uint256 initiatedAt);
+    event SwapRequestRefundClaimed(bytes32 indexed requestId, address indexed user, uint256 amount);
+    event SwapRequestCancellationWindowUpdated(uint256 newWindow);
 }
