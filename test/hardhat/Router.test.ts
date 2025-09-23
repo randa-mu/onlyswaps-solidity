@@ -1491,7 +1491,8 @@ describe("Router", function () {
       [sigPointToAffine.x, sigPointToAffine.y],
     );
 
-    const tx = await router.setMinimumContractUpgradeDelay(newDelay, sigBytes);
+    // anyone can call this function, not just owner
+    const tx = await router.connect(solver).setMinimumContractUpgradeDelay(newDelay, sigBytes);
     await expect(tx).to.emit(router, "MinimumContractUpgradeDelayUpdated").withArgs(newDelay);
 
     expect(await router.minimumContractUpgradeDelay()).to.equal(newDelay);
