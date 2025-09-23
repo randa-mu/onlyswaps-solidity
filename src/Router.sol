@@ -172,15 +172,17 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     }
 
     /// @notice Relays tokens to the recipient and stores a receipt
+    /// @param solverRefundAddress The address to refund the solver on the source chain
     /// @param requestId The original request ID from the source chain
     /// @param sender The sender of the swap request on the source chain
     /// @param recipient The target recipient of the tokens
-    /// @param tokenIn The token deposited on the source chain
-    /// @param tokenOut The token sent to the recipient on the destination chain
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
-    /// @param nonce The nonce used for the swap request
+    /// @param nonce The nonce used for the swap request on the source chain for replay protection
     function relayTokens(
+        address solverRefundAddress,
         bytes32 requestId,
         address sender,
         address recipient,
@@ -195,6 +197,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             tokenIn != address(0) && tokenOut != address(0) && sender != address(0) && recipient != address(0),
             ErrorsLib.InvalidTokenOrRecipient()
         );
+        require(solverRefundAddress != address(0), ErrorsLib.ZeroAddress());
         require(amountOut > 0, ErrorsLib.ZeroAmount());
         require(
             srcChainId != getChainID(),
@@ -229,7 +232,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             tokenIn: tokenIn,
             tokenOut: tokenOut, // tokenOut is the token being received on the destination chain
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
-            solver: msg.sender,
+            solver: solverRefundAddress,
             recipient: recipient,
             amountOut: amountOut,
             fulfilledAt: block.timestamp

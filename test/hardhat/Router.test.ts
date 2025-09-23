@@ -6,8 +6,7 @@ import {
   ERC20Token__factory,
   BLSBN254SignatureScheme,
   BLSBN254SignatureScheme__factory,
-  UUPSProxy__factory,
-  BLS__factory,
+  UUPSProxy__factory
 } from "../../typechain-types";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
@@ -22,11 +21,9 @@ import {
   Result,
   keccak256,
   toUtf8Bytes,
-  ZeroAddress,
-  hexlify,
+  ZeroAddress
 } from "ethers";
 import { ethers } from "hardhat";
-import { parse } from "path";
 
 const DST_CHAIN_ID = 137;
 
@@ -36,6 +33,7 @@ describe("Router", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
   let solver: SignerWithAddress;
+  let solverRefundWallet: SignerWithAddress;
   let recipient: SignerWithAddress;
 
   let router: Router;
@@ -45,7 +43,7 @@ describe("Router", function () {
   let upgradeBn254SigScheme: BLSBN254SignatureScheme;
 
   let privKeyBytes: Uint8Array;
-  let ownerAddr: string, solverAddr: string, userAddr: string, recipientAddr: string;
+  let ownerAddr: string, solverAddr: string, solverRefundAddr: string, userAddr: string, recipientAddr: string;
 
   const swapType = "swap-v1";
   const upgradeType = "upgrade-v1";
@@ -69,12 +67,13 @@ describe("Router", function () {
   }
 
   beforeEach(async () => {
-    [owner, user, solver, recipient] = await ethers.getSigners();
+    [owner, user, solver, solverRefundWallet, recipient] = await ethers.getSigners();
 
     ownerAddr = await owner.getAddress();
     userAddr = await user.getAddress();
     recipientAddr = await recipient.getAddress();
     solverAddr = await solver.getAddress();
+    solverRefundAddr = await solverRefundWallet.getAddress();
 
     // Create random private key and public key
     privKeyBytes = Uint8Array.from(randomBytes(32));
@@ -342,7 +341,7 @@ describe("Router", function () {
     }
 
     const routerInterface = Router__factory.createInterface();
-    const [requestId, message] = extractSingleLog(
+    const [requestId] = extractSingleLog(
       routerInterface,
       receipt,
       await router.getAddress(),
@@ -408,7 +407,7 @@ describe("Router", function () {
     }
 
     const routerInterface = Router__factory.createInterface();
-    const [requestId, message] = extractSingleLog(
+    const [requestId] = extractSingleLog(
       routerInterface,
       receipt,
       await router.getAddress(),
@@ -527,10 +526,10 @@ describe("Router", function () {
     expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await dstToken.mint(userAddr, amount);
+    await dstToken.mint(solverAddr, amount);
 
     // Approve Router to spend user's tokens
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(solver).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -553,8 +552,9 @@ describe("Router", function () {
     // Relay tokens
     await expect(
       router
-        .connect(user)
+        .connect(solver)
         .relayTokens(
+          solverRefundAddr,
           requestId,
           userAddr,
           recipientAddr,
@@ -571,11 +571,11 @@ describe("Router", function () {
 
     // Check receipt
     const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
-    const [, , , , , fulfilled, solver, , amountOut] = swapRequestReceipt;
+    const [, , , , , fulfilled, solverFromReceipt, , amountOut] = swapRequestReceipt;
 
     expect(fulfilled).to.be.true;
     expect(amountOut).to.equal(amount);
-    expect(solver).to.equal(userAddr);
+    expect(solverFromReceipt).to.equal(solverRefundAddr);
 
     expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
@@ -584,6 +584,7 @@ describe("Router", function () {
       router
         .connect(user)
         .relayTokens(
+          solverRefundAddr,
           requestId,
           userAddr,
           recipientAddr,
@@ -598,20 +599,11 @@ describe("Router", function () {
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
   });
 
-  it("should revert if source chain id is the same as the destination chain id", async () => {
+  it("should revert relay tokens if solverRefundAddress is zero address", async () => {
     const amount = parseEther("10");
-    const srcChainId = 31337;
+    const srcChainId = 1;
     const dstChainId = 31337;
     const nonce = 1;
-
-    // Check recipient balance before transfer
-    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
-
-    // Mint tokens for user
-    await dstToken.mint(userAddr, amount);
-
-    // Approve Router to spend user's tokens
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -634,8 +626,91 @@ describe("Router", function () {
     // Relay tokens
     await expect(
       router
-        .connect(user)
+        .connect(solver)
         .relayTokens(
+          ZeroAddress,
+          requestId,
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          nonce,
+        ),
+    ).to.revertedWithCustomError(router, "ZeroAddress()");
+
+    // Check recipient balance after transfer
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0n);
+
+    // Check receipt
+    const receipt = await router.swapRequestReceipts(requestId);
+    expect(receipt.fulfilled).to.be.false;
+    expect(receipt.amountOut).to.equal(0n);
+    expect(receipt.solver).to.equal(ZeroAddress);
+
+    expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(false);
+    expect((await router.getFulfilledTransfers()).length).to.be.equal(0n);
+
+    // Mint tokens for user
+    await dstToken.mint(solverAddr, amount);
+
+    // Approve Router to spend user's tokens
+    await dstToken.connect(solver).approve(await router.getAddress(), amount);
+
+    // Relay tokens
+    await expect(
+      router
+        .connect(solver)
+        .relayTokens(
+          userAddr,
+          requestId,
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          nonce,
+        ),
+    ).to.emit(router, "SwapRequestFulfilled");
+
+    expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+  });
+
+  it("should revert if source chain id is the same as the destination chain id", async () => {
+    const amount = parseEther("10");
+    const srcChainId = 31337;
+    const dstChainId = 31337;
+    const nonce = 1;
+
+    // Check recipient balance before transfer
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
+
+    // Pre-compute valid requestId
+    const abiCoder = new AbiCoder();
+    const requestId: string = keccak256(
+      abiCoder.encode(
+        ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+        [
+          userAddr,
+          recipientAddr,
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          dstChainId,
+          nonce,
+        ],
+      ),
+    );
+
+    // Relay tokens
+    await expect(
+      router
+        .connect(solver)
+        .relayTokens(
+          solverRefundAddr,
           requestId,
           userAddr,
           recipientAddr,
@@ -689,8 +764,9 @@ describe("Router", function () {
     // Relay tokens
     await expect(
       router
-        .connect(user)
+        .connect(solver)
         .relayTokens(
+          solverAddr,
           requestId,
           userAddr,
           recipientAddr,
@@ -739,10 +815,10 @@ describe("Router", function () {
     expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await dstToken.mint(userAddr, amount);
+    await dstToken.mint(solverAddr, amount);
 
     // Approve Router to spend user's tokens
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(solver).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -762,8 +838,9 @@ describe("Router", function () {
       ),
     );
     const tx = await router
-      .connect(user)
+      .connect(solver)
       .relayTokens(
+        solverRefundAddr,
         requestId,
         userAddr,
         recipientAddr,
@@ -791,11 +868,11 @@ describe("Router", function () {
     expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
 
     // Try again with same requestId
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
     await expect(
       router
-        .connect(user)
+        .connect(solver)
         .relayTokens(
+          solverRefundAddr,
           reqId,
           userAddr,
           recipientAddr,
@@ -821,10 +898,10 @@ describe("Router", function () {
     expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await dstToken.mint(userAddr, amount);
+    await dstToken.mint(solverAddr, amount);
 
     // Approve Router to spend user's tokens
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(solver).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -844,8 +921,9 @@ describe("Router", function () {
       ),
     );
     const tx = await router
-      .connect(user)
+      .connect(solver)
       .relayTokens(
+        solverRefundAddr,
         requestId,
         userAddr,
         recipientAddr,
@@ -882,14 +960,12 @@ describe("Router", function () {
     expect(srcTokenAddr).to.equal(await srcToken.getAddress());
     expect(dstTokenAddr).to.equal(await dstToken.getAddress());
     expect(fulfilled).to.be.true;
-    expect(sender).to.equal(userAddr);
+    expect(sender).to.equal(solverRefundAddr);
     expect(recipient).to.equal(recipientAddr);
     expect(amountOut).to.equal(amount);
 
-    // Check transaction receipt values compared to emitted event
-    expect(reqId).to.equal(swapRequestReceipt[0]);
-    expect(sourceChainId).to.equal(swapRequestReceipt[1]);
-    expect(dstChainId).to.equal(swapRequestReceipt[2]);
+    // Check recipient balance after transfer
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(amount);
   });
 
   it("should return correct isFulfilled status", async () => {
@@ -902,10 +978,10 @@ describe("Router", function () {
     expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await dstToken.mint(userAddr, amount);
+    await dstToken.mint(solverAddr, amount);
 
     // Approve Router to spend user's tokens
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(solver).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -924,9 +1000,11 @@ describe("Router", function () {
         ],
       ),
     );
-    const tx = await router
-      .connect(user)
+
+    await router
+      .connect(solver)
       .relayTokens(
+        solverRefundAddr,
         requestId,
         userAddr,
         recipientAddr,
@@ -1120,12 +1198,6 @@ describe("Router", function () {
     // Check recipient balance before transfer
     expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
-    // Mint tokens for user
-    await dstToken.mint(userAddr, amount);
-
-    // Approve Router to spend user's tokens
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
-
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
     const requestId: string = keccak256(
@@ -1146,8 +1218,9 @@ describe("Router", function () {
 
     await expect(
       router
-        .connect(user)
+        .connect(solver)
         .relayTokens(
+          solverRefundAddr,
           requestId,
           userAddr,
           recipientAddr,
@@ -1158,6 +1231,8 @@ describe("Router", function () {
           nonce,
         ),
     ).to.be.revertedWithCustomError(router, "ZeroAmount()");
+
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
   });
 
   it("should revert if relayTokens is called with zero address as recipient", async () => {
@@ -1171,10 +1246,10 @@ describe("Router", function () {
     expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await dstToken.mint(userAddr, amount);
+    await dstToken.mint(solverAddr, amount);
 
     // Approve Router to spend user's tokens
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(solver).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -1196,8 +1271,9 @@ describe("Router", function () {
 
     await expect(
       router
-        .connect(user)
+        .connect(solver)
         .relayTokens(
+          solverRefundAddr,
           requestId,
           userAddr,
           recipientAddr,
@@ -1208,6 +1284,9 @@ describe("Router", function () {
           nonce,
         ),
     ).to.be.revertedWithCustomError(router, "InvalidTokenOrRecipient()");
+
+    // Check recipient balance before transfer
+    expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
   });
 
   it("should revert if trying to approve more tokens than balance", async () => {
