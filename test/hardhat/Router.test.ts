@@ -816,10 +816,10 @@ describe("Router", function () {
     expect(await dstToken.balanceOf(recipientAddr)).to.equal(0);
 
     // Mint tokens for user
-    await dstToken.mint(userAddr, amount);
+    await dstToken.mint(solverAddr, amount);
 
     // Approve Router to spend user's tokens
-    await dstToken.connect(user).approve(await router.getAddress(), amount);
+    await dstToken.connect(solver).approve(await router.getAddress(), amount);
 
     // Pre-compute valid requestId
     const abiCoder = new AbiCoder();
@@ -958,7 +958,7 @@ describe("Router", function () {
     expect(swapRequestReceipt[2]).to.equal(await router.getChainID());
     expect(swapRequestReceipt[3]).to.equal(await dstToken.getAddress());
     expect(swapRequestReceipt[4]).to.be.true;
-    expect(swapRequestReceipt[5]).to.equal(userAddr);
+    expect(swapRequestReceipt[5]).to.equal(solverRefundAddr);
     expect(swapRequestReceipt[6]).to.equal(recipientAddr);
     expect(swapRequestReceipt[7]).to.equal(amount);
 
