@@ -176,8 +176,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param requestId The original request ID from the source chain
     /// @param sender The sender of the swap request on the source chain
     /// @param recipient The target recipient of the tokens
-    /// @param tokenIn The token deposited on the source chain
-    /// @param tokenOut The token sent to the recipient on the destination chain
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
     function relayTokens(
