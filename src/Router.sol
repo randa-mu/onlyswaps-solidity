@@ -100,6 +100,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
         verificationFeeBps = _verificationFeeBps;
         swapRequestBlsValidator = ISignatureScheme(_swapRequestBlsValidator);
+        swapRequestCancellationWindow = 1 days;
     }
 
     // ---------------------- Core Logic ----------------------
@@ -640,6 +641,92 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     // todo: new logic for request cancellation and refunds
 
     event SwapRequestCancellationStaged(bytes32 indexed requestId, address indexed user, uint256 initiatedAt);
-    event SwapRequestRefundClaimed(bytes32 indexed requestId, address indexed user, uint256 amount);
-    event SwapRequestCancellationWindowUpdated(uint256 newWindow);
+    event SwapRequestRefundClaimed(
+        bytes32 indexed requestId, address indexed user, address indexed recipient, uint256 amount
+    );
+    event SwapRequestCancellationWindowUpdated(uint256 newSwapRequestCancellationWindow);
+
+    uint256 public swapRequestCancellationWindow; // default, can raise/lower with min guard
+
+    mapping(bytes32 => SwapRequestCancellation) public swapRequestCancellationRequests;
+
+    /// @dev Stores all cancelled swap requests by request IDs
+    EnumerableSet.Bytes32Set private cancelledRequests;
+
+    /// @notice Stages a swap request for cancellation after the cancellation window
+    /// @param requestId The unique ID of the swap request to cancel
+    function stageSwapRequestCancellation(bytes32 requestId) external nonReentrant {
+        SwapRequestParameters storage params = swapRequestParameters[requestId];
+        require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
+        require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
+        require(!params.executed, ErrorsLib.AlreadyFulfilled());
+        require(
+            swapRequestCancellationRequests[requestId].cancellationInitiatedAt == 0,
+            ErrorsLib.SwapRequestCancellationAlreadyStaged()
+        );
+
+        swapRequestCancellationRequests[requestId].cancellationInitiatedAt = block.timestamp;
+
+        emit SwapRequestCancellationStaged(requestId, msg.sender, block.timestamp);
+    }
+
+    /// @notice Cancels a staged swap request and refunds the user after the cancellation window
+    /// @param requestId The unique ID of the swap request to cancel and refund
+    function cancelSwapRequestAndRefund(bytes32 requestId, address refundRecipient) external nonReentrant {
+        SwapRequestParameters storage params = swapRequestParameters[requestId];
+        require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
+        require(!params.executed, ErrorsLib.AlreadyFulfilled());
+        require(
+            swapRequestCancellationRequests[requestId].cancellationInitiatedAt > 0,
+            ErrorsLib.SwapRequestCancellationNotStaged()
+        );
+        uint256 cancellationDeadline =
+            swapRequestCancellationRequests[requestId].cancellationInitiatedAt + swapRequestCancellationWindow;
+        require(block.timestamp >= cancellationDeadline, ErrorsLib.SwapRequestCancellationWindowNotPassed());
+        require(refundRecipient != address(0), ErrorsLib.ZeroAddress());
+        require(
+            totalVerificationFeeBalance[params.tokenIn] >= params.verificationFee,
+            ErrorsLib.InsufficientVerificationFeeBalance()
+        );
+        totalVerificationFeeBalance[params.tokenIn] -= params.verificationFee;
+        // Mark as executed
+        params.executed = true;
+        // Mark as cancelled
+        cancelledRequests.add(requestId);
+
+        // Remove from unfulfilledSolverRefunds if present
+        unfulfilledSolverRefunds.remove(requestId);
+
+        // Do NOT add to fulfilledTransfers or fulfilledSolverRefunds, since this is a cancellation/refund
+
+        uint256 totalRefund = params.amountOut + params.verificationFee + params.solverFee;
+
+        IERC20(params.tokenIn).safeTransfer(refundRecipient, totalRefund);
+
+        emit SwapRequestRefundClaimed(requestId, params.sender, refundRecipient, totalRefund);
+    }
+
+    /// @notice Returns an array of cancelled swap request IDs
+    /// @return An array of bytes32 representing the cancelled request IDs
+    function getCancelledRequests() external view returns (bytes32[] memory) {
+        return cancelledRequests.values();
+    }
+
+    /// @notice Updates the swap request cancellation window
+    /// @param newSwapRequestCancellationWindow The new cancellation window in seconds
+    /// @param signature The BLS signature authorising the update
+    function setCancellationWindow(uint256 newSwapRequestCancellationWindow, bytes calldata signature) external {
+        require(newSwapRequestCancellationWindow >= 1 days, ErrorsLib.SwapRequestCancellationWindowTooShort());
+        string memory action = "change-cancellation-window";
+        uint256 nonce = ++currentNonce;
+        (, bytes memory messageAsG1Bytes) =
+            minimumContractUpgradeDelayParamsToBytes(action, newSwapRequestCancellationWindow, nonce);
+
+        require(
+            contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),
+            ErrorsLib.BLSSignatureVerificationFailed()
+        );
+        swapRequestCancellationWindow = newSwapRequestCancellationWindow;
+        emit SwapRequestCancellationWindowUpdated(newSwapRequestCancellationWindow);
+    }
 }

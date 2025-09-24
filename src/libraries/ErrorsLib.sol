@@ -15,11 +15,16 @@ library ErrorsLib {
     error DestinationChainIdNotSupported(uint256 dstChainId);
     error FeeBpsExceedsThreshold(uint256 maxFeeBps);
     error BLSSignatureVerificationFailed();
+    error InsufficientVerificationFeeBalance();
     error SwapRequestParametersMismatch();
+    error SwapRequestCancellationWindowTooShort();
     error SourceChainIdMismatch(uint256 swapRequestParamsSrcChainId, uint256 contractChainId);
     error SourceChainIdShouldBeDifferentFromDestination(uint256 srcChainId, uint256 dstChainId);
     error NoUpgradePending();
+    error SwapRequestCancellationWindowNotPassed();
     error UpgradeTooEarly(uint256 upgradeTime);
+    error SwapRequestCancellationNotStaged();
+    error SwapRequestCancellationAlreadyStaged();
     error TooLateToCancelUpgrade(uint256 upgradeTime);
     error ZeroAddress();
     error GrantRoleFailed();

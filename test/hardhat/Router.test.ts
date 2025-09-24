@@ -274,8 +274,8 @@ describe("Router", function () {
 
   it("should initiate a swap request and emit message", async () => {
     const amount = parseEther("10");
-    const fee = parseEther("1");
-    const amountToMint = amount + fee;
+    const solverFee = parseEther("1");
+    const amountToMint = amount + solverFee;
 
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
@@ -287,7 +287,7 @@ describe("Router", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,
-          fee,
+          solverFee,
           DST_CHAIN_ID,
           recipientAddr,
         ),
@@ -296,8 +296,8 @@ describe("Router", function () {
 
   it("should revert if fee is too low", async () => {
     const amount = parseEther("10");
-    const fee = parseEther("0"); // Set fee lower than the required swap fee
-    const amountToMint = amount + fee;
+    const solverFee = parseEther("0"); // Set fee lower than the required swap fee
+    const amountToMint = amount + solverFee;
 
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
@@ -309,7 +309,7 @@ describe("Router", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,
-          fee,
+          solverFee,
           DST_CHAIN_ID,
           recipientAddr,
         ),
@@ -318,8 +318,8 @@ describe("Router", function () {
 
   it("should update the total swap request fee for unfulfilled request", async () => {
     const amount = parseEther("5");
-    const fee = parseEther("1");
-    const amountToMint = amount + fee;
+    const solverFee = parseEther("1");
+    const amountToMint = amount + solverFee;
 
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
@@ -330,7 +330,7 @@ describe("Router", function () {
         await srcToken.getAddress(),
         await dstToken.getAddress(),
         amount,
-        fee,
+        solverFee,
         DST_CHAIN_ID,
         recipient.address,
       );
@@ -349,10 +349,10 @@ describe("Router", function () {
     );
 
     const newFee = parseEther("1.5");
-    await srcToken.mint(user.address, newFee - fee);
-    await srcToken.connect(user).approve(await router.getAddress(), newFee - fee);
+    await srcToken.mint(user.address, newFee - solverFee);
+    await srcToken.connect(user).approve(await router.getAddress(), newFee - solverFee);
 
-    expect(await srcToken.balanceOf(userAddr)).to.equal(newFee - fee);
+    expect(await srcToken.balanceOf(userAddr)).to.equal(newFee - solverFee);
 
     // Check: only sender can update fee
     await expect(router.connect(solver).updateSolverFeesIfUnfulfilled(requestId, newFee)).to.be.revertedWithCustomError(
@@ -361,10 +361,9 @@ describe("Router", function () {
     );
 
     // Check: newFee must be greater than current solverFee
-    await expect(router.connect(user).updateSolverFeesIfUnfulfilled(requestId, fee)).to.be.revertedWithCustomError(
-      router,
-      "NewFeeTooLow",
-    );
+    await expect(
+      router.connect(user).updateSolverFeesIfUnfulfilled(requestId, solverFee),
+    ).to.be.revertedWithCustomError(router, "NewFeeTooLow");
 
     await expect(router.connect(user).updateSolverFeesIfUnfulfilled(requestId, newFee)).to.emit(
       router,
@@ -384,8 +383,8 @@ describe("Router", function () {
 
   it("should allow owner to withdraw verification fees", async () => {
     const amount = parseEther("10");
-    const fee = parseEther("1");
-    const amountToMint = amount + fee;
+    const solverFee = parseEther("1");
+    const amountToMint = amount + solverFee;
 
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
@@ -396,7 +395,7 @@ describe("Router", function () {
         await srcToken.getAddress(),
         await dstToken.getAddress(),
         amount,
-        fee,
+        solverFee,
         DST_CHAIN_ID,
         recipient.address,
       );
@@ -435,8 +434,8 @@ describe("Router", function () {
   it("should rebalance solver and transfer correct amount", async () => {
     // Create token swap request on source chain
     const amount = parseEther("10");
-    const fee = parseEther("1");
-    const amountToMint = amount + fee;
+    const solverFee = parseEther("1");
+    const amountToMint = amount + solverFee;
 
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
@@ -447,7 +446,7 @@ describe("Router", function () {
         await srcToken.getAddress(),
         await dstToken.getAddress(),
         amount,
-        fee,
+        solverFee,
         DST_CHAIN_ID,
         recipient.address,
       );
@@ -1026,8 +1025,8 @@ describe("Router", function () {
 
   it("should revert if trying to swap with zero amount", async () => {
     const amount = parseEther("0");
-    const fee = parseEther("1");
-    const amountToMint = amount + fee;
+    const solverFee = parseEther("1");
+    const amountToMint = amount + solverFee;
 
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
@@ -1039,7 +1038,7 @@ describe("Router", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,
-          fee,
+          solverFee,
           DST_CHAIN_ID,
           recipientAddr,
         ),
@@ -1048,8 +1047,8 @@ describe("Router", function () {
 
   it("should revert if trying to request a swap with zero recipient address", async () => {
     const amount = parseEther("1");
-    const fee = parseEther("1");
-    const amountToMint = amount + fee;
+    const solverFee = parseEther("1");
+    const amountToMint = amount + solverFee;
     recipientAddr = ZeroAddress;
 
     await srcToken.mint(userAddr, amountToMint);
@@ -1062,7 +1061,7 @@ describe("Router", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,
-          fee,
+          solverFee,
           DST_CHAIN_ID,
           recipientAddr,
         ),
@@ -1071,7 +1070,7 @@ describe("Router", function () {
 
   it("should revert if destination chain id is not supported", async () => {
     const amount = parseEther("10");
-    const fee = parseEther("1");
+    const solverFee = parseEther("1");
     // Do not permit the newChainId
     const newChainId = 1234;
 
@@ -1082,7 +1081,7 @@ describe("Router", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,
-          fee,
+          solverFee,
           newChainId,
           recipientAddr,
         ),
@@ -1093,8 +1092,8 @@ describe("Router", function () {
 
   it("should revert if token mapping does not exist", async () => {
     const amount = parseEther("10");
-    const fee = parseEther("1");
-    const amountToMint = amount + fee;
+    const solverFee = parseEther("1");
+    const amountToMint = amount + solverFee;
     const newChainId = 1234;
 
     await router.connect(owner).permitDestinationChainId(newChainId);
@@ -1109,7 +1108,7 @@ describe("Router", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,
-          fee,
+          solverFee,
           newChainId,
           recipientAddr,
         ),
@@ -1118,8 +1117,8 @@ describe("Router", function () {
 
   it("should revert if user tries to update solver fee for a fulfilled request", async () => {
     const amount = parseEther("5");
-    const fee = parseEther("1");
-    const amountToMint = amount + fee;
+    const solverFee = parseEther("1");
+    const amountToMint = amount + solverFee;
 
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
@@ -1130,7 +1129,7 @@ describe("Router", function () {
         await srcToken.getAddress(),
         await dstToken.getAddress(),
         amount,
-        fee,
+        solverFee,
         DST_CHAIN_ID,
         recipient.address,
       );
@@ -1295,11 +1294,11 @@ describe("Router", function () {
 
   it("should revert if trying to approve more tokens than balance", async () => {
     const amount = parseEther("10");
-    const fee = parseEther("1");
-    const amountToMint = amount; // Not enough for fee
+    const solverFee = parseEther("1");
+    const amountToMint = amount; // Not enough to cover solverFee
 
     await srcToken.mint(userAddr, amountToMint);
-    await srcToken.connect(user).approve(router.getAddress(), amountToMint + fee);
+    await srcToken.connect(user).approve(router.getAddress(), amountToMint + solverFee);
 
     await expect(
       router
@@ -1308,7 +1307,7 @@ describe("Router", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,
-          fee,
+          solverFee,
           DST_CHAIN_ID,
           recipientAddr,
         ),
@@ -1317,8 +1316,8 @@ describe("Router", function () {
 
   it("should revert if rebalanceSolver is called with invalid signature", async () => {
     const amount = parseEther("10");
-    const fee = parseEther("1");
-    const amountToMint = amount + fee;
+    const solverFee = parseEther("1");
+    const amountToMint = amount + solverFee;
 
     await srcToken.mint(userAddr, amountToMint);
     await srcToken.connect(user).approve(router.getAddress(), amountToMint);
@@ -1329,7 +1328,7 @@ describe("Router", function () {
         await srcToken.getAddress(),
         await dstToken.getAddress(),
         amount,
-        fee,
+        solverFee,
         DST_CHAIN_ID,
         recipient.address,
       );
@@ -1757,6 +1756,233 @@ describe("Router", function () {
 
     expect(pubKeyPointFromContract.x.c1).to.equal(pubKeyPoint.x.c1);
     expect(pubKeyPointFromContract.y.c1).to.equal(pubKeyPoint.y.c1);
+  });
+
+  describe("Swap Request Cancellation and Refund", () => {
+    let amount: bigint;
+    let fee: bigint;
+    let amountToMint: bigint;
+    let requestId: string;
+
+    beforeEach(async () => {
+      amount = parseEther("10");
+      fee = parseEther("1");
+      amountToMint = amount + fee;
+
+      await srcToken.mint(userAddr, amountToMint);
+      await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+      const tx = await router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          fee,
+          DST_CHAIN_ID,
+          recipientAddr,
+        );
+      const receipt = await tx.wait();
+      const routerInterface = Router__factory.createInterface();
+      [requestId] = extractSingleLog(
+        routerInterface,
+        receipt!,
+        await router.getAddress(),
+        routerInterface.getEvent("SwapRequested"),
+      );
+    });
+
+    it("should stage a swap request cancellation and emit event", async () => {
+      const blockTimestamp = (await ethers.provider.getBlock("latest"))!.timestamp;
+      await expect(router.connect(user).stageSwapRequestCancellation(requestId))
+        .to.emit(router, "SwapRequestCancellationStaged")
+        .withArgs(requestId, userAddr, blockTimestamp + 1);
+
+      // Should revert if called again
+      await expect(router.connect(user).stageSwapRequestCancellation(requestId)).to.be.revertedWithCustomError(
+        router,
+        "SwapRequestCancellationAlreadyStaged",
+      );
+    });
+
+    it("should revert stageSwapRequestCancellation if called by non-request sender", async () => {
+      await expect(router.connect(solver).stageSwapRequestCancellation(requestId)).to.be.revertedWithCustomError(
+        router,
+        "UnauthorisedCaller",
+      );
+    });
+
+    it("should revert stageSwapRequestCancellation if already fulfilled", async () => {
+      // Fulfill the request
+      const [, messageAsG1Bytes] = await router.swapRequestParametersToBytes(requestId, solver.address);
+      const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+      const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+      const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+      const sigPointToAffine = sigPoint.toAffine();
+      const sigBytes = AbiCoder.defaultAbiCoder().encode(
+        ["uint256", "uint256"],
+        [sigPointToAffine.x, sigPointToAffine.y],
+      );
+      await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
+
+      await expect(router.connect(user).stageSwapRequestCancellation(requestId)).to.be.revertedWithCustomError(
+        router,
+        "AlreadyFulfilled",
+      );
+    });
+
+    it("should revert cancelSwapRequestAndRefund if not staged", async () => {
+      await expect(
+        router.connect(user).cancelSwapRequestAndRefund(requestId, recipientAddr),
+      ).to.be.revertedWithCustomError(router, "SwapRequestCancellationNotStaged");
+    });
+
+    it("should revert cancelSwapRequestAndRefund if called by non-request sender", async () => {
+      await router.connect(user).stageSwapRequestCancellation(requestId);
+      await ethers.provider.send("evm_increaseTime", [2 * 24 * 60 * 60]); // 2 days
+      await ethers.provider.send("evm_mine", []);
+      await expect(
+        router.connect(solver).cancelSwapRequestAndRefund(requestId, recipientAddr),
+      ).to.be.revertedWithCustomError(router, "UnauthorisedCaller");
+    });
+
+    it("should revert cancelSwapRequestAndRefund if cancellation window not passed", async () => {
+      await router.connect(user).stageSwapRequestCancellation(requestId);
+      await expect(
+        router.connect(user).cancelSwapRequestAndRefund(requestId, recipientAddr),
+      ).to.be.revertedWithCustomError(router, "SwapRequestCancellationWindowNotPassed");
+    });
+
+    it("should revert cancelSwapRequestAndRefund if recipient is zero address", async () => {
+      await router.connect(user).stageSwapRequestCancellation(requestId);
+      await ethers.provider.send("evm_increaseTime", [2 * 24 * 60 * 60]); // 2 days
+      await ethers.provider.send("evm_mine", []);
+      await expect(
+        router.connect(user).cancelSwapRequestAndRefund(requestId, ZeroAddress),
+      ).to.be.revertedWithCustomError(router, "ZeroAddress");
+    });
+
+    it("should revert cancelSwapRequestAndRefund if insufficient verification fee balance", async () => {
+      // Withdraw verification fee so balance is zero
+      await router.connect(owner).withdrawVerificationFee(await srcToken.getAddress(), ownerAddr);
+      await router.connect(user).stageSwapRequestCancellation(requestId);
+      await ethers.provider.send("evm_increaseTime", [2 * 24 * 60 * 60]); // 2 days
+      await ethers.provider.send("evm_mine", []);
+      await expect(
+        router.connect(user).cancelSwapRequestAndRefund(requestId, recipientAddr),
+      ).to.be.revertedWithCustomError(router, "InsufficientVerificationFeeBalance");
+    });
+
+    it("should cancel a staged swap request and refund the user, emitting event", async () => {
+      await srcToken.mint(userAddr, amountToMint);
+      await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+      await router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          fee,
+          DST_CHAIN_ID,
+          recipientAddr,
+        );
+
+      await router.connect(user).stageSwapRequestCancellation(requestId);
+      await ethers.provider.send("evm_increaseTime", [2 * 24 * 60 * 60]); // 2 days
+      await ethers.provider.send("evm_mine", []);
+
+      const beforeBalance = await srcToken.balanceOf(recipientAddr);
+
+      const params = await router.getSwapRequestParameters(requestId);
+      const totalRefund = params.amountOut + params.verificationFee + params.solverFee;
+
+      await expect(router.connect(user).cancelSwapRequestAndRefund(requestId, recipientAddr))
+        .to.emit(router, "SwapRequestRefundClaimed")
+        .withArgs(requestId, userAddr, recipientAddr, totalRefund);
+
+      const afterBalance = await srcToken.balanceOf(recipientAddr);
+      expect(afterBalance - beforeBalance).to.equal(totalRefund);
+
+      // Should mark as executed and cancelled
+      const updatedParams = await router.getSwapRequestParameters(requestId);
+      expect(updatedParams.executed).to.be.true;
+      expect((await router.getCancelledRequests()).includes(requestId)).to.be.true;
+    });
+
+    it("should revert if trying to cancel already fulfilled request", async () => {
+      // Fulfill the request
+      const [, messageAsG1Bytes] = await router.swapRequestParametersToBytes(requestId, solver.address);
+      const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+      const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+      const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+      const sigPointToAffine = sigPoint.toAffine();
+      const sigBytes = AbiCoder.defaultAbiCoder().encode(
+        ["uint256", "uint256"],
+        [sigPointToAffine.x, sigPointToAffine.y],
+      );
+      await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
+
+      await expect(
+        router.connect(user).cancelSwapRequestAndRefund(requestId, recipientAddr),
+      ).to.be.revertedWithCustomError(router, "AlreadyFulfilled");
+    });
+
+    it("should update the swap request cancellation window and emit event", async () => {
+      const newWindow = 3 * 24 * 60 * 60; // 3 days
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(
+        "change-cancellation-window",
+        newWindow,
+        currentNonce,
+      );
+      const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+      const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+      const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+      const sigPointToAffine = sigPoint.toAffine();
+      const sigBytes = AbiCoder.defaultAbiCoder().encode(
+        ["uint256", "uint256"],
+        [sigPointToAffine.x, sigPointToAffine.y],
+      );
+
+      await expect(router.setCancellationWindow(newWindow, sigBytes))
+        .to.emit(router, "SwapRequestCancellationWindowUpdated")
+        .withArgs(newWindow);
+
+      expect(await router.swapRequestCancellationWindow()).to.equal(newWindow);
+    });
+
+    it("should revert setCancellationWindow if new window is less than 1 day", async () => {
+      const newWindow = 12 * 60 * 60; // 12 hours
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      const [, messageAsG1Bytes] = await router.minimumContractUpgradeDelayParamsToBytes(
+        "change-cancellation-window",
+        newWindow,
+        currentNonce,
+      );
+      const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+      const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+      const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+      const sigPointToAffine = sigPoint.toAffine();
+      const sigBytes = AbiCoder.defaultAbiCoder().encode(
+        ["uint256", "uint256"],
+        [sigPointToAffine.x, sigPointToAffine.y],
+      );
+
+      await expect(router.setCancellationWindow(newWindow, sigBytes)).to.be.revertedWithCustomError(
+        router,
+        "SwapRequestCancellationWindowTooShort",
+      );
+    });
+
+    it("should revert setCancellationWindow if signature is invalid", async () => {
+      const newWindow = 2 * 24 * 60 * 60;
+      const invalidSig = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
+      await expect(router.setCancellationWindow(newWindow, invalidSig)).to.be.revertedWithCustomError(
+        router,
+        "BLSSignatureVerificationFailed",
+      );
+    });
   });
 });
 

@@ -31,6 +31,11 @@ interface IRouter {
         uint256 requestedAt; // Timestamp when the request was created
     }
 
+    /// @notice Structure to store cancellation details for a swap request
+    struct SwapRequestCancellation {
+        uint256 cancellationInitiatedAt; // Timestamp when cancellation was initiated
+    }
+
     /// @notice Structure to store details of a fulfilled swap request
     struct SwapRequestReceipt {
         bytes32 requestId; // Reference to the original request on the source chain
@@ -227,6 +232,10 @@ interface IRouter {
     /// @notice Returns an array of request IDs with fulfilled solver refunds
     /// @return An array of bytes32 representing the request IDs
     function getFulfilledSolverRefunds() external view returns (bytes32[] memory);
+
+    /// @notice Returns an array of cancelled swap request IDs
+    /// @return An array of bytes32 representing the cancelled request IDs
+    function getCancelledRequests() external view returns (bytes32[] memory);
 
     /// @notice Retrieves the receipt for a specific request ID
     /// @param _requestId The request ID to check
