@@ -106,6 +106,25 @@ interface IRouter {
     /// @param amountOut The amount of fees withdrawn
     event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amountOut);
 
+    /// @notice Emitted when a user schedules a swap request cancellation
+    /// @param requestId The unique ID of the swap request to cancel
+    /// @param user The address of the user who initiated the cancellation
+    /// @param initiatedAt The timestamp when the cancellation was initiated
+    event SwapRequestCancellationStaged(bytes32 indexed requestId, address indexed user, uint256 initiatedAt);
+    
+    /// @notice Emitted when a staged swap request is cancelled and refunded
+    /// @param requestId The unique ID of the swap request that was cancelled
+    /// @param user The address of the user who initiated the cancellation
+    /// @param recipient The address receiving the refund
+    /// @param amount The amount refunded to the user
+    event SwapRequestRefundClaimed(
+        bytes32 indexed requestId, address indexed user, address indexed recipient, uint256 amount
+    );
+
+    /// @notice Emitted when a swap request cancellation window is updated
+    /// @param newSwapRequestCancellationWindow The new cancellation window in seconds
+    event SwapRequestCancellationWindowUpdated(uint256 newSwapRequestCancellationWindow);
+
     // -------- Core Transfer Logic --------
 
     /// @notice Initiates a swap request
@@ -159,6 +178,14 @@ interface IRouter {
         uint256 srcChainId,
         uint256 nonce
     ) external;
+
+    /// @notice Stages a swap request for cancellation after the cancellation window
+    /// @param requestId The unique ID of the swap request to cancel
+    function stageSwapRequestCancellation(bytes32 requestId) external;
+
+    /// @notice Cancels a staged swap request and refunds the user after the cancellation window
+    /// @param requestId The unique ID of the swap request to cancel and refund
+    function cancelSwapRequestAndRefund(bytes32 requestId, address refundRecipient) external;
 
     /// @notice Cancels a scheduled upgrade
     /// @param signature The BLS signature authorising the cancellation
@@ -368,4 +395,9 @@ interface IRouter {
     /// @param token The token address of the withdrawn fees
     /// @param to The address receiving the withdrawn fees
     function withdrawVerificationFee(address token, address to) external;
+
+    /// @notice Updates the swap request cancellation window
+    /// @param newSwapRequestCancellationWindow The new cancellation window in seconds
+    /// @param signature The BLS signature authorising the update
+    function setCancellationWindow(uint256 newSwapRequestCancellationWindow, bytes calldata signature) external;
 }
