@@ -35,6 +35,9 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @notice Verification fee in BPS
     uint256 public verificationFeeBps;
 
+    /// @dev Cancellation window for staged swap requests
+    uint256 public swapRequestCancellationWindow;
+
     /// @notice BLS validator used for swap request signature verification
     ISignatureScheme public swapRequestBlsValidator;
 
@@ -46,6 +49,9 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
     /// @dev Stores all fulfilled solver refunds by request IDs
     EnumerableSet.Bytes32Set private fulfilledSolverRefunds;
+
+    /// @dev Stores all cancelled swap requests by request IDs
+    EnumerableSet.Bytes32Set private cancelledSwapRequests;
 
     /// @notice Mapping of requestId => swap request parameters
     mapping(bytes32 => SwapRequestParameters) public swapRequestParameters;
@@ -64,6 +70,9 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
     /// @dev Mapping of requestId to transfer receipt
     mapping(bytes32 => SwapRequestReceipt) public swapRequestReceipts;
+
+    /// @dev Mapping of requestId to cancellationInitiatedAt timestamp
+    mapping(bytes32 => uint256) public swapRequestCancellationInitiatedAt;
 
     /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
     modifier onlyAdmin() {
@@ -98,6 +107,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
         verificationFeeBps = _verificationFeeBps;
         swapRequestBlsValidator = ISignatureScheme(_swapRequestBlsValidator);
+        swapRequestCancellationWindow = 1 days;
     }
 
     // ---------------------- Core Logic ----------------------
@@ -120,8 +130,8 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     ) external nonReentrant returns (bytes32 requestId) {
         require(amount > 0, ErrorsLib.ZeroAmount());
         require(recipient != address(0), ErrorsLib.ZeroAddress());
-        require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
         require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
+        require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
 
         // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
         // based on the total fee provided
@@ -268,6 +278,52 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         emit SolverPayoutFulfilled(requestId);
     }
 
+    /// @notice Stages a swap request for cancellation after the cancellation window
+    /// @param requestId The unique ID of the swap request to cancel
+    function stageSwapRequestCancellation(bytes32 requestId) external nonReentrant {
+        SwapRequestParameters storage params = swapRequestParameters[requestId];
+        require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
+        require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
+        require(!params.executed, ErrorsLib.AlreadyFulfilled());
+        require(swapRequestCancellationInitiatedAt[requestId] == 0, ErrorsLib.SwapRequestCancellationAlreadyStaged());
+
+        swapRequestCancellationInitiatedAt[requestId] = block.timestamp;
+
+        emit SwapRequestCancellationStaged(requestId, msg.sender, block.timestamp);
+    }
+
+    /// @notice Cancels a staged swap request and refunds the user after the cancellation window
+    /// @param requestId The unique ID of the swap request to cancel and refund
+    function cancelSwapRequestAndRefund(bytes32 requestId, address refundRecipient) external nonReentrant {
+        SwapRequestParameters storage params = swapRequestParameters[requestId];
+        require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
+        require(!params.executed, ErrorsLib.AlreadyFulfilled());
+        require(swapRequestCancellationInitiatedAt[requestId] > 0, ErrorsLib.SwapRequestCancellationNotStaged());
+        uint256 cancellationDeadline = swapRequestCancellationInitiatedAt[requestId] + swapRequestCancellationWindow;
+        require(block.timestamp >= cancellationDeadline, ErrorsLib.SwapRequestCancellationWindowNotPassed());
+        require(refundRecipient != address(0), ErrorsLib.ZeroAddress());
+        require(
+            totalVerificationFeeBalance[params.tokenIn] >= params.verificationFee,
+            ErrorsLib.InsufficientVerificationFeeBalance()
+        );
+        totalVerificationFeeBalance[params.tokenIn] -= params.verificationFee;
+        // Mark as executed
+        params.executed = true;
+        // Mark as cancelled
+        cancelledSwapRequests.add(requestId);
+
+        // Remove from unfulfilledSolverRefunds if present
+        unfulfilledSolverRefunds.remove(requestId);
+
+        // Do NOT add to fulfilledTransfers or fulfilledSolverRefunds, since this is a cancellation/refund
+
+        uint256 totalRefund = params.amountOut + params.verificationFee + params.solverFee;
+
+        IERC20(params.tokenIn).safeTransfer(refundRecipient, totalRefund);
+
+        emit SwapRequestRefundClaimed(requestId, params.sender, refundRecipient, totalRefund);
+    }
+
     // ---------------------- Utility & View ----------------------
 
     /// @notice Converts swap request parameters to a message as bytes and BLS format for signing
@@ -339,7 +395,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @return The calculated verification fee amount
     /// @return The amount after deducting the verification fee
     function getVerificationFeeAmount(uint256 amountToSwap) public view returns (uint256, uint256) {
-        require(verificationFeeBps > 0, ErrorsLib.InvalidFeeBps());
         uint256 verificationFee = (amountToSwap * verificationFeeBps) / BPS_DIVISOR;
         return (verificationFee, amountToSwap - verificationFee);
     }
@@ -409,6 +464,12 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @return True if the chain ID is allowed, false otherwise
     function getAllowedDstChainId(uint256 chainId) external view returns (bool) {
         return allowedDstChainIds[chainId];
+    }
+
+    /// @notice Returns an array of cancelled swap request IDs
+    /// @return An array of bytes32 representing the cancelled request IDs
+    function getCancelledSwapRequests() external view returns (bytes32[] memory) {
+        return cancelledSwapRequests.values();
     }
 
     /// @notice Retrieves the token mapping for a given source token and destination chain ID
@@ -590,6 +651,24 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         emit VerificationFeeWithdrawn(token, to, amount);
     }
 
+    /// @notice Updates the swap request cancellation window
+    /// @param newSwapRequestCancellationWindow The new cancellation window in seconds
+    /// @param signature The BLS signature authorising the update
+    function setCancellationWindow(uint256 newSwapRequestCancellationWindow, bytes calldata signature) external {
+        require(newSwapRequestCancellationWindow >= 1 days, ErrorsLib.SwapRequestCancellationWindowTooShort());
+        string memory action = "change-cancellation-window";
+        uint256 nonce = ++currentNonce;
+        (, bytes memory messageAsG1Bytes) =
+            minimumContractUpgradeDelayParamsToBytes(action, newSwapRequestCancellationWindow, nonce);
+
+        require(
+            contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),
+            ErrorsLib.BLSSignatureVerificationFailed()
+        );
+        swapRequestCancellationWindow = newSwapRequestCancellationWindow;
+        emit SwapRequestCancellationWindowUpdated(newSwapRequestCancellationWindow);
+    }
+
     // ---------------------- Scheduled Upgrade Functions ----------------------
 
     /// @notice Schedules a contract upgrade
@@ -606,7 +685,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         require(
             keccak256(abi.encodePacked(IRouter(newImplementation).getVersion()))
                 != keccak256(abi.encodePacked(getVersion())),
-            "New version must be different from current version"
+            ErrorsLib.SameVersionUpgradeNotAllowed()
         );
         super.scheduleUpgrade(newImplementation, upgradeCalldata, upgradeTime, signature);
     }
