@@ -98,11 +98,15 @@ async function main() {
     await ERC20Dst.mint(solverAddr, amount);
     await ERC20Dst.approve(await RouterDst.getAddress(), amount);
     await RouterDst.relayTokens(
-      await ERC20Dst.getAddress(),
-      recipientAddr,
-      parseEther(formattedSwapRequestParams.amountOut.toString()),
+      solverAddr,
       requestId,
-      SRC_CHAIN_ID
+      formattedSwapRequestParams.sender,
+      formattedSwapRequestParams.recipient,
+      formattedSwapRequestParams.tokenIn,
+      formattedSwapRequestParams.tokenOut,
+      parseEther(formattedSwapRequestParams.amountOut.toString()),
+      SRC_CHAIN_ID,
+      formattedSwapRequestParams.nonce
     );
 
     const recipientBalanceAfter = await ERC20Dst.balanceOf(recipientAddr);
