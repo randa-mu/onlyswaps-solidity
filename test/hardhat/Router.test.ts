@@ -1929,7 +1929,7 @@ describe("Router", function () {
       // Should mark as executed and cancelled
       const updatedParams = await router.getSwapRequestParameters(requestId);
       expect(updatedParams.executed).to.be.true;
-      expect((await router.getCancelledRequests()).includes(requestId)).to.be.true;
+      expect((await router.getCancelledSwapRequests()).includes(requestId)).to.be.true;
     });
 
     it("should revert if trying to cancel already fulfilled request", async () => {

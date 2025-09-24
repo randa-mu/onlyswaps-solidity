@@ -13,12 +13,7 @@ import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import {
-  AbiCoder,
-  keccak256,
-  toUtf8Bytes,
-  ZeroAddress,
-} from "ethers";
+import { AbiCoder, keccak256, toUtf8Bytes, ZeroAddress } from "ethers";
 import { ethers } from "hardhat";
 
 const DST_CHAIN_ID = 137;

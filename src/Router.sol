@@ -53,7 +53,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     EnumerableSet.Bytes32Set private fulfilledSolverRefunds;
 
     /// @dev Stores all cancelled swap requests by request IDs
-    EnumerableSet.Bytes32Set private cancelledRequests;
+    EnumerableSet.Bytes32Set private cancelledSwapRequests;
 
     /// @notice Mapping of requestId => swap request parameters
     mapping(bytes32 => SwapRequestParameters) public swapRequestParameters;
@@ -312,7 +312,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         // Mark as executed
         params.executed = true;
         // Mark as cancelled
-        cancelledRequests.add(requestId);
+        cancelledSwapRequests.add(requestId);
 
         // Remove from unfulfilledSolverRefunds if present
         unfulfilledSolverRefunds.remove(requestId);
@@ -476,8 +476,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
     /// @notice Returns an array of cancelled swap request IDs
     /// @return An array of bytes32 representing the cancelled request IDs
-    function getCancelledRequests() external view returns (bytes32[] memory) {
-        return cancelledRequests.values();
+    function getCancelledSwapRequests() external view returns (bytes32[] memory) {
+        return cancelledSwapRequests.values();
     }
 
     /// @notice Retrieves the token mapping for a given source token and destination chain ID

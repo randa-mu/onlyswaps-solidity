@@ -257,7 +257,7 @@ interface IRouter {
 
     /// @notice Returns an array of cancelled swap request IDs
     /// @return An array of bytes32 representing the cancelled request IDs
-    function getCancelledRequests() external view returns (bytes32[] memory);
+    function getCancelledSwapRequests() external view returns (bytes32[] memory);
 
     /// @notice Retrieves the receipt for a specific request ID
     /// @param _requestId The request ID to check
