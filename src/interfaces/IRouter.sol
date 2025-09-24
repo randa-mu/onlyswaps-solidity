@@ -111,7 +111,7 @@ interface IRouter {
     /// @param user The address of the user who initiated the cancellation
     /// @param initiatedAt The timestamp when the cancellation was initiated
     event SwapRequestCancellationStaged(bytes32 indexed requestId, address indexed user, uint256 initiatedAt);
-    
+
     /// @notice Emitted when a staged swap request is cancelled and refunded
     /// @param requestId The unique ID of the swap request that was cancelled
     /// @param user The address of the user who initiated the cancellation

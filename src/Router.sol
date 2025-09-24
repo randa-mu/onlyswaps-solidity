@@ -722,5 +722,5 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     function storeSwapRequest(bytes32 requestId, SwapRequestParameters memory params) internal {
         swapRequestParameters[requestId] = params;
         unfulfilledSolverRefunds.add(requestId);
-    }  
+    }
 }

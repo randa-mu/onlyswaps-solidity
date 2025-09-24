@@ -246,7 +246,7 @@ describe("Router", function () {
       // Mapping should not exist anymore
       expect(await router.isDstTokenMapped(srcToken, dstChainId, dstToken)).to.be.false;
     });
-    
+
     it("should remove the token mapping for a specific destination chain", async () => {
       // Ensure the token mapping exists before removal
       expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await dstToken.getAddress())).to
