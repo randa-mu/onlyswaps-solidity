@@ -124,6 +124,11 @@ describe("Router", function () {
   });
 
   describe("Router Initialization", function () {
+    it("should return correct contract version", async () => {
+      const version = await router.getVersion();
+      expect(version).to.equal("1.0.0");
+    });
+
     it("should revert initialize if _verificationFeeBps is zero or exceeds MAX_FEE_BPS", async () => {
       const routerImpl = await ethers.getContractFactory("Router", owner);
       const implementation = await routerImpl.deploy();
@@ -200,6 +205,48 @@ describe("Router", function () {
   });
 
   describe("Token Mapping", function () {
+    it("should revert removeTokenMapping if called by non-admin", async () => {
+      const dstChainId = 137;
+
+      // Try to remove mapping as a non-admin
+      await expect(
+        router.connect(user).removeTokenMapping(dstChainId, dstToken, srcToken),
+      ).to.be.revertedWithCustomError(router, "AccessControlUnauthorizedAccount");
+    });
+
+    it("should revert removeTokenMapping if destination chain is not permitted", async () => {
+      const dstChainId = 999; // not permitted
+
+      await expect(
+        router.connect(owner).removeTokenMapping(dstChainId, dstToken, srcToken),
+      ).to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported");
+    });
+
+    it("should revert removeTokenMapping if token mapping does not exist", async () => {
+      const dstChainId = 137;
+
+      await expect(
+        router.connect(owner).removeTokenMapping(dstChainId, srcToken, srcToken),
+      ).to.be.revertedWithCustomError(router, "TokenNotSupported");
+    });
+
+    it("should remove token mapping if called by admin and mapping exists", async () => {
+      const dstChainId = 138;
+
+      await router.connect(owner).permitDestinationChainId(dstChainId);
+      expect(await router.getAllowedDstChainId(dstChainId)).to.be.true;
+
+      // Set up mapping first
+      await router.connect(owner).setTokenMapping(dstChainId, dstToken, srcToken);
+
+      await expect(router.connect(owner).removeTokenMapping(dstChainId, dstToken, srcToken))
+        .to.emit(router, "TokenMappingRemoved")
+        .withArgs(dstChainId, dstToken, srcToken);
+
+      // Mapping should not exist anymore
+      expect(await router.isDstTokenMapped(srcToken, dstChainId, dstToken)).to.be.false;
+    });
+    
     it("should remove the token mapping for a specific destination chain", async () => {
       // Ensure the token mapping exists before removal
       expect(await router.isDstTokenMapped(await srcToken.getAddress(), DST_CHAIN_ID, await dstToken.getAddress())).to
@@ -1364,11 +1411,6 @@ describe("Router", function () {
   });
 
   describe("Router - BLS Validator Management", () => {
-    it("should return correct contract version", async () => {
-      const version = await router.getVersion();
-      expect(version).to.equal("1.0.0");
-    });
-
     it("should revert if setSwapRequestBlsValidator is called with zero address", async () => {
       const invalidAddress = ZeroAddress;
       const currentNonce = Number(await router.currentNonce()) + 1;
@@ -1661,48 +1703,6 @@ describe("Router", function () {
   });
 
   describe("Router - Admin Functions", () => {
-    it("should revert removeTokenMapping if called by non-admin", async () => {
-      const dstChainId = 137;
-
-      // Try to remove mapping as a non-admin
-      await expect(
-        router.connect(user).removeTokenMapping(dstChainId, dstToken, srcToken),
-      ).to.be.revertedWithCustomError(router, "AccessControlUnauthorizedAccount");
-    });
-
-    it("should revert removeTokenMapping if destination chain is not permitted", async () => {
-      const dstChainId = 999; // not permitted
-
-      await expect(
-        router.connect(owner).removeTokenMapping(dstChainId, dstToken, srcToken),
-      ).to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported");
-    });
-
-    it("should revert removeTokenMapping if token mapping does not exist", async () => {
-      const dstChainId = 137;
-
-      await expect(
-        router.connect(owner).removeTokenMapping(dstChainId, srcToken, srcToken),
-      ).to.be.revertedWithCustomError(router, "TokenNotSupported");
-    });
-
-    it("should remove token mapping if called by admin and mapping exists", async () => {
-      const dstChainId = 138;
-
-      await router.connect(owner).permitDestinationChainId(dstChainId);
-      expect(await router.getAllowedDstChainId(dstChainId)).to.be.true;
-
-      // Set up mapping first
-      await router.connect(owner).setTokenMapping(dstChainId, dstToken, srcToken);
-
-      await expect(router.connect(owner).removeTokenMapping(dstChainId, dstToken, srcToken))
-        .to.emit(router, "TokenMappingRemoved")
-        .withArgs(dstChainId, dstToken, srcToken);
-
-      // Mapping should not exist anymore
-      expect(await router.isDstTokenMapped(srcToken, dstChainId, dstToken)).to.be.false;
-    });
-
     it("should revert blockDestinationChainId if called by non-admin", async () => {
       const chainId = 555;
       await router.connect(owner).permitDestinationChainId(chainId);
