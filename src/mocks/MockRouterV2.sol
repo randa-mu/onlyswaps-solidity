@@ -71,8 +71,8 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @dev Mapping of requestId to transfer receipt
     mapping(bytes32 => SwapRequestReceipt) public swapRequestReceipts;
 
-    /// @dev Mapping of requestId to cancellation request details
-    mapping(bytes32 => SwapRequestCancellation) public swapRequestCancellationRequests;
+    /// @dev Mapping of requestId to cancellationInitiatedAt timestamp
+    mapping(bytes32 => uint256) public swapRequestCancellationInitiatedAt;
 
     /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
     modifier onlyAdmin() {
@@ -285,12 +285,9 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
         require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
-        require(
-            swapRequestCancellationRequests[requestId].cancellationInitiatedAt == 0,
-            ErrorsLib.SwapRequestCancellationAlreadyStaged()
-        );
+        require(swapRequestCancellationInitiatedAt[requestId] == 0, ErrorsLib.SwapRequestCancellationAlreadyStaged());
 
-        swapRequestCancellationRequests[requestId].cancellationInitiatedAt = block.timestamp;
+        swapRequestCancellationInitiatedAt[requestId] = block.timestamp;
 
         emit SwapRequestCancellationStaged(requestId, msg.sender, block.timestamp);
     }
@@ -301,12 +298,8 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         SwapRequestParameters storage params = swapRequestParameters[requestId];
         require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
-        require(
-            swapRequestCancellationRequests[requestId].cancellationInitiatedAt > 0,
-            ErrorsLib.SwapRequestCancellationNotStaged()
-        );
-        uint256 cancellationDeadline =
-            swapRequestCancellationRequests[requestId].cancellationInitiatedAt + swapRequestCancellationWindow;
+        require(swapRequestCancellationInitiatedAt[requestId] > 0, ErrorsLib.SwapRequestCancellationNotStaged());
+        uint256 cancellationDeadline = swapRequestCancellationInitiatedAt[requestId] + swapRequestCancellationWindow;
         require(block.timestamp >= cancellationDeadline, ErrorsLib.SwapRequestCancellationWindowNotPassed());
         require(refundRecipient != address(0), ErrorsLib.ZeroAddress());
         require(

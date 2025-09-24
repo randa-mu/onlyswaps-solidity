@@ -31,11 +31,6 @@ interface IRouter {
         uint256 requestedAt; // Timestamp when the request was created
     }
 
-    /// @notice Structure to store cancellation details for a swap request
-    struct SwapRequestCancellation {
-        uint256 cancellationInitiatedAt; // Timestamp when cancellation was initiated
-    }
-
     /// @notice Structure to store details of a fulfilled swap request
     struct SwapRequestReceipt {
         bytes32 requestId; // Reference to the original request on the source chain

@@ -15,11 +15,6 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import {
   AbiCoder,
-  parseEther,
-  TransactionReceipt,
-  Interface,
-  EventFragment,
-  Result,
   keccak256,
   toUtf8Bytes,
   ZeroAddress,
@@ -30,7 +25,7 @@ const DST_CHAIN_ID = 137;
 
 const VERIFICATION_FEE_BPS = 500;
 
-describe("RouterUpgrade", function () {
+describe("Router Upgrade", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
   let solver: SignerWithAddress;
@@ -43,7 +38,7 @@ describe("RouterUpgrade", function () {
   let upgradeBn254SigScheme: BLSBN254SignatureScheme;
 
   let privKeyBytes: Uint8Array;
-  let ownerAddr: string, solverAddr: string, userAddr: string, recipientAddr: string;
+  let ownerAddr: string;
 
   const swapType = "swap-v1";
   const upgradeType = "upgrade-v1";
@@ -78,9 +73,6 @@ describe("RouterUpgrade", function () {
     [owner, user, solver, recipient] = await ethers.getSigners();
 
     ownerAddr = await owner.getAddress();
-    userAddr = await user.getAddress();
-    recipientAddr = await recipient.getAddress();
-    solverAddr = await solver.getAddress();
 
     // Create random private key and public key
     privKeyBytes = Uint8Array.from(randomBytes(32));
