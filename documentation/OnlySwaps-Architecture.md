@@ -336,49 +336,6 @@ function scheduleUpgrade(
 
 ---
 
-## Gas Efficiency Analysis
-
-### OnlySwaps Transaction Costs
-
-1. **Swap Request**: ~150,000 gas (ERC-20 transfer + storage)
-2. **Relay Tokens**: ~120,000 gas (ERC-20 transfer + storage)
-3. **Rebalance Solver**: ~180,000 gas (BLS verification + ERC-20 transfer)
-
-### Compared to Alternatives
-
-- **Stargate**: ~300,000+ gas (pool operations)
-- **LayerZero**: ~250,000+ gas (oracle + relayer)
-
-### BLS Verification Efficiency
-
-- **Single Verification**: ~150,000 gas regardless of threshold.
-- **Signature Aggregation**: Off-chain aggregation reduces on-chain costs.
-- **Batch Processing**: Multiple requests can share verification costs.
-
----
-
-## Future Enhancements
-
-### 1. Advanced Solver Features
-
-- **Intent-Based Orders**: Support for complex cross-chain operations.
-- **MEV Protection**: Solver auction mechanisms for fair ordering.
-- **Solver Reputation**: Stake-based reliability scoring.
-
-### 2. Protocol Optimizations
-
-- **Signature Batching**: Multiple requests in a single BLS verification.
-- **Cross-Chain Netting**: Solver balance optimization.
-- **Dynamic Fee Markets**: Automated fee adjustment.
-
-### 3. Integration Possibilities
-
-- **DeFi Protocols**: Direct integration with lending/borrowing platforms.
-- **Wallet Integration**: Seamless cross-chain UX.
-- **Enterprise Solutions**: White-label infrastructure.
-
----
-
 ## Conclusion
 
 OnlySwaps represents a paradigm shift in cross-chain token transfer architecture. By combining BLS threshold signatures with a solver-based fulfillment model, it addresses the fundamental limitations of both pool-based systems (like Stargate) and oracle-dependent solutions (like LayerZero).
