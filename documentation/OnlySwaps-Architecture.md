@@ -1,4 +1,4 @@
-# OnlySwaps Cross-Chain Architecture: BLS-Powered Token Transfers
+# OnlySwaps Cross-Chain Architecture: Threshold-Signed, Solver-Filled Cross-Chain Settlement
 
 ## Overview
 
