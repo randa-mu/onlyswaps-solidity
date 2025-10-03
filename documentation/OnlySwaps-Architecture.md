@@ -335,7 +335,13 @@ function scheduleUpgrade(
 - **Reentrancy Protection**: Guards on state-changing functions.
 
 ---
+### Trust Model Summary
 
+- **Users → Committee:** Users trust their **chosen BLS committee** (t-of-n) to attest that a destination fulfillment occurred with the agreed parameters. No pooled TVL and user funds remain locked on the source chain until authorization.
+- **Solvers → Committee Liveness:** Solvers trust committee **liveness** to authorize rebalancing in a timely manner after they advance liquidity on the destination chain.
+- **Governance:** Upgrades and token mappings are **BLS-authorized** with a time delay and public DST-bound messages.
+- **Self-Custody:** Funds remain in self-custodial contracts; there is **no centralized custodian** and no omnibus pool that can be frozen or drained.
+- **Receipts:** Each request produces a verifiable on chain signature.
 ## Conclusion
 
 OnlySwaps represents a paradigm shift in cross-chain token transfer architecture. By combining BLS threshold signatures with a solver-based fulfillment model, it addresses the fundamental limitations of both pool-based systems (like Stargate) and oracle-dependent solutions (like LayerZero).
