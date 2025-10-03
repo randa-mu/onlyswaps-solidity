@@ -180,7 +180,7 @@ function swapRequestParametersToBytes(bytes32 requestId, address solver)
 
 #### OnlySwaps Advantages:
 1. **Just-in-Time Liquidity**: Solvers provide liquidity only when profitable, eliminating protocol-custodied idle capital.
-2. **Zero Slippage**: Like-for-like token transfers at exact exchange rates.
+2. **Zero Slippage**: User receives a quoted amount out enforced on-chain, solver manages sourcing risk off-chain.
 3. **Capital Efficiency**: No need for pre-funded pools.
 4. **Market-Driven Fees**: Solver competition optimizes fees.
 5. **Simplified Governance**: Focus on security, not liquidity management.
