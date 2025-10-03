@@ -280,7 +280,7 @@ function getVerificationFeeAmount(uint256 amountToSwap)
     returns (uint256 verificationFee, uint256 amountOut)
 ```
 
-- **Protocol Fee**: Configurable, up to 50% max.
+- **Protocol Fee**: Capped at 50% max.
 - **Solver Fee**: Market-driven.
 - **Admin Withdrawal**: Protocol fees can be withdrawn by admin.
 
