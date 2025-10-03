@@ -179,7 +179,7 @@ function swapRequestParametersToBytes(bytes32 requestId, address solver)
 5. **Governance Overhead**: Continuous management of pool parameters.
 
 #### OnlySwaps Advantages:
-1. **Just-in-Time Liquidity**: Solvers provide liquidity only when profitable, eliminating idle capital.
+1. **Just-in-Time Liquidity**: Solvers provide liquidity only when profitable, eliminating protocol-custodied idle capital.
 2. **Zero Slippage**: Like-for-like token transfers at exact exchange rates.
 3. **Capital Efficiency**: No need for pre-funded pools.
 4. **Market-Driven Fees**: Solver competition optimizes fees.
