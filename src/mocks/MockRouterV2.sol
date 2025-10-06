@@ -712,7 +712,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         unfulfilledSolverRefunds.add(requestId);
     }
 
-    // ---------------------- Mock Upgrade Variables and Test Functions ----------------------
+    // ---------------------- Mock Upgrade Test Functions ----------------------
 
     function testNewFunctionality() external pure returns (bool) {
         return true;
