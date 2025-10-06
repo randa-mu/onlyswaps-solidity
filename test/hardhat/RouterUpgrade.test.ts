@@ -13,7 +13,16 @@ import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { AbiCoder, keccak256, toUtf8Bytes, ZeroAddress } from "ethers";
+import {
+  AbiCoder,
+  TransactionReceipt,
+  Interface,
+  EventFragment,
+  Result,
+  keccak256,
+  toUtf8Bytes,
+  ZeroAddress,
+} from "ethers";
 import { ethers } from "hardhat";
 
 const DST_CHAIN_ID = 137;
@@ -204,6 +213,153 @@ describe("Router Upgrade", function () {
       await expect(
         router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime + 1000, sigBytes),
       ).to.be.revertedWithCustomError(router, "SameVersionUpgradeNotAllowed");
+    });
+
+    // TODO new code
+    it.only("should upgrade to MockRouterV2 with new swap request nonce functionality without affecting existing requests and storage (good path)", async () => {
+      // Create an existing swap request in Router v1 to ensure it's preserved
+      const swapAmount = ethers.parseEther("100");
+      const solverFee = ethers.parseEther("1");
+      const totalAmount = swapAmount + solverFee;
+
+      await srcToken.connect(user).mint(await user.getAddress(), totalAmount);
+      await srcToken.connect(user).approve(await router.getAddress(), totalAmount);
+
+      // Create a swap request in Router v1
+      const swapRequestTx = await router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          swapAmount,
+          solverFee,
+          DST_CHAIN_ID,
+          await recipient.getAddress(),
+        );
+      const swapRequestReceipt = await swapRequestTx.wait();
+
+      // Extract the swap request ID from the event
+      const routerInterface = Router__factory.createInterface();
+      const [swapRequestId] = extractSingleLog(
+        routerInterface,
+        swapRequestReceipt!,
+        await router.getAddress(),
+        routerInterface.getEvent("SwapRequested"),
+      );
+
+      // Verify the swap request exists in Router v1
+      expect(swapRequestId).to.not.be.undefined;
+      const swapRequestParams = await router.getSwapRequestParameters(swapRequestId);
+      expect(swapRequestParams.executed).to.be.false;
+
+      // Check current contract nonce before upgrade
+      const contractNonceBefore = await router.currentNonce();
+      
+      // Check existing storage values before upgrade
+      const ADMIN_ROLE = keccak256(toUtf8Bytes("ADMIN_ROLE"));
+      const hasAdminRoleBefore = await router.hasRole(ADMIN_ROLE, ownerAddr);
+      const dstTokenAddressBefore = await router.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
+      const versionBefore = await router.getVersion();
+
+      expect(hasAdminRoleBefore).to.be.true;
+      expect(dstTokenAddressBefore[0]).to.equal(await dstToken.getAddress());
+      expect(versionBefore).to.equal("1.0.0");
+
+      // Now we perform the upgrade to MockRouterV2
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
+
+      let currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
+
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
+
+      await ethers.provider.send("evm_increaseTime", [upgradeTime]);
+      await ethers.provider.send("evm_mine", []);
+
+      await router.connect(user).executeUpgrade();
+
+      // Connect to the upgraded contract with MockRouterV2 interface
+      const upgradedRouter = MockRouterV2__factory.connect(await router.getAddress(), user);
+
+      // Verify the upgrade was successful
+      const versionAfter = await upgradedRouter.getVersion();
+      expect(versionAfter).to.equal("2.0.0");
+
+      // Verify all existing storage is preserved
+      const hasAdminRoleAfter = await upgradedRouter.hasRole(ADMIN_ROLE, ownerAddr);
+      const dstTokenAddressAfter = await upgradedRouter.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
+      const contractNonceAfter = await upgradedRouter.currentNonce();
+
+      expect(hasAdminRoleAfter).to.be.true;
+      expect(dstTokenAddressAfter[0]).to.equal(await dstToken.getAddress());
+      // Contract nonce should be preserved, but incremented by 1 since we executed an upgrade
+      expect(contractNonceAfter).to.equal(contractNonceBefore + 1n); 
+
+      // Verify existing swap request is still accessible and unchanged
+      const swapRequestParamsAfter = await upgradedRouter.getSwapRequestParameters(swapRequestId);
+      expect(swapRequestParamsAfter.executed).to.be.false;
+      expect(swapRequestParamsAfter.amountOut).to.equal(swapRequestParams.amountOut);
+      expect(swapRequestParamsAfter.solverFee).to.equal(swapRequestParams.solverFee);
+      expect(swapRequestParamsAfter.nonce).to.equal(1);
+
+      // Verify contract balance from existing swap request is still intact
+      const routerBalance = await srcToken.balanceOf(await upgradedRouter.getAddress());
+      expect(routerBalance).to.equal(totalAmount);
+
+      // At this point, we have verified that the upgrade preserved all existing state and functionality.
+      // Now we can test the new functionality introduced in MockRouterV2.
+
+      // Verify new functionality is available (swap request nonce)
+      expect(await upgradedRouter.testNewFunctionality()).to.be.true;
+
+      // Test the new swap request nonce functionality
+      const initialcurrentSwapRequestNonce = await upgradedRouter.currentSwapRequestNonce();
+      expect(initialcurrentSwapRequestNonce).to.equal(0); // Should start at 0 for new functionality
+
+      // Create a new swap request to test the new nonce functionality
+      await srcToken.connect(owner).mint(await user.getAddress(), totalAmount);
+      await srcToken.connect(user).approve(await upgradedRouter.getAddress(), totalAmount);
+
+      await upgradedRouter
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          swapAmount,
+          solverFee,
+          DST_CHAIN_ID,
+          await recipient.getAddress(),
+        );
+
+      // Verify the swap request nonce incremented
+      const currentSwapRequestNonceAfter = await upgradedRouter.currentSwapRequestNonce();
+      expect(currentSwapRequestNonceAfter).to.equal(1);
+
+      // Test that we can create multiple swap requests and nonce keeps incrementing
+      await srcToken.connect(owner).mint(await user.getAddress(), totalAmount);
+      await srcToken.connect(user).approve(await upgradedRouter.getAddress(), totalAmount);
+
+      await upgradedRouter
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          swapAmount,
+          solverFee,
+          DST_CHAIN_ID,
+          await recipient.getAddress(),
+        );
+
+      const finalcurrentSwapRequestNonce = await upgradedRouter.currentSwapRequestNonce();
+      expect(finalcurrentSwapRequestNonce).to.equal(2);
+
+      // Verify that the contract nonce (for upgrades) is still independent and unchanged
+      const finalContractNonce = await upgradedRouter.currentNonce();
+      expect(finalContractNonce).to.equal(contractNonceAfter);
     });
   });
 
@@ -408,3 +564,29 @@ describe("Router Upgrade", function () {
     });
   });
 });
+
+// Returns the first instance of an event log from a transaction receipt that matches the address provided
+function extractSingleLog<T extends Interface, E extends EventFragment>(
+  iface: T,
+  receipt: TransactionReceipt,
+  contractAddress: string,
+  event: E,
+): Result {
+  const events = extractLogs(iface, receipt, contractAddress, event);
+  if (events.length === 0) {
+    throw Error(`contract at ${contractAddress} didn't emit the ${event.name} event`);
+  }
+  return events[0];
+}
+
+// Returns an array of all event logs from a transaction receipt that match the address provided
+function extractLogs<T extends Interface, E extends EventFragment>(
+  iface: T,
+  receipt: TransactionReceipt,
+  contractAddress: string,
+  event: E,
+): Array<Result> {
+  return receipt.logs
+    .filter((log) => log.address.toLowerCase() === contractAddress.toLowerCase())
+    .map((log) => iface.decodeEventLog(event, log.data, log.topics));
+}
