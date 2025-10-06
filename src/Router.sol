@@ -434,7 +434,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
     /// @notice Retrieves the current version of the contract
     /// @return The current version of the contract
-    function getVersion() public pure virtual returns (string memory) {
+    function getVersion() public pure returns (string memory) {
         return "1.0.0";
     }
 
