@@ -165,7 +165,7 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 - **BLS Verification:** Requires a valid BLS signature from the current validator `contractUpgradeBlsValidator` over the update parameters. 
 - **Message Construction:**  
   - **Helper function called:**  
-    `blsValidatorUpdateParamsToBytes(string memory action, address blsValidator, uint256 nonce)` with action = `change-swap-request-bls-validator`. The nonce can be derived by calling the `currentNonce()` getter function.
+    `blsValidatorUpdateParamsToBytes(string memory action, address blsValidator, uint256 nonce)` with action = `change-swap-request-bls-validator`. The nonce to use is the nonce derived by calling the `currentNonce()` getter function plus 1, i.e., `contract.currentNonce() + 1`.
   - **Returns:**  
     - `message`: raw message bytes  
     - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
@@ -179,7 +179,7 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 - **BLS Verification:** Requires a valid BLS signature from the contract upgrade validator `contractUpgradeBlsValidator` over the upgrade parameters.
 - **Message Construction:**  
   - **Helper function called:**  
-    `contractUpgradeParamsToBytes(string action, address pendingImplementation, address newImplementation, bytes upgradeCalldata, uint256 upgradeTime, uint256 nonce)` with action = `schedule`. The nonce can be derived by calling the `currentNonce()` getter function.
+    `contractUpgradeParamsToBytes(string action, address pendingImplementation, address newImplementation, bytes upgradeCalldata, uint256 upgradeTime, uint256 nonce)` with action = `schedule`. The nonce to use is the nonce derived by calling the `currentNonce()` getter function plus 1, i.e., `contract.currentNonce() + 1`.
   - **Returns:**  
     - `message`: raw message bytes  
     - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
@@ -191,7 +191,7 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 - **BLS Verification:** Requires a valid BLS signature from the contract upgrade validator `contractUpgradeBlsValidator` over the cancellation parameters.
 - **Message Construction:**  
   - **Helper function called:**  
-    `contractUpgradeParamsToBytes(string action, address pendingImplementation, address newImplementation, bytes upgradeCalldata, uint256 upgradeTime, uint256 nonce)` with action = `cancel`. The nonce can be derived by calling the `currentNonce()` getter function.
+    `contractUpgradeParamsToBytes(string action, address pendingImplementation, address newImplementation, bytes upgradeCalldata, uint256 upgradeTime, uint256 nonce)` with action = `cancel`. The nonce to use is the nonce derived by calling the `currentNonce()` getter function plus 1, i.e., `contract.currentNonce() + 1`.
   - **Returns:**  
     - `message`: raw message bytes  
     - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
@@ -202,7 +202,7 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 - **BLS Verification:** Requires a valid BLS signature from the current contract upgrade validator `contractUpgradeBlsValidator` over the validator update parameters. 
 - **Message Construction:**  
   - **Helper function called:**  
-    `blsValidatorUpdateParamsToBytes(string memory action, address blsValidator, uint256 nonce)`  with action = `change-contract-upgrade-bls-validator`. The nonce can be derived by calling the `currentNonce()` getter function.
+    `blsValidatorUpdateParamsToBytes(string memory action, address blsValidator, uint256 nonce)`  with action = `change-contract-upgrade-bls-validator`. The nonce to use is the nonce derived by calling the `currentNonce()` getter function plus 1, i.e., `contract.currentNonce() + 1`.
   - **Returns:**  
     - `message`: raw message bytes  
     - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
@@ -213,7 +213,7 @@ Several critical functions in the OnlySwaps contracts require BLS (BN254) signat
 - **BLS Verification:** Requires a valid BLS signature from the contract upgrade validator `contractUpgradeBlsValidator` over the new delay parameters.
 - **Message Construction:**  
   - **Helper function called:**  
-    `minimumContractUpgradeDelayParamsToBytes(string memory action, uint256 _minimumContractUpgradeDelay, uint256 nonce)` with action = `change-upgrade-delay`. The nonce can be derived by calling the `currentNonce()` getter function.
+    `minimumContractUpgradeDelayParamsToBytes(string memory action, uint256 _minimumContractUpgradeDelay, uint256 nonce)` with action = `change-upgrade-delay`. The nonce to use is the nonce derived by calling the `currentNonce()` getter function plus 1, i.e., `contract.currentNonce() + 1`.
   - **Returns:**  
     - `message`: raw message bytes  
     - `messageAsG1Bytes`: marshaled G1 bytes (used for signing)
