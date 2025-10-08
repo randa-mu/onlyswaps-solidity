@@ -74,6 +74,9 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @dev Mapping of requestId to cancellationInitiatedAt timestamp
     mapping(bytes32 => uint256) public swapRequestCancellationInitiatedAt;
 
+    /// @notice Unique nonce for each swap request
+    uint256 public currentSwapRequestNonce;
+
     /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
     modifier onlyAdmin() {
         _checkRole(ADMIN_ROLE);
@@ -145,7 +148,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         totalVerificationFeeBalance[tokenIn] += verificationFeeAmount;
 
         // Generate unique nonce and map it to sender
-        uint256 nonce = ++currentNonce;
+        uint256 nonce = ++currentSwapRequestNonce;
         nonceToRequester[nonce] = msg.sender;
 
         SwapRequestParameters memory params = buildSwapRequestParameters(

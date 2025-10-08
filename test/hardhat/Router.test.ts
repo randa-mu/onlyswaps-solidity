@@ -8,21 +8,12 @@ import {
   BLSBN254SignatureScheme__factory,
   UUPSProxy__factory,
 } from "../../typechain-types";
+import { extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import {
-  AbiCoder,
-  parseEther,
-  TransactionReceipt,
-  Interface,
-  EventFragment,
-  Result,
-  keccak256,
-  toUtf8Bytes,
-  ZeroAddress,
-} from "ethers";
+import { AbiCoder, parseEther, keccak256, toUtf8Bytes, ZeroAddress } from "ethers";
 import { ethers } from "hardhat";
 
 const DST_CHAIN_ID = 137;
@@ -1815,6 +1806,9 @@ describe("Router", function () {
     });
 
     it("should stage a swap request cancellation and emit event", async () => {
+      expect(await router.currentSwapRequestNonce()).to.equal(1);
+      expect(await router.swapRequestCancellationInitiatedAt(requestId)).to.equal(0);
+
       const blockTimestamp = (await ethers.provider.getBlock("latest"))!.timestamp;
       await expect(router.connect(user).stageSwapRequestCancellation(requestId))
         .to.emit(router, "SwapRequestCancellationStaged")
@@ -1825,6 +1819,8 @@ describe("Router", function () {
         router,
         "SwapRequestCancellationAlreadyStaged",
       );
+
+      expect(await router.swapRequestCancellationInitiatedAt(requestId)).to.be.greaterThan(0);
     });
 
     it("should revert stageSwapRequestCancellation if called by non-request sender", async () => {
@@ -2007,29 +2003,3 @@ describe("Router", function () {
     });
   });
 });
-
-// Returns the first instance of an event log from a transaction receipt that matches the address provided
-function extractSingleLog<T extends Interface, E extends EventFragment>(
-  iface: T,
-  receipt: TransactionReceipt,
-  contractAddress: string,
-  event: E,
-): Result {
-  const events = extractLogs(iface, receipt, contractAddress, event);
-  if (events.length === 0) {
-    throw Error(`contract at ${contractAddress} didn't emit the ${event.name} event`);
-  }
-  return events[0];
-}
-
-// Returns an array of all event logs from a transaction receipt that match the address provided
-function extractLogs<T extends Interface, E extends EventFragment>(
-  iface: T,
-  receipt: TransactionReceipt,
-  contractAddress: string,
-  event: E,
-): Array<Result> {
-  return receipt.logs
-    .filter((log) => log.address.toLowerCase() === contractAddress.toLowerCase())
-    .map((log) => iface.decodeEventLog(event, log.data, log.topics));
-}
