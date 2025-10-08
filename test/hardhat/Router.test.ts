@@ -8,19 +8,13 @@ import {
   BLSBN254SignatureScheme__factory,
   UUPSProxy__factory,
 } from "../../typechain-types";
+import { extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import {
-  AbiCoder,
-  parseEther,
-  keccak256,
-  toUtf8Bytes,
-  ZeroAddress,
-} from "ethers";
+import { AbiCoder, parseEther, keccak256, toUtf8Bytes, ZeroAddress } from "ethers";
 import { ethers } from "hardhat";
-import { extractSingleLog } from "./utils/utils";
 
 const DST_CHAIN_ID = 137;
 
@@ -1814,7 +1808,7 @@ describe("Router", function () {
     it("should stage a swap request cancellation and emit event", async () => {
       expect(await router.currentSwapRequestNonce()).to.equal(1);
       expect(await router.swapRequestCancellationInitiatedAt(requestId)).to.equal(0);
-      
+
       const blockTimestamp = (await ethers.provider.getBlock("latest"))!.timestamp;
       await expect(router.connect(user).stageSwapRequestCancellation(requestId))
         .to.emit(router, "SwapRequestCancellationStaged")

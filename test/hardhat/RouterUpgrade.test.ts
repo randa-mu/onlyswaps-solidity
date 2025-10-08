@@ -9,18 +9,13 @@ import {
   BLSBN254SignatureScheme__factory,
   UUPSProxy__factory,
 } from "../../typechain-types";
+import { extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import {
-  AbiCoder,
-  keccak256,
-  toUtf8Bytes,
-  ZeroAddress,
-} from "ethers";
+import { AbiCoder, keccak256, toUtf8Bytes, ZeroAddress } from "ethers";
 import { ethers } from "hardhat";
-import { extractSingleLog } from "./utils/utils";
 
 const DST_CHAIN_ID = 137;
 
@@ -250,7 +245,7 @@ describe("Router Upgrade", function () {
 
       // Check current contract nonce before upgrade
       const contractNonceBefore = await router.currentNonce();
-      
+
       // Check existing storage values before upgrade
       const ADMIN_ROLE = keccak256(toUtf8Bytes("ADMIN_ROLE"));
       const hasAdminRoleBefore = await router.hasRole(ADMIN_ROLE, ownerAddr);
@@ -293,7 +288,7 @@ describe("Router Upgrade", function () {
       expect(hasAdminRoleAfter).to.be.true;
       expect(dstTokenAddressAfter[0]).to.equal(await dstToken.getAddress());
       // Contract nonce should be preserved, but incremented by 1 since we executed an upgrade
-      expect(contractNonceAfter).to.equal(contractNonceBefore + 1n); 
+      expect(contractNonceAfter).to.equal(contractNonceBefore + 1n);
 
       // Verify existing swap request is still accessible and unchanged
       const swapRequestParamsAfter = await upgradedRouter.getSwapRequestParameters(swapRequestId);
