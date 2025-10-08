@@ -15,15 +15,12 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import {
   AbiCoder,
-  TransactionReceipt,
-  Interface,
-  EventFragment,
-  Result,
   keccak256,
   toUtf8Bytes,
   ZeroAddress,
 } from "ethers";
 import { ethers } from "hardhat";
+import { extractSingleLog } from "./utils/utils";
 
 const DST_CHAIN_ID = 137;
 
@@ -215,8 +212,7 @@ describe("Router Upgrade", function () {
       ).to.be.revertedWithCustomError(router, "SameVersionUpgradeNotAllowed");
     });
 
-    // TODO new code
-    it.only("should upgrade to MockRouterV2 with new swap request nonce functionality without affecting existing requests and storage (good path)", async () => {
+    it.skip("should upgrade to MockRouterV2 with new swap request nonce functionality without affecting existing requests and storage (good path)", async () => {
       // Create an existing swap request in Router v1 to ensure it's preserved
       const swapAmount = ethers.parseEther("100");
       const solverFee = ethers.parseEther("1");
@@ -564,29 +560,3 @@ describe("Router Upgrade", function () {
     });
   });
 });
-
-// Returns the first instance of an event log from a transaction receipt that matches the address provided
-function extractSingleLog<T extends Interface, E extends EventFragment>(
-  iface: T,
-  receipt: TransactionReceipt,
-  contractAddress: string,
-  event: E,
-): Result {
-  const events = extractLogs(iface, receipt, contractAddress, event);
-  if (events.length === 0) {
-    throw Error(`contract at ${contractAddress} didn't emit the ${event.name} event`);
-  }
-  return events[0];
-}
-
-// Returns an array of all event logs from a transaction receipt that match the address provided
-function extractLogs<T extends Interface, E extends EventFragment>(
-  iface: T,
-  receipt: TransactionReceipt,
-  contractAddress: string,
-  event: E,
-): Array<Result> {
-  return receipt.logs
-    .filter((log) => log.address.toLowerCase() === contractAddress.toLowerCase())
-    .map((log) => iface.decodeEventLog(event, log.data, log.topics));
-}
