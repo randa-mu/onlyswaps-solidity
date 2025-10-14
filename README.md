@@ -1,4 +1,4 @@
-# OnlySwaps
+# only swaps
 
 Solidity smart contracts for **cross-chain token swaps** with upgradeability and BLS signature verification.
 
@@ -25,6 +25,33 @@ Child contracts (like `Router`) inherit from `ScheduledUpgradeable` and can cust
 - Example usage: `application` parameter in the constructor can be set to `"upgrade-v1"` for upgrade verification or `"swap-v1"` for swap requests.
 
 
+## Installation
+
+This project supports both Foundry and Hardhat development environments. 
+
+### Foundry ([Soldeer](https://getfoundry.sh/guides/project-setup/soldeer/))
+
+1. **Install Foundry** (if not already installed):
+   ```bash
+   curl -L https://foundry.paradigm.xyz | bash
+   foundryup
+   ```
+
+2. **Install only swaps as a dependency**:
+   ```bash
+   forge soldeer install onlyswaps-solidity~0.3.0 --url https://github.com/randa-mu/onlyswaps-solidity/archive/refs/tags/v0.3.0.zip
+   ```
+
+3. **Update your remappings.txt file**
+  ```bash
+  onlyswaps-solidity/=dependencies/onlyswaps-solidity-0.3.0/src/
+  ```
+
+4. **Import contracts in your Solidity files**:
+   ```solidity
+   import "onlyswaps-solidity/src/Router.sol";
+   import "onlyswaps-solidity/src/interfaces/IRouter.sol";
+   ```
 
 ## Usage
 
@@ -101,7 +128,7 @@ npm run lint:fix
 
 ## Running the Demo
 
-The OnlySwaps [demo script](demo/onlyswap-e2e-demo.ts) shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs. 
+The only swaps [demo script](demo/onlyswap-e2e-demo.ts) shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs. 
 
 The script automatically spawns two Anvil blockchains at port 8545 (with chain id 31337) and 8546 (with chain id 31338).
 
@@ -143,7 +170,7 @@ Anvil instances stopped.
 
 ## BLS Signature Verification Workflows
 
-Several critical functions in the OnlySwaps contracts require BLS (BN254) signature verification to ensure secure, threshold-authorized actions. Each function expects a BLS signature over a specific message, which can be generated off-chain using the helper functions provided in the contracts. The message generated is already hashed to a point on G1 using the correct Domain Separation Tag (DST). Below is a description of each function, how BLS verification is used, and how to obtain the message to sign.
+Several critical functions in the only swaps contracts require BLS (BN254) signature verification to ensure secure, threshold-authorized actions. Each function expects a BLS signature over a specific message, which can be generated off-chain using the helper functions provided in the contracts. The message generated is already hashed to a point on G1 using the correct Domain Separation Tag (DST). Below is a description of each function, how BLS verification is used, and how to obtain the message to sign.
 
 
 ### Swap Request & Solver Rebalancing
