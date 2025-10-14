@@ -62,6 +62,21 @@ This project supports both Foundry and Hardhat development environments.
    import "onlyswaps-solidity/src/interfaces/IRouter.sol";
    ```
 
+
+### Hardhat/npm
+
+1. **Install the package**:
+   ```bash
+   npm install onlyswaps-solidity
+   ```
+
+2. **Import the contracts in your Solidity files**:
+   ```solidity
+   import "onlyswaps-solidity/src/Router.sol";
+   import "onlyswaps-solidity/src/interfaces/IRouter.sol";
+   ```
+   
+
 ## Usage
 
 ### Local Development
