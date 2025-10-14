@@ -43,9 +43,9 @@ This project supports both Foundry and Hardhat development environments.
    ```
 
 3. **Update your remappings.txt file**
-  ```bash
-  onlyswaps-solidity/=dependencies/onlyswaps-solidity-0.3.0/src/
-  ```
+    ```bash
+    onlyswaps-solidity/=dependencies/onlyswaps-solidity-0.3.0/src/
+    ```
 
 4. **Import contracts in your Solidity files**:
    ```solidity
