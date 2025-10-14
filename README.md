@@ -56,7 +56,7 @@ This project supports both Foundry and Hardhat development environments.
     onlyswaps-solidity/=dependencies/onlyswaps-solidity-0.3.0/src/
     ```
 
-4. **Import contracts in your Solidity files**:
+4. **Import the contracts in your Solidity files**:
    ```solidity
    import "onlyswaps-solidity/src/Router.sol";
    import "onlyswaps-solidity/src/interfaces/IRouter.sol";
