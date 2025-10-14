@@ -1,4 +1,4 @@
-# only swaps
+# onlyswaps-solidity
 
 Solidity smart contracts for **cross-chain token swaps** with upgradeability and BLS signature verification.
 
@@ -28,6 +28,15 @@ Child contracts (like `Router`) inherit from `ScheduledUpgradeable` and can cust
 ## Installation
 
 This project supports both Foundry and Hardhat development environments. 
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [Git](https://git-scm.com/)
+
+**For Foundry developers:**
+- [Foundry](https://getfoundry.sh/)
 
 ### Foundry ([Soldeer](https://getfoundry.sh/guides/project-setup/soldeer/))
 
@@ -77,19 +86,19 @@ To clone the repo:
 git clone https://github.com/randa-mu/onlysubs-solidity
 ```
 
-### Install dependencies
+#### Install dependencies
 
 ```bash
 npm install
 ```
 
-### Build
+#### Build
 
 ```bash
 npm run build
 ```
 
-### Test
+#### Test
 
 ```bash
 npm run test
@@ -128,7 +137,7 @@ npm run lint:fix
 
 ## Running the Demo
 
-The only swaps [demo script](demo/onlyswap-e2e-demo.ts) shows how to deploy and interact with contracts across two local Anvil chains with custom chain IDs. 
+The only swaps [demo script](demo/onlyswap-e2e-demo.ts) demonstrates the deployment and interaction with the contracts across two local Anvil chains with custom chain IDs. 
 
 The script automatically spawns two Anvil blockchains at port 8545 (with chain id 31337) and 8546 (with chain id 31338).
 
