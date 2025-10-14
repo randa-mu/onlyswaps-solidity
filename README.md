@@ -98,7 +98,7 @@ foundryup
 To clone the repo:
 
 ```sh
-git clone https://github.com/randa-mu/onlysubs-solidity
+git clone https://github.com/randa-mu/onlyswaps-solidity
 ```
 
 #### Install dependencies
