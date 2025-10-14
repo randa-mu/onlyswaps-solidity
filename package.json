@@ -1,6 +1,6 @@
 {
-  "name": "onlysubs-solidity",
-  "version": "0.0.1",
+  "name": "onlyswaps-solidity",
+  "version": "0.0.2",
   "description": "",
   "keywords": [
     "solver",
@@ -14,13 +14,13 @@
     "threshold",
     "network"
   ],
-  "homepage": "https://github.com/randa-mu/onlysubs-solidity#readme",
+  "homepage": "https://github.com/randa-mu/onlyswaps-solidity#readme",
   "bugs": {
-    "url": "https://github.com/randa-mu/onlysubs-solidity/issues"
+    "url": "https://github.com/randa-mu/onlyswaps-solidity/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/randa-mu/onlysubs-solidity.git"
+    "url": "git+https://github.com/randa-mu/onlyswaps-solidity.git"
   },
   "license": "MIT",
   "author": "randamu",
