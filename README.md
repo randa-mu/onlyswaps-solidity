@@ -41,15 +41,15 @@ This project supports both Foundry and Hardhat development environments.
 ### Foundry ([Soldeer](https://getfoundry.sh/guides/project-setup/soldeer/))
 
 1. **Install Foundry** (if not already installed):
-   ```bash
-   curl -L https://foundry.paradigm.xyz | bash
-   foundryup
-   ```
+    ```bash
+    curl -L https://foundry.paradigm.xyz | bash
+    foundryup
+    ```
 
 2. **Install only swaps as a dependency**:
-   ```bash
-   forge soldeer install onlyswaps-solidity~0.3.0 --url https://github.com/randa-mu/onlyswaps-solidity/archive/refs/tags/v0.3.0.zip
-   ```
+    ```bash
+    forge soldeer install onlyswaps-solidity~0.3.0 --url https://github.com/randa-mu/onlyswaps-solidity/archive/refs/tags/v0.3.0.zip
+    ```
 
 3. **Update your remappings.txt file**
     ```bash
@@ -57,24 +57,24 @@ This project supports both Foundry and Hardhat development environments.
     ```
 
 4. **Import the contracts in your Solidity files**:
-   ```solidity
-   import "onlyswaps-solidity/src/Router.sol";
-   import "onlyswaps-solidity/src/interfaces/IRouter.sol";
-   ```
+    ```solidity
+    import "onlyswaps-solidity/src/Router.sol";
+    import "onlyswaps-solidity/src/interfaces/IRouter.sol";
+    ```
 
 
 ### Hardhat/npm
 
 1. **Install the package**:
-   ```bash
-   npm install onlyswaps-solidity
-   ```
+    ```bash
+    npm install onlyswaps-solidity
+    ```
 
 2. **Import the contracts in your Solidity files**:
-   ```solidity
-   import "onlyswaps-solidity/src/Router.sol";
-   import "onlyswaps-solidity/src/interfaces/IRouter.sol";
-   ```
+    ```solidity
+    import "onlyswaps-solidity/src/Router.sol";
+    import "onlyswaps-solidity/src/interfaces/IRouter.sol";
+    ```
 
 
 ## Usage
@@ -83,7 +83,7 @@ This project supports both Foundry and Hardhat development environments.
 
 This repository comes with a comprehensive set of tests written in Solidity, which can be executed using [Foundry](https://getfoundry.sh/).
 
-To downnload Foundry installer (foundryup):
+To download Foundry installer (foundryup):
 
 ```sh
 curl -L https://foundry.paradigm.xyz | bash
