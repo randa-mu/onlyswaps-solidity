@@ -75,7 +75,7 @@ This project supports both Foundry and Hardhat development environments.
    import "onlyswaps-solidity/src/Router.sol";
    import "onlyswaps-solidity/src/interfaces/IRouter.sol";
    ```
-   
+
 
 ## Usage
 
@@ -83,13 +83,13 @@ This project supports both Foundry and Hardhat development environments.
 
 This repository comes with a comprehensive set of tests written in Solidity, which can be executed using [Foundry](https://getfoundry.sh/).
 
-To install Foundry:
+To downnload Foundry installer (foundryup):
 
 ```sh
 curl -L https://foundry.paradigm.xyz | bash
 ```
 
-This will download foundryup. To start Foundry, run:
+This will download foundryup. To run foundryup which will install/update the toolchain, run:
 
 ```sh
 foundryup
