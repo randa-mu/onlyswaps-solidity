@@ -35,10 +35,11 @@ contract DeployRouter is JsonUtils, EnvReader {
         deployRouterProxy(isUpgrade, swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier);
     }
 
-    function deployRouterProxy(bool isUpgrade, address swapRequestBLSSigVerifier, address contractUpgradeBLSSigVerifier)
-        internal
-        returns (Router router)
-    {
+    function deployRouterProxy(
+        bool isUpgrade,
+        address swapRequestBLSSigVerifier,
+        address contractUpgradeBLSSigVerifier
+    ) internal returns (Router router) {
         require(swapRequestBLSSigVerifier != address(0), "SwapRequest BLS verifier address must not be zero");
         require(contractUpgradeBLSSigVerifier != address(0), "ContractUpgrade BLS verifier address must not be zero");
 

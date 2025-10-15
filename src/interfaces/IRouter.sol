@@ -206,10 +206,6 @@ interface IRouter {
     /// @return The generated request ID
     function getSwapRequestId(SwapRequestParameters memory p) external view returns (bytes32);
 
-    /// @notice Retrieves the current chain ID
-    /// @return The current chain ID
-    function getChainID() external view returns (uint256);
-
     /// @notice Retrieves the address of the swap request BLS validator
     /// @return The address of the swap request BLS validator
     function getSwapRequestBlsValidator() external view returns (address);

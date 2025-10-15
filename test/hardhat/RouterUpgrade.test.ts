@@ -121,7 +121,7 @@ describe("Router Upgrade", function () {
   describe("scheduleUpgrade", () => {
     it("should schedule an upgrade with valid params (good path)", async () => {
       const version = await router.getVersion();
-      expect(version).to.equal("1.0.0");
+      expect(version).to.equal("1.1.0");
 
       const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
@@ -424,7 +424,7 @@ describe("Router Upgrade", function () {
   describe("executeUpgrade", () => {
     it("should execute a scheduled upgrade after scheduled time (good path)", async () => {
       let version = await router.getVersion();
-      expect(version).to.equal("1.0.0");
+      expect(version).to.equal("1.1.0");
       const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
@@ -441,7 +441,7 @@ describe("Router Upgrade", function () {
       await expect(router.connect(user).executeUpgrade()).to.emit(router, "UpgradeExecuted").withArgs(newImplAddress);
       // Check version after upgrade
       version = await router.getVersion();
-      expect(version).to.equal("2.0.0");
+      expect(version).to.equal("1.2.0");
     });
 
     it("should revert if upgradeToAndCall is called extrenally (bad path)", async () => {

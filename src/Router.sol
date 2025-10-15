@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {AccessControlEnumerableUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
+import {
+    AccessControlEnumerableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -163,7 +164,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
         IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amount + solverFee);
 
-        emit SwapRequested(requestId, getChainID(), dstChainId);
+        emit SwapRequested(requestId, getChainId(), dstChainId);
     }
 
     /// @notice Updates the solver fee for an unfulfilled swap request
@@ -213,8 +214,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         require(solverRefundAddress != address(0), ErrorsLib.ZeroAddress());
         require(amountOut > 0, ErrorsLib.ZeroAmount());
         require(
-            srcChainId != getChainID(),
-            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainID())
+            srcChainId != getChainId(),
+            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainId())
         );
         require(
             requestId
@@ -227,7 +228,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
                         amountOut,
                         srcChainId,
                         // the relayTokens function is called on the destination chain, so dstChainId is the current chain ID
-                        getChainID(),
+                        getChainId(),
                         nonce
                     )
                 ),
@@ -241,7 +242,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         swapRequestReceipts[requestId] = SwapRequestReceipt({
             requestId: requestId,
             srcChainId: srcChainId,
-            dstChainId: getChainID(),
+            dstChainId: getChainId(),
             tokenIn: tokenIn,
             tokenOut: tokenOut, // tokenOut is the token being received on the destination chain
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
@@ -251,7 +252,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             fulfilledAt: block.timestamp
         });
 
-        emit SwapRequestFulfilled(requestId, srcChainId, getChainID());
+        emit SwapRequestFulfilled(requestId, srcChainId, getChainId());
     }
 
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
@@ -264,7 +265,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         SwapRequestParameters storage params = swapRequestParameters[requestId];
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         /// @dev rebalancing of solvers happens on the source chain router
-        require(params.srcChainId == getChainID(), ErrorsLib.SourceChainIdMismatch(params.srcChainId, getChainID()));
+        require(params.srcChainId == getChainId(), ErrorsLib.SourceChainIdMismatch(params.srcChainId, getChainId()));
 
         (, bytes memory messageAsG1Bytes) = swapRequestParametersToBytes(requestId, solver);
         require(
@@ -385,7 +386,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             tokenIn: tokenIn,
             tokenOut: tokenOut,
             amountOut: amountOut,
-            srcChainId: getChainID(),
+            srcChainId: getChainId(),
             dstChainId: dstChainId,
             verificationFee: verificationFeeAmount,
             solverFee: solverFeeAmount,
@@ -422,23 +423,17 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
                 p.tokenIn,
                 p.tokenOut,
                 p.amountOut,
-                getChainID(), // the srcChainId is always the current chain ID
+                getChainId(), // the srcChainId is always the current chain ID
                 p.dstChainId,
                 p.nonce
             )
         );
     }
 
-    /// @notice Retrieves the current chain ID
-    /// @return The current chain ID
-    function getChainID() public view returns (uint256) {
-        return block.chainid;
-    }
-
     /// @notice Retrieves the current version of the contract
     /// @return The current version of the contract
     function getVersion() public pure returns (string memory) {
-        return "1.0.0";
+        return "1.1.0";
     }
 
     /// @notice Retrieves the current verification fee in basis points
