@@ -117,7 +117,7 @@ describe("Router", function () {
   describe("Router Initialization", function () {
     it("should return correct contract version", async () => {
       const version = await router.getVersion();
-      expect(version).to.equal("1.0.0");
+      expect(version).to.equal("1.1.0");
     });
 
     it("should revert initialize if _verificationFeeBps is zero or exceeds MAX_FEE_BPS", async () => {
@@ -1004,7 +1004,7 @@ describe("Router", function () {
       // Check receipt values
       expect(reqId).to.equal(requestId);
       expect(sourceChainId).to.equal(srcChainId);
-      expect(dstChainId).to.equal(await router.getChainID());
+      expect(dstChainId).to.equal(await router.getChainId());
       expect(srcTokenAddr).to.equal(await srcToken.getAddress());
       expect(dstTokenAddr).to.equal(await dstToken.getAddress());
       expect(fulfilled).to.be.true;
