@@ -52,7 +52,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.4.2
+          version: 1.4.2-stable
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
