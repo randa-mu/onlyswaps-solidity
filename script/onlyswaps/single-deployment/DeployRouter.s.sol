@@ -31,14 +31,16 @@ contract DeployRouter is JsonUtils, EnvReader {
             _readAddressFromJsonInput(configPath, Constants.KEY_BN254_SWAP_REQUEST_SIGNATURE_SCHEME);
         address contractUpgradeBLSSigVerifier =
             _readAddressFromJsonInput(configPath, Constants.KEY_BN254_CONTRACT_UPGRADE_SIGNATURE_SCHEME);
+        address permit2Relayer = _readAddressFromJsonInput(configPath, Constants.KEY_PERMIT2_RELAYER);
 
-        deployRouterProxy(isUpgrade, swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier);
+        deployRouterProxy(isUpgrade, swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier, permit2Relayer);
     }
 
     function deployRouterProxy(
         bool isUpgrade,
         address swapRequestBLSSigVerifier,
-        address contractUpgradeBLSSigVerifier
+        address contractUpgradeBLSSigVerifier,
+        address permit2Relayer
     ) internal returns (Router router) {
         require(swapRequestBLSSigVerifier != address(0), "SwapRequest BLS verifier address must not be zero");
         require(contractUpgradeBLSSigVerifier != address(0), "ContractUpgrade BLS verifier address must not be zero");
@@ -53,7 +55,11 @@ contract DeployRouter is JsonUtils, EnvReader {
         } else {
             // Initial deployment logic
             router = executeInitialDeployment(
-                implementation, swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier, deploymentParameters
+                implementation,
+                swapRequestBLSSigVerifier,
+                contractUpgradeBLSSigVerifier,
+                permit2Relayer,
+                deploymentParameters
             );
         }
     }
@@ -83,6 +89,7 @@ contract DeployRouter is JsonUtils, EnvReader {
         address implementation,
         address swapRequestBLSSigVerifier,
         address contractUpgradeBLSSigVerifier,
+        address permit2Relayer,
         DeploymentParameters memory deploymentParameters
     ) internal returns (Router router) {
         vm.broadcast();
@@ -107,6 +114,7 @@ contract DeployRouter is JsonUtils, EnvReader {
             loadContractAdminFromEnv(),
             swapRequestBLSSigVerifier,
             contractUpgradeBLSSigVerifier,
+            permit2Relayer,
             deploymentParameters.verificationFeeBps
         );
 

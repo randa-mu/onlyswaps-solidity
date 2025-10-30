@@ -7,4 +7,5 @@ struct OnlySwapsDeploymentAddresses {
     address routerImplementationAddress;
     address bn254SwapRequestSignatureSchemeAddress;
     address bn254ContractUpgradeSignatureSchemeAddress;
+    address permit2RelayerAddress;
 }

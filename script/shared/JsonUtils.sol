@@ -103,6 +103,8 @@ contract JsonUtils is Script {
             data.bn254SwapRequestSignatureSchemeAddress = value;
         } else if (hashedKey == keccak256(bytes(Constants.KEY_BN254_CONTRACT_UPGRADE_SIGNATURE_SCHEME))) {
             data.bn254ContractUpgradeSignatureSchemeAddress = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_PERMIT2_RELAYER))) {
+            data.permit2RelayerAddress = value;
         } else {
             revert("Unsupported key in _storeOnlySwapsAddressInJson");
         }

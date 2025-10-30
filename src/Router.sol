@@ -11,6 +11,10 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 
 import {ISignatureScheme} from "bls-solidity/interfaces/ISignatureScheme.sol";
 
+import {Permit2Relayer} from "./Permit2Relayer.sol";
+import {IPermit2} from "uniswap-permit2/interfaces/IPermit2.sol";
+import {ISignatureTransfer} from "uniswap-permit2/interfaces/ISignatureTransfer.sol";
+
 import {ScheduledUpgradeable} from "./ScheduledUpgradeable.sol";
 
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
@@ -42,6 +46,9 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
     /// @notice BLS validator used for swap request signature verification
     ISignatureScheme public swapRequestBlsValidator;
+
+    /// @notice The Permit2Relayer contract
+    Permit2Relayer private permit2Relayer;
 
     /// @dev Stores all fulfilled swap request IDs
     EnumerableSet.Bytes32Set private fulfilledTransfers;
@@ -99,6 +106,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         address _owner,
         address _swapRequestBlsValidator,
         address _contractUpgradeBlsValidator,
+        address _permit2Relayer,
         uint256 _verificationFeeBps
     ) public initializer {
         __UUPSUpgradeable_init();
@@ -113,6 +121,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         verificationFeeBps = _verificationFeeBps;
         swapRequestBlsValidator = ISignatureScheme(_swapRequestBlsValidator);
         swapRequestCancellationWindow = 1 days;
+        permit2Relayer = Permit2Relayer(_permit2Relayer);
     }
 
     // ---------------------- Core Logic ----------------------
@@ -252,6 +261,91 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         });
 
         emit SwapRequestFulfilled(requestId, srcChainId, getChainId());
+    }
+
+    /// @notice Relays tokens to the recipient and stores a receipt
+    /// @param solverRefundAddress The address to refund the solver on the source chain
+    /// @param requestId The original request ID from the source chain
+    /// @param sender The sender of the swap request on the source chain
+    /// @param recipient The target recipient of the tokens
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
+    /// @param amountOut The amount transferred to the recipient on the destination chain
+    /// @param srcChainId The ID of the source chain where the request originated
+    /// @param nonce The nonce used for the swap request on the source chain for replay protection
+    function relayTokensPermit2(
+        address solverRefundAddress,
+        bytes32 requestId,
+        address sender,
+        address recipient,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut,
+        uint256 srcChainId,
+        uint256 nonce,
+        uint256 permitNonce,
+        uint256 permitDeadline,
+        bytes calldata signature
+    ) external nonReentrant {
+        require(!swapRequestReceipts[requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
+        require(
+            tokenIn != address(0) && tokenOut != address(0) && sender != address(0) && recipient != address(0),
+            ErrorsLib.InvalidTokenOrRecipient()
+        );
+        require(solverRefundAddress != address(0), ErrorsLib.ZeroAddress());
+        require(amountOut > 0, ErrorsLib.ZeroAmount());
+        require(
+            srcChainId != getChainID(),
+            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainID())
+        );
+        require(
+            requestId
+                == keccak256(
+                    abi.encode(
+                        sender,
+                        recipient,
+                        tokenIn,
+                        tokenOut,
+                        amountOut,
+                        srcChainId,
+                        // the relayTokens function is called on the destination chain, so dstChainId is the current chain ID
+                        getChainID(),
+                        nonce
+                    )
+                ),
+            ErrorsLib.SwapRequestParametersMismatch()
+        );
+
+        fulfilledTransfers.add(requestId);
+
+        IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            nonce: permitNonce,
+            deadline: permitDeadline,
+            permitted: ISignatureTransfer.TokenPermissions({token: tokenOut, amount: amountOut})
+        });
+        permit2Relayer.relayTokensPermit2(
+            requestId,
+            recipient,
+            "", // no additional data
+            solverRefundAddress,
+            permit,
+            signature
+        );
+
+        swapRequestReceipts[requestId] = SwapRequestReceipt({
+            requestId: requestId,
+            srcChainId: srcChainId,
+            dstChainId: getChainID(),
+            tokenIn: tokenIn,
+            tokenOut: tokenOut, // tokenOut is the token being received on the destination chain
+            fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
+            solver: solverRefundAddress,
+            recipient: recipient,
+            amountOut: amountOut,
+            fulfilledAt: block.timestamp
+        });
+
+        emit SwapRequestFulfilled(requestId, srcChainId, getChainID());
     }
 
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.

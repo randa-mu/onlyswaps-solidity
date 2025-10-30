@@ -13,6 +13,7 @@ import {
     DeployBN254ContractUpgradeSignatureScheme
 } from "./single-deployment/DeployBN254ContractUpgradeSignatureScheme.s.sol";
 import {Router, DeployRouter} from "./single-deployment/DeployRouter.s.sol";
+import {Permit2Relayer, DeployPermit2Relayer} from "./single-deployment/DeployPermit2Relayer.s.sol";
 import {ERC20FaucetToken, DeployRUSD} from "./single-deployment/DeployRUSD.s.sol";
 
 /// @title DeployAllContracts
@@ -22,6 +23,7 @@ import {ERC20FaucetToken, DeployRUSD} from "./single-deployment/DeployRUSD.s.sol
 contract DeployAllContracts is
     DeployBN254ContractUpgradeSignatureScheme,
     DeployBN254SwapRequestSignatureScheme,
+    DeployPermit2Relayer,
     DeployRouter,
     DeployRUSD
 {
@@ -30,6 +32,7 @@ contract DeployAllContracts is
         override (
             DeployBN254ContractUpgradeSignatureScheme,
             DeployBN254SwapRequestSignatureScheme,
+            DeployPermit2Relayer,
             DeployRouter,
             DeployRUSD
         )
@@ -41,6 +44,7 @@ contract DeployAllContracts is
     /// @dev This function initializes multiple contracts and links them together as needed.
     /// @return bn254SwapRequestSignatureScheme The deployed instance of BN254SwapRequestSignatureScheme.
     /// @return bn254ContractUpgradeSignatureScheme The deployed instance of BN254ContractUpgradeSignatureScheme.
+    /// @return permit2Relayer The deployed instance of Permit2Relayer.
     /// @return router The deployed instance of Router.
     /// @return rusd The deployed instance of RUSD.
     function deployAll()
@@ -48,6 +52,7 @@ contract DeployAllContracts is
         returns (
             BLSBN254SignatureScheme bn254SwapRequestSignatureScheme,
             BLSBN254SignatureScheme bn254ContractUpgradeSignatureScheme,
+            Permit2Relayer permit2Relayer,
             Router router,
             ERC20FaucetToken rusd
         )
@@ -59,9 +64,13 @@ contract DeployAllContracts is
         bn254SwapRequestSignatureScheme = deployBN254SwapRequestSignatureScheme();
         // BLSBN254SignatureScheme for contract upgrades
         bn254ContractUpgradeSignatureScheme = deployBN254ContractUpgradeSignatureScheme();
+        permit2Relayer = deployPermit2Relayer();
         // Router
         router = deployRouterProxy(
-            isUpgrade, address(bn254SwapRequestSignatureScheme), address(bn254ContractUpgradeSignatureScheme)
+            isUpgrade,
+            address(bn254SwapRequestSignatureScheme),
+            address(bn254ContractUpgradeSignatureScheme),
+            address(permit2Relayer)
         );
         // RUSD
         rusd = deployRUSD();
