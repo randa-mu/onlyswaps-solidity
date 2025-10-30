@@ -31,5 +31,6 @@ forge-std = "1.10.0"
 "@openzeppelin-contracts" = "5.4.0"
 "@openzeppelin-contracts-upgradeable" = "5.4.0"
 bls-solidity = { version = "0.3.0", url = "https://github.com/randa-mu/bls-solidity/archive/refs/tags/v0.3.0.zip" }
+uniswap-permit2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
