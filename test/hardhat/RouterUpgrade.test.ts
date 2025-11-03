@@ -9,7 +9,7 @@ import {
   BLSBN254SignatureScheme__factory,
   UUPSProxy__factory,
   Permit2Relayer,
-  Permit2Relayer__factory
+  Permit2Relayer__factory,
 } from "../../typechain-types";
 import { extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
@@ -94,7 +94,6 @@ describe("Router Upgrade", function () {
     );
     // Deploy Permit2Relayer
     permit2Relayer = await new Permit2Relayer__factory(owner).deploy();
-
 
     const Router = new ethers.ContractFactory(Router__factory.abi, Router__factory.bytecode, owner);
 
