@@ -174,6 +174,75 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         emit SwapRequested(requestId, getChainId(), dstChainId);
     }
 
+    /// @notice Initiates a swap request using Permit2
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
+    /// @param amount Amount of tokens to swap
+    /// @param solverFee The solver fee (in token units) to be paid by the user
+    /// @param dstChainId Target chain ID
+    /// @param recipient Address to receive swaped tokens on target chain
+    /// @param requester The address of the swap requester or signer approving the permit
+    /// @return requestId The unique swap request id
+    /// @param permitNonce The Permit2 nonce for the permit
+    /// @param permitDeadline The Permit2 deadline for the permit
+    /// @param signature The Permit2 signature authorizing the transfer
+    function requestCrossChainSwapPermit2(
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        uint256 solverFee,
+        uint256 dstChainId,
+        address recipient,
+        address requester,
+        uint256 permitNonce,
+        uint256 permitDeadline,
+        bytes calldata signature
+    ) external nonReentrant returns (bytes32 requestId) {
+        require(amount > 0, ErrorsLib.ZeroAmount());
+        require(recipient != address(0), ErrorsLib.ZeroAddress());
+        require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
+        require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
+
+        // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
+        // based on the total fee provided
+        (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(amount);
+        // Calculate the solver fee by subtracting the swap fee from the total fee
+        // The solver fee is the remaining portion of the fee
+        // The total fee must be greater than the swap fee to ensure the solver is compensated
+        require(solverFee > 0, ErrorsLib.FeeTooLow());
+
+        // Accumulate the total verification fees balance for the specified token
+        totalVerificationFeeBalance[tokenIn] += verificationFeeAmount;
+
+        // Generate unique nonce and map it to sender
+        uint256 nonce = ++currentSwapRequestNonce;
+        nonceToRequester[nonce] = msg.sender;
+
+        SwapRequestParameters memory params = buildSwapRequestParameters(
+            tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+        );
+
+        requestId = getSwapRequestId(params);
+
+        storeSwapRequest(requestId, params);
+
+        IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            nonce: permitNonce,
+            deadline: permitDeadline,
+            permitted: ISignatureTransfer.TokenPermissions({token: tokenIn, amount: amount + solverFee})
+        });
+        permit2Relayer.requestCrossChainSwapPermit2(
+            requestId,
+            address(this),
+            "", // todo additional data can be encoded swap request parameters
+            requester,
+            permit,
+            signature
+        );
+
+        emit SwapRequested(requestId, getChainId(), dstChainId);
+    }
+
     /// @notice Updates the solver fee for an unfulfilled swap request
     /// @param requestId The unique ID of the swap request to update
     /// @param newFee The new solver fee to be set for the swap request
@@ -272,6 +341,9 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
     /// @param nonce The nonce used for the swap request on the source chain for replay protection
+    /// @param permitNonce The Permit2 nonce for the permit
+    /// @param permitDeadline The Permit2 deadline for the permit
+    /// @param signature The Permit2 signature authorizing the transfer
     function relayTokensPermit2(
         address solverRefundAddress,
         bytes32 requestId,

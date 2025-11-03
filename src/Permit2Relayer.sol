@@ -34,7 +34,39 @@ contract Permit2Relayer {
     );
 
     /// @notice Mapping to store which identifiers have been used. This ensures that a permit can be used at most once.
-    mapping(bytes32 => bool) public usedIdentifiers;
+    mapping(bytes32 => bool) public usedRelayTokensIdentifiers;
+    /// @notice Mapping to store which identifiers have been used for cross-chain swap requests. This ensures that a permit can be used at most once.
+    mapping(bytes32 => bool) public usedRequestCrossChainSwapIdentifiers;
+
+    function requestCrossChainSwapPermit2(
+        bytes32 requestId,
+        address recipient,
+        bytes calldata additionalData, // todo additional data can be encoded swap request parameters
+        address signer,
+        IPermit2.PermitTransferFrom memory permit,
+        bytes calldata signature
+    ) external {
+        // revert if request id has already been used
+        // this ensures that at most a _single_ permit containing the requestId
+        // can be consumed by that contract.
+        require(!usedRequestCrossChainSwapIdentifiers[requestId], "TokenRelayer: Identifier already used");
+
+        IPermit2.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
+            to: address(this),
+            // we require the permit amount to be the same as the requested amount
+            requestedAmount: permit.permitted.amount
+        });
+
+        // By computing the witness here, we ensure that the permit was approved for that request id specifically.
+        // That same reasoning cannot be applied to the additionalData as it is controlled by the caller entirely.
+        bytes32 witness = keccak256(abi.encode(WITNESS_TYPE_HASH, requestId, recipient, keccak256(additionalData)));
+
+        PERMIT2.permitWitnessTransferFrom(
+            permit, transferDetails, signer, witness, PERMIT2_WITNESS_TYPE_STRING, signature
+        );
+
+        IERC20(permit.permitted.token).safeTransfer(recipient, permit.permitted.amount);
+    }
 
     /// @notice Relays tokens to a recipient at most once per request identifier
     /// @param requestId A unique request ID
@@ -51,7 +83,7 @@ contract Permit2Relayer {
         // revert if request id has already been used
         // this ensures that at most a _single_ permit containing the requestId
         // can be consumed by that contract.
-        require(!usedIdentifiers[requestId], "TokenRelayer: Identifier already used");
+        require(!usedRelayTokensIdentifiers[requestId], "TokenRelayer: Identifier already used");
 
         IPermit2.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
             to: address(this),
