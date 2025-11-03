@@ -1649,6 +1649,7 @@ describe("Router", function () {
             ownerAddr,
             await swapBn254SigScheme.getAddress(),
             ZeroAddress, // zero address for contractUpgradeBlsValidator
+            await permit2Relayer.getAddress(),
             VERIFICATION_FEE_BPS,
           ]),
         ),
