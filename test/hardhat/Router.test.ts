@@ -7,6 +7,8 @@ import {
   BLSBN254SignatureScheme,
   BLSBN254SignatureScheme__factory,
   UUPSProxy__factory,
+  Permit2Relayer,
+  Permit2Relayer__factory
 } from "../../typechain-types";
 import { extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
@@ -32,6 +34,7 @@ describe("Router", function () {
   let dstToken: ERC20Token;
   let swapBn254SigScheme: BLSBN254SignatureScheme;
   let upgradeBn254SigScheme: BLSBN254SignatureScheme;
+  let permit2Relayer: Permit2Relayer;
 
   let privKeyBytes: Uint8Array;
   let ownerAddr: string, solverAddr: string, solverRefundAddr: string, userAddr: string, recipientAddr: string;
@@ -85,6 +88,8 @@ describe("Router", function () {
       [y.c0, y.c1],
       upgradeType,
     );
+    // Deploy Permit2Relayer
+    permit2Relayer = await new Permit2Relayer__factory(owner).deploy();
 
     const Router = new ethers.ContractFactory(Router__factory.abi, Router__factory.bytecode, owner);
 
@@ -100,6 +105,7 @@ describe("Router", function () {
         ownerAddr,
         await swapBn254SigScheme.getAddress(),
         await upgradeBn254SigScheme.getAddress(),
+        await permit2Relayer.getAddress(),
         VERIFICATION_FEE_BPS,
       ]),
     );
