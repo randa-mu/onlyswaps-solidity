@@ -119,7 +119,7 @@ describe("Router", function () {
     await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
-
+  
   describe("Router Initialization", function () {
     it("should return correct contract version", async () => {
       const version = await router.getVersion();
@@ -325,7 +325,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Token Swap Requests", function () {
+  describe("Swap Requests", function () {
     it("should initiate a swap request and emit message", async () => {
       const amount = parseEther("10");
       const solverFee = parseEther("1");
@@ -430,7 +430,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Verification Fee Withdrawals, Rebalancing and Relay", function () {
+  describe("Verification Fee Withdrawals, Solver Rebalancing and Relay Tokens", function () {
     it("should block non-owner from withdrawing fees and revert with AccessControlUnauthorizedAccount for caller address and ADMIN_ROLE", async () => {
       await expect(router.connect(user).withdrawVerificationFee(await srcToken.getAddress(), user.address)).to.be
         .reverted;
@@ -1411,7 +1411,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Router - BLS Validator Management", () => {
+  describe("BLS Validator Management", () => {
     it("should revert if setSwapRequestBlsValidator is called with zero address", async () => {
       const invalidAddress = ZeroAddress;
       const currentNonce = Number(await router.currentNonce()) + 1;
@@ -1525,7 +1525,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Router - Minimum Contract Upgrade Delay Management", () => {
+  describe("Minimum Contract Upgrade Delay Management", () => {
     it("should update minimumContractUpgradeDelay and emit event if delay is greater than 2 days", async () => {
       const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
 
@@ -1608,7 +1608,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Router - ScheduledUpgradeable", () => {
+  describe("ScheduledUpgradeable", () => {
     it("should initialize ScheduledUpgradeable with valid parameters", async () => {
       const validValidator = await upgradeBn254SigScheme.getAddress();
 
@@ -1705,7 +1705,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Router - Admin Functions", () => {
+  describe("Admin Functions", () => {
     it("should revert blockDestinationChainId if called by non-admin", async () => {
       const chainId = 555;
       await router.connect(owner).permitDestinationChainId(chainId);
@@ -1759,7 +1759,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Router - BN254SignatureScheme", () => {
+  describe("BN254SignatureScheme", () => {
     it("should return the correct public key bytes from BN254SignatureScheme", async () => {
       // Get marshaled public key bytes from the contract
       const pubKeyBytesFromContract = await swapBn254SigScheme.getPublicKeyBytes();

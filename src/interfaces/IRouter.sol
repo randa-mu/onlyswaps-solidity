@@ -139,31 +139,6 @@ interface IRouter {
         address recipient
     ) external returns (bytes32 requestId);
 
-    /// @notice Initiates a swap request using Permit2
-    /// @param tokenIn The address of the token deposited on the source chain
-    /// @param tokenOut The address of the token sent to the recipient on the destination chain
-    /// @param amount Amount of tokens to swap
-    /// @param solverFee The solver fee (in token units) to be paid by the user
-    /// @param dstChainId Target chain ID
-    /// @param recipient Address to receive swaped tokens on target chain
-    /// @param requester The address of the swap requester or signer approving the permit
-    /// @return requestId The unique swap request id
-    /// @param permitNonce The Permit2 nonce for the permit
-    /// @param permitDeadline The Permit2 deadline for the permit
-    /// @param signature The Permit2 signature authorizing the transfer
-    function requestCrossChainSwapPermit2(
-        address tokenIn,
-        address tokenOut,
-        uint256 amount,
-        uint256 solverFee,
-        uint256 dstChainId,
-        address recipient,
-        address requester,
-        uint256 permitNonce,
-        uint256 permitDeadline,
-        bytes calldata signature
-    ) external returns (bytes32 requestId);
-
     /// @notice Updates the solver fee for an unfulfilled swap request
     /// @param requestId The unique ID of the swap request to update
     /// @param newFee The new solver fee to be set for the swap request
