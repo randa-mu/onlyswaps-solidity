@@ -295,8 +295,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         require(solverRefundAddress != address(0), ErrorsLib.ZeroAddress());
         require(amountOut > 0, ErrorsLib.ZeroAmount());
         require(
-            srcChainId != getChainID(),
-            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainID())
+            srcChainId != getChainId(),
+            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainId())
         );
         require(
             requestId
@@ -309,7 +309,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
                         amountOut,
                         srcChainId,
                         // the relayTokens function is called on the destination chain, so dstChainId is the current chain ID
-                        getChainID(),
+                        getChainId(),
                         nonce
                     )
                 ),
@@ -335,7 +335,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         swapRequestReceipts[requestId] = SwapRequestReceipt({
             requestId: requestId,
             srcChainId: srcChainId,
-            dstChainId: getChainID(),
+            dstChainId: getChainId(),
             tokenIn: tokenIn,
             tokenOut: tokenOut, // tokenOut is the token being received on the destination chain
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
@@ -345,7 +345,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             fulfilledAt: block.timestamp
         });
 
-        emit SwapRequestFulfilled(requestId, srcChainId, getChainID());
+        emit SwapRequestFulfilled(requestId, srcChainId, getChainId());
     }
 
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
