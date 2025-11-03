@@ -202,41 +202,36 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         require(recipient != address(0), ErrorsLib.ZeroAddress());
         require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
         require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
-
-        // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
-        // based on the total fee provided
-        (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(amount);
-        // Calculate the solver fee by subtracting the swap fee from the total fee
-        // The solver fee is the remaining portion of the fee
-        // The total fee must be greater than the swap fee to ensure the solver is compensated
         require(solverFee > 0, ErrorsLib.FeeTooLow());
 
-        // Accumulate the total verification fees balance for the specified token
-        totalVerificationFeeBalance[tokenIn] += verificationFeeAmount;
+        // Calculate fees inline and update balance
+        {
+            (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(amount);
+            totalVerificationFeeBalance[tokenIn] += verificationFeeAmount;
 
-        // Generate unique nonce and map it to sender
-        uint256 nonce = ++currentSwapRequestNonce;
-        nonceToRequester[nonce] = msg.sender;
+            // Generate nonce and build params
+            uint256 nonce = ++currentSwapRequestNonce;
+            nonceToRequester[nonce] = msg.sender;
 
-        SwapRequestParameters memory params = buildSwapRequestParameters(
-            tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
-        );
+            SwapRequestParameters memory params = buildSwapRequestParameters(
+                tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+            );
 
-        requestId = getSwapRequestId(params);
+            requestId = getSwapRequestId(params);
+            storeSwapRequest(requestId, params);
+        }
 
-        storeSwapRequest(requestId, params);
-
-        IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            nonce: permitNonce,
-            deadline: permitDeadline,
-            permitted: ISignatureTransfer.TokenPermissions({token: tokenIn, amount: amount + solverFee})
-        });
+        // Handle Permit2 transfer
         permit2Relayer.requestCrossChainSwapPermit2(
             requestId,
             address(this),
-            "", // todo additional data can be encoded swap request parameters
+            "",
             requester,
-            permit,
+            ISignatureTransfer.PermitTransferFrom({
+                nonce: permitNonce,
+                deadline: permitDeadline,
+                permitted: ISignatureTransfer.TokenPermissions({token: tokenIn, amount: amount + solverFee})
+            }),
             signature
         );
 
