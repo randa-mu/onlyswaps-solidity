@@ -110,6 +110,7 @@ describe("Router Upgrade", function () {
         ownerAddr,
         await swapBn254SigScheme.getAddress(),
         await upgradeBn254SigScheme.getAddress(),
+        await permit2Relayer.getAddress(),
         VERIFICATION_FEE_BPS,
       ]),
     );
@@ -555,6 +556,7 @@ describe("Router Upgrade", function () {
             ownerAddr,
             await swapBn254SigScheme.getAddress(),
             await upgradeBn254SigScheme.getAddress(),
+            await permit2Relayer.getAddress(),
             VERIFICATION_FEE_BPS,
           ),
       ).to.be.revertedWithCustomError(router, "InvalidInitialization()");
