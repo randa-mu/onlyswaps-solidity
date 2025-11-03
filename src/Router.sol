@@ -11,15 +11,15 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 
 import {ISignatureScheme} from "bls-solidity/interfaces/ISignatureScheme.sol";
 
-import {Permit2Relayer} from "./Permit2Relayer.sol";
-import {IPermit2} from "uniswap-permit2/interfaces/IPermit2.sol";
-import {ISignatureTransfer} from "uniswap-permit2/interfaces/ISignatureTransfer.sol";
-
 import {ScheduledUpgradeable} from "./ScheduledUpgradeable.sol";
 
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 
 import {IRouter, BLS} from "./interfaces/IRouter.sol";
+
+import {Permit2Relayer} from "./Permit2Relayer.sol";
+import {IPermit2} from "uniswap-permit2/interfaces/IPermit2.sol";
+import {ISignatureTransfer} from "uniswap-permit2/interfaces/ISignatureTransfer.sol";
 
 /// @title Router Contract for Cross-Chain Token Swaps
 /// @author Randamu
@@ -101,6 +101,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param _owner Initial contract owner
     /// @param _swapRequestBlsValidator BLS validator address for swap request verification
     /// @param _contractUpgradeBlsValidator BLS validator address for contract upgrades
+    /// @param _permit2Relayer The Permit2Relayer contract address
     /// @param _verificationFeeBps Verification fee in basis points
     function initialize(
         address _owner,

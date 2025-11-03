@@ -214,7 +214,7 @@ describe("Router Upgrade", function () {
       ).to.be.revertedWithCustomError(router, "SameVersionUpgradeNotAllowed");
     });
 
-    it.skip("should upgrade to MockRouterV2 with new swap request nonce functionality without affecting existing requests and storage (good path)", async () => {
+    it("should upgrade to MockRouterV2 with new swap request nonce functionality without affecting existing requests and storage (good path)", async () => {
       // Create an existing swap request in Router v1 to ensure it's preserved
       const swapAmount = ethers.parseEther("100");
       const solverFee = ethers.parseEther("1");
@@ -261,7 +261,7 @@ describe("Router Upgrade", function () {
 
       expect(hasAdminRoleBefore).to.be.true;
       expect(dstTokenAddressBefore[0]).to.equal(await dstToken.getAddress());
-      expect(versionBefore).to.equal("1.0.0");
+      expect(versionBefore).to.equal("1.1.0");
 
       // Now we perform the upgrade to MockRouterV2
       const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
@@ -285,7 +285,7 @@ describe("Router Upgrade", function () {
 
       // Verify the upgrade was successful
       const versionAfter = await upgradedRouter.getVersion();
-      expect(versionAfter).to.equal("2.0.0");
+      expect(versionAfter).to.equal("1.2.0");
 
       // Verify all existing storage is preserved
       const hasAdminRoleAfter = await upgradedRouter.hasRole(ADMIN_ROLE, ownerAddr);
@@ -316,7 +316,7 @@ describe("Router Upgrade", function () {
 
       // Test the new swap request nonce functionality
       const initialcurrentSwapRequestNonce = await upgradedRouter.currentSwapRequestNonce();
-      expect(initialcurrentSwapRequestNonce).to.equal(0); // Should start at 0 for new functionality
+      expect(initialcurrentSwapRequestNonce).to.equal(1); // Should start at 1 for new functionality
 
       // Create a new swap request to test the new nonce functionality
       await srcToken.connect(owner).mint(await user.getAddress(), totalAmount);
@@ -335,7 +335,7 @@ describe("Router Upgrade", function () {
 
       // Verify the swap request nonce incremented
       const currentSwapRequestNonceAfter = await upgradedRouter.currentSwapRequestNonce();
-      expect(currentSwapRequestNonceAfter).to.equal(1);
+      expect(currentSwapRequestNonceAfter).to.equal(2);
 
       // Test that we can create multiple swap requests and nonce keeps incrementing
       await srcToken.connect(owner).mint(await user.getAddress(), totalAmount);
@@ -353,7 +353,7 @@ describe("Router Upgrade", function () {
         );
 
       const finalcurrentSwapRequestNonce = await upgradedRouter.currentSwapRequestNonce();
-      expect(finalcurrentSwapRequestNonce).to.equal(2);
+      expect(finalcurrentSwapRequestNonce).to.equal(3);
 
       // Verify that the contract nonce (for upgrades) is still independent and unchanged
       const finalContractNonce = await upgradedRouter.currentNonce();
