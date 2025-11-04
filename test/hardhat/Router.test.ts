@@ -119,7 +119,7 @@ describe("Router", function () {
     await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
-  
+
   describe("Router Initialization", function () {
     it("should return correct contract version", async () => {
       const version = await router.getVersion();

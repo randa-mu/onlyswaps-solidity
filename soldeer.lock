@@ -27,8 +27,22 @@ checksum = "8cc59e92a7762c170c15f2102c4f3718106dfc78239978fe87c64f316740cc09"
 integrity = "3fd441e2499c5cf04ef9b4126f52150a50dcef9cac1645ff7a955345e947cd04"
 
 [[dependencies]]
+name = "solmate"
+version = "89365b880c4f3c786bdd453d4b8e8fe410344a69"
+url = "https://soldeer-revisions.s3.amazonaws.com/solmate/89365b880c4f3c786bdd453d4b8e8fe410344a69_25-08-2025_15:48:50_solmate-89365b880c4f3c786bdd453d4b8e8fe410344a69.zip"
+checksum = "76a5ec8e8a119288a318d6220331f985ba7a3278edf558402232782736066dd0"
+integrity = "a70931c29b02514a8a2a29f58f689c3ed0448b8f58dc8ba0ad34fa2037531c3d"
+
+[[dependencies]]
 name = "uniswap-permit2"
 version = "0x000000000022D473030F116dDEE9F6B43aC78BA3"
 url = "https://soldeer-revisions.s3.amazonaws.com/uniswap-permit2/0x000000000022D473030F116dDEE9F6B43aC78BA3_11-11-2024_08:00:23_permit2.zip"
 checksum = "d4fb59a5d0b9bb91c6800b55a0fa4037dcf4d2a17e55750ffb369572a4dd5906"
 integrity = "0557449748fa1d64e1e0caa3928c16a06932a16f16bc14cb37023526ed5228cc"
+
+[[dependencies]]
+name = "uniswap-permit2-unlocked"
+version = "1.0.0"
+url = "https://soldeer-revisions.s3.amazonaws.com/uniswap-permit2-unlocked/1_0_0_02-04-2025_20:04:54_permit2.zip"
+checksum = "552c003c8eaecebd30235e525934463f5741d81d9e39d77f997d44ba8bddcde6"
+integrity = "f091bf10500375f7dfe217f6102332eafd7c66752aa8e1dd16760049de3434fa"

@@ -176,77 +176,62 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         emit SwapRequested(requestId, getChainId(), dstChainId);
     }
 
-    /// @notice Parameters for cross-chain swap requests
-    struct CrossChainSwapParams {
-        address tokenIn; // The address of the token deposited on the source chain
-        address tokenOut; // The address of the token sent to the recipient on the destination chain
-        uint256 amount; // Amount of tokens to swap
-        uint256 solverFee; // The solver fee (in token units) to be paid by the user
-        uint256 dstChainId; // Target chain ID
-        address recipient; // Address to receive swapped tokens on target chain
-    }
-
-    /// @notice Initiates a swap request using Permit2
-    /// @param params The cross-chain swap parameters
-    /// @param requester The address of the swap requester or signer approving the permit
-    /// @param permitNonce The Permit2 nonce for the permit
-    /// @param permitDeadline The Permit2 deadline for the permit
-    /// @param signature The Permit2 signature authorizing the transfer
-    /// @return requestId The unique swap request id
     function requestCrossChainSwapPermit2(
-        CrossChainSwapParams calldata params,
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        uint256 solverFee,
+        uint256 dstChainId,
         address requester,
+        address recipient,
         uint256 permitNonce,
         uint256 permitDeadline,
         bytes calldata signature
     ) external nonReentrant returns (bytes32 requestId) {
-        require(params.amount > 0, ErrorsLib.ZeroAmount());
-        require(params.recipient != address(0), ErrorsLib.ZeroAddress());
-        require(allowedDstChainIds[params.dstChainId], ErrorsLib.DestinationChainIdNotSupported(params.dstChainId));
-        require(isDstTokenMapped(params.tokenIn, params.dstChainId, params.tokenOut), ErrorsLib.TokenNotSupported());
-        require(params.solverFee > 0, ErrorsLib.FeeTooLow());
+        require(amount > 0, ErrorsLib.ZeroAmount());
+        require(recipient != address(0), ErrorsLib.ZeroAddress());
+        require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
+        require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
 
-        // Calculate fees inline and update balance
-        {
-            (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(params.amount);
-            totalVerificationFeeBalance[params.tokenIn] += verificationFeeAmount;
+        // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
+        // based on the total fee provided
+        (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(amount);
+        // Calculate the solver fee by subtracting the swap fee from the total fee
+        // The solver fee is the remaining portion of the fee
+        // The total fee must be greater than the swap fee to ensure the solver is compensated
+        require(solverFee > 0, ErrorsLib.FeeTooLow());
 
-            // Generate nonce and build params
-            uint256 nonce = ++currentSwapRequestNonce;
-            nonceToRequester[nonce] = msg.sender;
+        // Accumulate the total verification fees balance for the specified token
+        totalVerificationFeeBalance[tokenIn] += verificationFeeAmount;
 
-            SwapRequestParameters memory swapParams = buildSwapRequestParameters(
-                params.tokenIn,
-                params.tokenOut,
-                amountOut,
-                verificationFeeAmount,
-                params.solverFee,
-                params.dstChainId,
-                params.recipient,
-                nonce
-            );
+        // Generate unique nonce and map it to sender
+        uint256 nonce = ++currentSwapRequestNonce;
+        nonceToRequester[nonce] = requester;
 
-            requestId = getSwapRequestId(swapParams);
-            storeSwapRequest(requestId, swapParams);
-        }
+        SwapRequestParameters memory params = buildSwapRequestParameters(
+            tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+        );
 
-        // Handle Permit2 transfer
-        permit2Relayer.requestCrossChainSwapPermit2(
+        requestId = getSwapRequestId(params);
+
+        storeSwapRequest(requestId, params);
+
+        IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            nonce: permitNonce,
+            deadline: permitDeadline,
+            permitted: ISignatureTransfer.TokenPermissions({token: tokenIn, amount: amount + solverFee})
+        });
+        permit2Relayer.relayTokensPermit2(
             requestId,
             address(this),
-            "",
+            "", // additional data can be request parameters
             requester,
-            ISignatureTransfer.PermitTransferFrom({
-                nonce: permitNonce,
-                deadline: permitDeadline,
-                permitted: ISignatureTransfer.TokenPermissions({
-                    token: params.tokenIn, amount: params.amount + params.solverFee
-                })
-            }),
+            permit,
             signature
         );
 
-        emit SwapRequested(requestId, getChainId(), params.dstChainId);
+        // Handle Permit2 transfer
+        emit SwapRequested(requestId, getChainId(), dstChainId);
     }
 
     /// @notice Updates the solver fee for an unfulfilled swap request

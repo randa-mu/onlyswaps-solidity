@@ -2,4 +2,6 @@
 @openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.4.0/
 bls-solidity/=dependencies/bls-solidity-0.3.0/src/
 forge-std/=dependencies/forge-std-1.10.0/src/
+solmate/=dependencies/solmate-89365b880c4f3c786bdd453d4b8e8fe410344a69/
+uniswap-permit2-unlocked/=dependencies/uniswap-permit2-unlocked-1.0.0/src/
 uniswap-permit2/=dependencies/uniswap-permit2-0x000000000022D473030F116dDEE9F6B43aC78BA3/src/

@@ -174,34 +174,6 @@ interface IRouter {
         uint256 nonce
     ) external;
 
-    /// @notice Relays tokens to the recipient and stores a receipt
-    /// @param solverRefundAddress The address to refund the solver on the source chain
-    /// @param requestId The original request ID from the source chain
-    /// @param sender The sender of the swap request on the source chain
-    /// @param recipient The target recipient of the tokens
-    /// @param tokenIn The address of the token deposited on the source chain
-    /// @param tokenOut The address of the token sent to the recipient on the destination chain
-    /// @param amountOut The amount transferred to the recipient on the destination chain
-    /// @param srcChainId The ID of the source chain where the request originated
-    /// @param nonce The nonce used for the swap request on the source chain for replay protection
-    /// @param permitNonce The Permit2 nonce for the permit
-    /// @param permitDeadline The Permit2 deadline for the permit
-    /// @param signature The Permit2 signature authorizing the transfer
-    function relayTokensPermit2(
-        address solverRefundAddress,
-        bytes32 requestId,
-        address sender,
-        address recipient,
-        address tokenIn,
-        address tokenOut,
-        uint256 amountOut,
-        uint256 srcChainId,
-        uint256 nonce,
-        uint256 permitNonce,
-        uint256 permitDeadline,
-        bytes calldata signature
-    ) external;
-
     /// @notice Stages a swap request for cancellation after the cancellation window
     /// @param requestId The unique ID of the swap request to cancel
     function stageSwapRequestCancellation(bytes32 requestId) external;
