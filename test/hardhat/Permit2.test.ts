@@ -138,9 +138,9 @@ describe("Router", function () {
       const solverFee = parseEther("1");
       const amountToMint = amount + solverFee;
       const permitNonce = 0;
-      const permitDeadline = Math.floor(Date.now() / 1000) + 3600;
+      const permitDeadline = MaxUint256;
 
-      const srcChainId = await ethers.provider.getNetwork().then((n) => n.chainId);
+      const srcChainId = await router.getChainId();
       const currentNonce = await router.currentSwapRequestNonce();
 
       await srcToken.mint(userAddr, amountToMint);
