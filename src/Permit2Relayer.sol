@@ -69,4 +69,10 @@ contract Permit2Relayer {
 
         IERC20(permit.permitted.token).safeTransfer(recipient, permit.permitted.amount);
     }
+
+    /// @notice Sets the Permit2 contract address
+    /// @dev TODO: This function is used for testing purposes only
+    function setPermit2Address(address permit2Address) external {
+        PERMIT2 = IPermit2(permit2Address);
+    }
 }
