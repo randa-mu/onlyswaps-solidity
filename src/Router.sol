@@ -400,7 +400,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             params.requestId,
             params.solver,
             params.recipient,
-            abi.encodePacked(params.solverRefundAddress),
+            abi.encode(params.solverRefundAddress),
             permit,
             params.signature
         );

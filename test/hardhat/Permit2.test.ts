@@ -992,7 +992,7 @@ describe("Router", function () {
         ],
       };
 
-      const additionalData = ethers.solidityPacked(["address"], [solverRefundAddr]);
+      const additionalData = ethers.AbiCoder.defaultAbiCoder().encode(["address"], [solverRefundAddr]);
 
       const permit2Message = {
         permitted: {
