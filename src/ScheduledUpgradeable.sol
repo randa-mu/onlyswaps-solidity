@@ -5,7 +5,6 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IScheduledUpgradeable, ISignatureScheme} from "./interfaces/IScheduledUpgradeable.sol";
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
-import {BLS} from "bls-solidity/libraries/BLS.sol";
 
 /// @title ScheduledUpgradeable
 /// @author Randamu

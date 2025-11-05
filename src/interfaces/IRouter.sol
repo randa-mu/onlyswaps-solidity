@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {BLS} from "bls-solidity/libraries/BLS.sol";
-
 /// @title IRouter
 /// @author Randamu
 /// @notice Interface for a cross-chain token swap router with BLS (BN254) signature verification.

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import "./DeploymentParamsAnvil.sol";
-import "./DeploymentParamsAvalanche.sol";
-import "./DeploymentParamsBase.sol";
+import {DeploymentParamsAnvil} from "./DeploymentParamsAnvil.sol";
+import {DeploymentParamsAvalanche} from "./DeploymentParamsAvalanche.sol";
+import {DeploymentParamsBase} from "./DeploymentParamsBase.sol";
+import {DeploymentParameters} from "./DeploymentParamsCore.sol";
 
 library DeploymentParamsSelector {
     function getDeploymentParams(uint256 chainId) internal pure returns (DeploymentParameters memory) {

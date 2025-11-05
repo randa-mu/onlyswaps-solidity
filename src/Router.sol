@@ -15,7 +15,7 @@ import {ScheduledUpgradeable} from "./ScheduledUpgradeable.sol";
 
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 
-import {IRouter, BLS} from "./interfaces/IRouter.sol";
+import {IRouter} from "./interfaces/IRouter.sol";
 
 import {Permit2Relayer} from "./Permit2Relayer.sol";
 import {IPermit2} from "uniswap-permit2/interfaces/IPermit2.sol";
