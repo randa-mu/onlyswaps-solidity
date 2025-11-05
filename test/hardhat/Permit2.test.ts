@@ -18,6 +18,7 @@ import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
+import { exec } from "child_process";
 import { AbiCoder, parseEther, keccak256, toUtf8Bytes, ZeroAddress, MaxUint256 } from "ethers";
 import { ethers } from "hardhat";
 
@@ -326,6 +327,11 @@ describe("Router", function () {
       const expectedRequestId = await router.getSwapRequestId(swapParameters);
 
       expect(requestId).to.equal(expectedRequestId);
+
+      expect(await srcToken.balanceOf(userAddr)).to.equal(0);
+      expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
+      expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + solverFee);
+      expect(await srcToken.balanceOf(await permit2.getAddress())).to.equal(0);
     });
 
     it("should fail to make a swap request with an invalid Permit2 signature", async () => {

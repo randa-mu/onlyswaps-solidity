@@ -127,7 +127,7 @@ contract Permit2Relayer {
             permit, transferDetails, signer, witness, PERMIT2_WITNESS_TYPE_STRING, signature
         );
 
-        IERC20(permit.permitted.token).safeTransfer(recipient, permit.permitted.amount);
+        IERC20(permit.permitted.token).safeTransfer(router, permit.permitted.amount);
     }
 
     /// @notice Sets the Permit2 contract address
