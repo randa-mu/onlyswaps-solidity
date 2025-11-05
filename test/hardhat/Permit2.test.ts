@@ -203,8 +203,12 @@ describe("Router", function () {
       const digest = TypedDataEncoder.hash(permit2Domain, permit2Types, permit2Message);
       const recovered2 = ethers.recoverAddress(digest, signature);
 
-      expect(recovered && recovered.toLowerCase() === userAddr.toLowerCase() && recovered2.toLowerCase() === userAddr.toLowerCase()).to.be.true;
-      
+      expect(
+        recovered &&
+          recovered.toLowerCase() === userAddr.toLowerCase() &&
+          recovered2.toLowerCase() === userAddr.toLowerCase(),
+      ).to.be.true;
+
       // on-chain verification and swap request
       await expect(
         router.requestCrossChainSwapPermit2(
@@ -354,71 +358,71 @@ describe("Router", function () {
       await srcToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
 
       const permit2Domain = {
-      name: "Permit2",
-      chainId: srcChainId,
-      verifyingContract: await permit2.getAddress(),
+        name: "Permit2",
+        chainId: srcChainId,
+        verifyingContract: await permit2.getAddress(),
       };
 
       const permit2Types = {
-      PermitWitnessTransferFrom: [
-        { name: "permitted", type: "TokenPermissions" },
-        { name: "spender", type: "address" },
-        { name: "nonce", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-        { name: "witness", type: "RelayerWitness" },
-      ],
-      TokenPermissions: [
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-      ],
-      RelayerWitness: [
-        { name: "router", type: "address" },
-        { name: "tokenIn", type: "address" },
-        { name: "tokenOut", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "solverFee", type: "uint256" },
-        { name: "dstChainId", type: "uint256" },
-        { name: "recipient", type: "address" },
-        { name: "additionalData", type: "bytes" },
-      ],
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "RelayerWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        RelayerWitness: [
+          { name: "router", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "solverFee", type: "uint256" },
+          { name: "dstChainId", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
       };
 
       const permit2Message = {
-      permitted: {
-        token: await srcToken.getAddress(),
-        amount: amountToMint.toString(),
-      },
-      spender: await permit2Relayer.getAddress(),
-      nonce: permitNonce,
-      deadline: permitDeadline,
-      witness: {
-        router: await router.getAddress(),
-        tokenIn: await srcToken.getAddress(),
-        tokenOut: await dstToken.getAddress(),
-        amount: amount.toString(),
-        solverFee: solverFee.toString(),
-        dstChainId: DST_CHAIN_ID,
-        recipient: recipientAddr,
-        additionalData: "0x",
-      },
+        permitted: {
+          token: await srcToken.getAddress(),
+          amount: amountToMint.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          router: await router.getAddress(),
+          tokenIn: await srcToken.getAddress(),
+          tokenOut: await dstToken.getAddress(),
+          amount: amount.toString(),
+          solverFee: solverFee.toString(),
+          dstChainId: DST_CHAIN_ID,
+          recipient: recipientAddr,
+          additionalData: "0x",
+        },
       };
 
       // Sign with a different account (owner) to make signature invalid for the user
       const invalidSignature = await owner.signTypedData(permit2Domain, permit2Types, permit2Message);
 
       await expect(
-      router.requestCrossChainSwapPermit2(
-        await srcToken.getAddress(),
-        await dstToken.getAddress(),
-        amount,
-        solverFee,
-        DST_CHAIN_ID,
-        userAddr,
-        recipientAddr,
-        permitNonce,
-        permitDeadline,
-        invalidSignature,
-      ),
+        router.requestCrossChainSwapPermit2(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          solverFee,
+          DST_CHAIN_ID,
+          userAddr,
+          recipientAddr,
+          permitNonce,
+          permitDeadline,
+          invalidSignature,
+        ),
       ).to.be.revertedWithCustomError(permit2, "InvalidSigner");
     });
 
@@ -435,53 +439,53 @@ describe("Router", function () {
       await srcToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
 
       const permit2Domain = {
-      name: "Permit2",
-      chainId: srcChainId,
-      verifyingContract: await permit2.getAddress(),
+        name: "Permit2",
+        chainId: srcChainId,
+        verifyingContract: await permit2.getAddress(),
       };
 
       const permit2Types = {
-      PermitWitnessTransferFrom: [
-        { name: "permitted", type: "TokenPermissions" },
-        { name: "spender", type: "address" },
-        { name: "nonce", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-        { name: "witness", type: "RelayerWitness" },
-      ],
-      TokenPermissions: [
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-      ],
-      RelayerWitness: [
-        { name: "router", type: "address" },
-        { name: "tokenIn", type: "address" },
-        { name: "tokenOut", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "solverFee", type: "uint256" },
-        { name: "dstChainId", type: "uint256" },
-        { name: "recipient", type: "address" },
-        { name: "additionalData", type: "bytes" },
-      ],
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "RelayerWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        RelayerWitness: [
+          { name: "router", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "solverFee", type: "uint256" },
+          { name: "dstChainId", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
       };
 
       const permit2Message = {
-      permitted: {
-        token: await srcToken.getAddress(),
-        amount: amountToMint.toString(),
-      },
-      spender: await permit2Relayer.getAddress(),
-      nonce: permitNonce,
-      deadline: permitDeadline,
-      witness: {
-        router: await router.getAddress(),
-        tokenIn: await srcToken.getAddress(),
-        tokenOut: await dstToken.getAddress(),
-        amount: amount.toString(),
-        solverFee: solverFee.toString(),
-        dstChainId: DST_CHAIN_ID,
-        recipient: recipientAddr,
-        additionalData: "0x",
-      },
+        permitted: {
+          token: await srcToken.getAddress(),
+          amount: amountToMint.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          router: await router.getAddress(),
+          tokenIn: await srcToken.getAddress(),
+          tokenOut: await dstToken.getAddress(),
+          amount: amount.toString(),
+          solverFee: solverFee.toString(),
+          dstChainId: DST_CHAIN_ID,
+          recipient: recipientAddr,
+          additionalData: "0x",
+        },
       };
 
       // Proper signature by user
@@ -489,18 +493,18 @@ describe("Router", function () {
 
       // But pass a different requester address (ownerAddr) - should fail
       await expect(
-      router.requestCrossChainSwapPermit2(
-        await srcToken.getAddress(),
-        await dstToken.getAddress(),
-        amount,
-        solverFee,
-        DST_CHAIN_ID,
-        ownerAddr, // mismatched requester
-        recipientAddr,
-        permitNonce,
-        permitDeadline,
-        signature,
-      ),
+        router.requestCrossChainSwapPermit2(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          solverFee,
+          DST_CHAIN_ID,
+          ownerAddr, // mismatched requester
+          recipientAddr,
+          permitNonce,
+          permitDeadline,
+          signature,
+        ),
       ).to.be.revertedWithCustomError(permit2, "InvalidSigner");
     });
 
@@ -518,70 +522,70 @@ describe("Router", function () {
       await srcToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
 
       const permit2Domain = {
-      name: "Permit2",
-      chainId: srcChainId,
-      verifyingContract: await permit2.getAddress(),
+        name: "Permit2",
+        chainId: srcChainId,
+        verifyingContract: await permit2.getAddress(),
       };
 
       const permit2Types = {
-      PermitWitnessTransferFrom: [
-        { name: "permitted", type: "TokenPermissions" },
-        { name: "spender", type: "address" },
-        { name: "nonce", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-        { name: "witness", type: "RelayerWitness" },
-      ],
-      TokenPermissions: [
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-      ],
-      RelayerWitness: [
-        { name: "router", type: "address" },
-        { name: "tokenIn", type: "address" },
-        { name: "tokenOut", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "solverFee", type: "uint256" },
-        { name: "dstChainId", type: "uint256" },
-        { name: "recipient", type: "address" },
-        { name: "additionalData", type: "bytes" },
-      ],
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "RelayerWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        RelayerWitness: [
+          { name: "router", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "solverFee", type: "uint256" },
+          { name: "dstChainId", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
       };
 
       const permit2Message = {
-      permitted: {
-        token: await srcToken.getAddress(),
-        amount: amountToMint.toString(),
-      },
-      spender: await permit2Relayer.getAddress(),
-      nonce: permitNonce,
-      deadline: permitDeadline,
-      witness: {
-        router: await router.getAddress(),
-        tokenIn: await srcToken.getAddress(),
-        tokenOut: await dstToken.getAddress(),
-        amount: amount.toString(),
-        solverFee: solverFee.toString(),
-        dstChainId: DST_CHAIN_ID,
-        recipient: recipientAddr,
-        additionalData: "0x",
-      },
+        permitted: {
+          token: await srcToken.getAddress(),
+          amount: amountToMint.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          router: await router.getAddress(),
+          tokenIn: await srcToken.getAddress(),
+          tokenOut: await dstToken.getAddress(),
+          amount: amount.toString(),
+          solverFee: solverFee.toString(),
+          dstChainId: DST_CHAIN_ID,
+          recipient: recipientAddr,
+          additionalData: "0x",
+        },
       };
 
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
       await expect(
-      router.requestCrossChainSwapPermit2(
-        await srcToken.getAddress(),
-        await dstToken.getAddress(),
-        amount,
-        solverFee,
-        DST_CHAIN_ID,
-        userAddr,
-        recipientAddr,
-        permitNonce,
-        permitDeadline,
-        signature,
-      ),
+        router.requestCrossChainSwapPermit2(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          solverFee,
+          DST_CHAIN_ID,
+          userAddr,
+          recipientAddr,
+          permitNonce,
+          permitDeadline,
+          signature,
+        ),
       ).to.be.revertedWithCustomError(permit2, "SignatureExpired");
     });
 
@@ -598,70 +602,70 @@ describe("Router", function () {
       await srcToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
 
       const permit2Domain = {
-      name: "Permit2",
-      chainId: srcChainId,
-      verifyingContract: await permit2.getAddress(),
+        name: "Permit2",
+        chainId: srcChainId,
+        verifyingContract: await permit2.getAddress(),
       };
 
       const permit2Types = {
-      PermitWitnessTransferFrom: [
-        { name: "permitted", type: "TokenPermissions" },
-        { name: "spender", type: "address" },
-        { name: "nonce", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-        { name: "witness", type: "RelayerWitness" },
-      ],
-      TokenPermissions: [
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-      ],
-      RelayerWitness: [
-        { name: "router", type: "address" },
-        { name: "tokenIn", type: "address" },
-        { name: "tokenOut", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "solverFee", type: "uint256" },
-        { name: "dstChainId", type: "uint256" },
-        { name: "recipient", type: "address" },
-        { name: "additionalData", type: "bytes" },
-      ],
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "RelayerWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        RelayerWitness: [
+          { name: "router", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "solverFee", type: "uint256" },
+          { name: "dstChainId", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
       };
 
       const permit2Message = {
-      permitted: {
-        token: await srcToken.getAddress(),
-        amount: amountToMint.toString(),
-      },
-      spender: await permit2Relayer.getAddress(),
-      nonce: permitNonce,
-      deadline: permitDeadline,
-      witness: {
-        router: await router.getAddress(),
-        tokenIn: await srcToken.getAddress(),
-        tokenOut: await dstToken.getAddress(),
-        amount: amount.toString(), // zero amount in witness
-        solverFee: solverFee.toString(),
-        dstChainId: DST_CHAIN_ID,
-        recipient: recipientAddr,
-        additionalData: "0x",
-      },
+        permitted: {
+          token: await srcToken.getAddress(),
+          amount: amountToMint.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          router: await router.getAddress(),
+          tokenIn: await srcToken.getAddress(),
+          tokenOut: await dstToken.getAddress(),
+          amount: amount.toString(), // zero amount in witness
+          solverFee: solverFee.toString(),
+          dstChainId: DST_CHAIN_ID,
+          recipient: recipientAddr,
+          additionalData: "0x",
+        },
       };
 
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
       await expect(
-      router.requestCrossChainSwapPermit2(
-        await srcToken.getAddress(),
-        await dstToken.getAddress(),
-        amount,
-        solverFee,
-        DST_CHAIN_ID,
-        userAddr,
-        recipientAddr,
-        permitNonce,
-        permitDeadline,
-        signature,
-      ),
+        router.requestCrossChainSwapPermit2(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          solverFee,
+          DST_CHAIN_ID,
+          userAddr,
+          recipientAddr,
+          permitNonce,
+          permitDeadline,
+          signature,
+        ),
       ).to.be.revertedWithCustomError(router, "ZeroAmount");
     });
 
@@ -678,70 +682,70 @@ describe("Router", function () {
       await srcToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
 
       const permit2Domain = {
-      name: "Permit2",
-      chainId: srcChainId,
-      verifyingContract: await permit2.getAddress(),
+        name: "Permit2",
+        chainId: srcChainId,
+        verifyingContract: await permit2.getAddress(),
       };
 
       const permit2Types = {
-      PermitWitnessTransferFrom: [
-        { name: "permitted", type: "TokenPermissions" },
-        { name: "spender", type: "address" },
-        { name: "nonce", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-        { name: "witness", type: "RelayerWitness" },
-      ],
-      TokenPermissions: [
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-      ],
-      RelayerWitness: [
-        { name: "router", type: "address" },
-        { name: "tokenIn", type: "address" },
-        { name: "tokenOut", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "solverFee", type: "uint256" },
-        { name: "dstChainId", type: "uint256" },
-        { name: "recipient", type: "address" },
-        { name: "additionalData", type: "bytes" },
-      ],
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "RelayerWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        RelayerWitness: [
+          { name: "router", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "solverFee", type: "uint256" },
+          { name: "dstChainId", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
       };
 
       const permit2Message = {
-      permitted: {
-        token: await srcToken.getAddress(),
-        amount: amountToMint.toString(),
-      },
-      spender: await permit2Relayer.getAddress(),
-      nonce: permitNonce,
-      deadline: permitDeadline,
-      witness: {
-        router: await router.getAddress(),
-        tokenIn: await srcToken.getAddress(),
-        tokenOut: await dstToken.getAddress(),
-        amount: amount.toString(),
-        solverFee: solverFee.toString(),
-        dstChainId: DST_CHAIN_ID,
-        recipient: ZeroAddress,
-        additionalData: "0x",
-      },
+        permitted: {
+          token: await srcToken.getAddress(),
+          amount: amountToMint.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          router: await router.getAddress(),
+          tokenIn: await srcToken.getAddress(),
+          tokenOut: await dstToken.getAddress(),
+          amount: amount.toString(),
+          solverFee: solverFee.toString(),
+          dstChainId: DST_CHAIN_ID,
+          recipient: ZeroAddress,
+          additionalData: "0x",
+        },
       };
 
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
       await expect(
-      router.requestCrossChainSwapPermit2(
-        await srcToken.getAddress(),
-        await dstToken.getAddress(),
-        amount,
-        solverFee,
-        DST_CHAIN_ID,
-        userAddr,
-        ZeroAddress,
-        permitNonce,
-        permitDeadline,
-        signature,
-      ),
+        router.requestCrossChainSwapPermit2(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          solverFee,
+          DST_CHAIN_ID,
+          userAddr,
+          ZeroAddress,
+          permitNonce,
+          permitDeadline,
+          signature,
+        ),
       ).to.be.revertedWithCustomError(router, "ZeroAddress");
     });
 
@@ -759,70 +763,70 @@ describe("Router", function () {
       await srcToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
 
       const permit2Domain = {
-      name: "Permit2",
-      chainId: srcChainId,
-      verifyingContract: await permit2.getAddress(),
+        name: "Permit2",
+        chainId: srcChainId,
+        verifyingContract: await permit2.getAddress(),
       };
 
       const permit2Types = {
-      PermitWitnessTransferFrom: [
-        { name: "permitted", type: "TokenPermissions" },
-        { name: "spender", type: "address" },
-        { name: "nonce", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-        { name: "witness", type: "RelayerWitness" },
-      ],
-      TokenPermissions: [
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-      ],
-      RelayerWitness: [
-        { name: "router", type: "address" },
-        { name: "tokenIn", type: "address" },
-        { name: "tokenOut", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "solverFee", type: "uint256" },
-        { name: "dstChainId", type: "uint256" },
-        { name: "recipient", type: "address" },
-        { name: "additionalData", type: "bytes" },
-      ],
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "RelayerWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        RelayerWitness: [
+          { name: "router", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "solverFee", type: "uint256" },
+          { name: "dstChainId", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
       };
 
       const permit2Message = {
-      permitted: {
-        token: await srcToken.getAddress(),
-        amount: amountToMint.toString(),
-      },
-      spender: await permit2Relayer.getAddress(),
-      nonce: permitNonce,
-      deadline: permitDeadline,
-      witness: {
-        router: await router.getAddress(),
-        tokenIn: await srcToken.getAddress(),
-        tokenOut: await dstToken.getAddress(),
-        amount: amount.toString(),
-        solverFee: solverFee.toString(),
-        dstChainId: notPermittedDstChain,
-        recipient: recipientAddr,
-        additionalData: "0x",
-      },
+        permitted: {
+          token: await srcToken.getAddress(),
+          amount: amountToMint.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          router: await router.getAddress(),
+          tokenIn: await srcToken.getAddress(),
+          tokenOut: await dstToken.getAddress(),
+          amount: amount.toString(),
+          solverFee: solverFee.toString(),
+          dstChainId: notPermittedDstChain,
+          recipient: recipientAddr,
+          additionalData: "0x",
+        },
       };
 
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
       await expect(
-      router.requestCrossChainSwapPermit2(
-        await srcToken.getAddress(),
-        await dstToken.getAddress(),
-        amount,
-        solverFee,
-        notPermittedDstChain,
-        userAddr,
-        recipientAddr,
-        permitNonce,
-        permitDeadline,
-        signature,
-      ),
+        router.requestCrossChainSwapPermit2(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          solverFee,
+          notPermittedDstChain,
+          userAddr,
+          recipientAddr,
+          permitNonce,
+          permitDeadline,
+          signature,
+        ),
       ).to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported");
     });
 
@@ -843,77 +847,163 @@ describe("Router", function () {
       await srcToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
 
       const permit2Domain = {
-      name: "Permit2",
-      chainId: srcChainId,
-      verifyingContract: await permit2.getAddress(),
+        name: "Permit2",
+        chainId: srcChainId,
+        verifyingContract: await permit2.getAddress(),
       };
 
       const permit2Types = {
-      PermitWitnessTransferFrom: [
-        { name: "permitted", type: "TokenPermissions" },
-        { name: "spender", type: "address" },
-        { name: "nonce", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-        { name: "witness", type: "RelayerWitness" },
-      ],
-      TokenPermissions: [
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-      ],
-      RelayerWitness: [
-        { name: "router", type: "address" },
-        { name: "tokenIn", type: "address" },
-        { name: "tokenOut", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "solverFee", type: "uint256" },
-        { name: "dstChainId", type: "uint256" },
-        { name: "recipient", type: "address" },
-        { name: "additionalData", type: "bytes" },
-      ],
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "RelayerWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        RelayerWitness: [
+          { name: "router", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "solverFee", type: "uint256" },
+          { name: "dstChainId", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
       };
 
       const permit2Message = {
-      permitted: {
-        token: await srcToken.getAddress(),
-        amount: amountToMint.toString(),
-      },
-      spender: await permit2Relayer.getAddress(),
-      nonce: permitNonce,
-      deadline: permitDeadline,
-      witness: {
-        router: await router.getAddress(),
-        tokenIn: await srcToken.getAddress(),
-        tokenOut: await dstToken.getAddress(),
-        amount: amount.toString(),
-        solverFee: solverFee.toString(),
-        dstChainId: newDstChain,
-        recipient: recipientAddr,
-        additionalData: "0x",
-      },
+        permitted: {
+          token: await srcToken.getAddress(),
+          amount: amountToMint.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          router: await router.getAddress(),
+          tokenIn: await srcToken.getAddress(),
+          tokenOut: await dstToken.getAddress(),
+          amount: amount.toString(),
+          solverFee: solverFee.toString(),
+          dstChainId: newDstChain,
+          recipient: recipientAddr,
+          additionalData: "0x",
+        },
       };
 
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
       await expect(
-      router.requestCrossChainSwapPermit2(
-        await srcToken.getAddress(),
-        await dstToken.getAddress(),
-        amount,
-        solverFee,
-        newDstChain,
-        userAddr,
-        recipientAddr,
-        permitNonce,
-        permitDeadline,
-        signature,
-      ),
+        router.requestCrossChainSwapPermit2(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          solverFee,
+          newDstChain,
+          userAddr,
+          recipientAddr,
+          permitNonce,
+          permitDeadline,
+          signature,
+        ),
       ).to.be.revertedWithCustomError(router, "TokenNotSupported");
     });
   });
 
-
   describe("relayTokensPermit2", function () {
+    it("should relay tokens with a valid Permit2 signature and mark request as fulfilled", async () => {
+      const amountOut = parseEther("10");
+      const permitNonce = 0;
+      const permitDeadline = MaxUint256;
+      const nonce = 1;
 
+      const srcChainId = 1; // Example: source chain
+      const dstChainId = await router.getChainId(); // current chain as destination
 
+      // Mint tokenOut for testing
+      await dstToken.mint(userAddr, amountOut);
+      await dstToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
+
+      // Generate Permit2 signature with relay witness
+      const permit2Domain = {
+        name: "Permit2",
+        chainId: dstChainId,
+        verifyingContract: await permit2.getAddress(),
+      };
+
+      const permit2Types = {
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "RelayerWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        RelayerWitness: [
+          { name: "requestId", type: "bytes32" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
+      };
+
+      const requestId = ethers.utils.keccak256(
+        ethers.utils.defaultAbiCoder.encode(
+          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [userAddr, recipientAddr, srcToken.address, dstToken.address, amountOut, srcChainId, dstChainId, nonce],
+        ),
+      );
+
+      const additionalData = "0x";
+
+      const permit2Message = {
+        permitted: {
+          token: dstToken.address,
+          amount: amountOut.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          requestId: requestId,
+          recipient: recipientAddr,
+          additionalData: additionalData,
+        },
+      };
+
+      const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
+
+      await expect(
+        router.relayTokensPermit2(
+          requestId,
+          recipientAddr,
+          additionalData,
+          userAddr,
+          {
+            nonce: permitNonce,
+            deadline: permitDeadline,
+            permitted: {
+              token: dstToken.address,
+              amount: amountOut,
+            },
+          },
+          signature,
+        ),
+      )
+        .to.emit(router, "SwapRequestFulfilled")
+        .withArgs(requestId, srcChainId, dstChainId);
+
+      // Optionally check that the recipient received the tokens
+      const recipientBalance = await dstToken.balanceOf(recipientAddr);
+      expect(recipientBalance).to.equal(amountOut);
+    });
   });
 });

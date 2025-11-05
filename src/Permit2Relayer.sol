@@ -33,7 +33,6 @@ contract Permit2Relayer {
         )
     );
 
-
     /// @notice Mapping to store which identifiers have been used. This ensures that a permit can be used at most once.
     mapping(bytes32 => bool) public usedRelayTokensIdentifiers;
 
