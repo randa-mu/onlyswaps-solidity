@@ -38,13 +38,16 @@ contract Permit2Relayer {
 
     /// @notice Relays tokens to a recipient at most once per request identifier
     /// @param requestId A unique request ID
-    /// @param additionalData Extra information that was signed alongside the permit
     /// @param signer The address of the signer approving the transfer
+    /// @param recipient The address to receive the tokens
+    /// @param additionalData Extra information that was signed alongside the permit
+    /// @param permit The Permit2 permit data
+    /// @param signature The signature for the permit
     function relayTokensPermit2(
         bytes32 requestId,
+        address signer,
         address recipient,
         bytes calldata additionalData,
-        address signer,
         IPermit2.PermitTransferFrom memory permit,
         bytes calldata signature
     ) external {

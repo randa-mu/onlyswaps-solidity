@@ -18,7 +18,7 @@ import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { AbiCoder, parseEther, ZeroAddress, MaxUint256, TypedDataEncoder } from "ethers";
+import { AbiCoder, parseEther, ZeroAddress, MaxUint256, TypedDataEncoder, keccak256 } from "ethers";
 import { ethers } from "hardhat";
 
 const DST_CHAIN_ID = 137;
@@ -210,20 +210,23 @@ describe("Router", function () {
       ).to.be.true;
 
       // on-chain verification and swap request
-      await expect(
-        router.requestCrossChainSwapPermit2(
-          await srcToken.getAddress(),
-          await dstToken.getAddress(),
-          amount,
-          solverFee,
-          DST_CHAIN_ID,
-          userAddr,
-          recipientAddr,
-          permitNonce,
-          permitDeadline,
-          signature,
-        ),
-      ).to.emit(router, "SwapRequested");
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amount: amount,
+        solverFee: solverFee,
+        dstChainId: DST_CHAIN_ID,
+        recipient: recipientAddr,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+
+      await expect(router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params)).to.emit(
+        router,
+        "SwapRequested",
+      );
     });
 
     it("should make a swap request with a valid Permit2 signature and emit swap requested event with the correct request id", async () => {
@@ -291,18 +294,20 @@ describe("Router", function () {
 
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
-      const tx = await router.requestCrossChainSwapPermit2(
-        await srcToken.getAddress(),
-        await dstToken.getAddress(),
-        amount,
-        solverFee,
-        DST_CHAIN_ID,
-        userAddr,
-        recipientAddr,
-        permitNonce,
-        permitDeadline,
-        signature,
-      );
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amount: amount,
+        solverFee: solverFee,
+        dstChainId: DST_CHAIN_ID,
+        recipient: recipientAddr,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+
+      const tx = await router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params);
 
       let receipt = await tx.wait();
       if (!receipt) {
@@ -410,19 +415,21 @@ describe("Router", function () {
       // Sign with a different account (owner) to make signature invalid for the user
       const invalidSignature = await owner.signTypedData(permit2Domain, permit2Types, permit2Message);
 
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amount: amount,
+        solverFee: solverFee,
+        dstChainId: DST_CHAIN_ID,
+        recipient: recipientAddr,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: invalidSignature,
+      };
+
       await expect(
-        router.requestCrossChainSwapPermit2(
-          await srcToken.getAddress(),
-          await dstToken.getAddress(),
-          amount,
-          solverFee,
-          DST_CHAIN_ID,
-          userAddr,
-          recipientAddr,
-          permitNonce,
-          permitDeadline,
-          invalidSignature,
-        ),
+        router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params),
       ).to.be.revertedWithCustomError(permit2, "InvalidSigner");
     });
 
@@ -492,19 +499,21 @@ describe("Router", function () {
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
       // But pass a different requester address (ownerAddr) - should fail
+      const requestCrossChainSwapPermit2Params = {
+        requester: ownerAddr, // mismatched requester
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amount: amount,
+        solverFee: solverFee,
+        dstChainId: DST_CHAIN_ID,
+        recipient: recipientAddr,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+
       await expect(
-        router.requestCrossChainSwapPermit2(
-          await srcToken.getAddress(),
-          await dstToken.getAddress(),
-          amount,
-          solverFee,
-          DST_CHAIN_ID,
-          ownerAddr, // mismatched requester
-          recipientAddr,
-          permitNonce,
-          permitDeadline,
-          signature,
-        ),
+        router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params),
       ).to.be.revertedWithCustomError(permit2, "InvalidSigner");
     });
 
@@ -573,19 +582,21 @@ describe("Router", function () {
 
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amount: amount,
+        solverFee: solverFee,
+        dstChainId: DST_CHAIN_ID,
+        recipient: recipientAddr,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+
       await expect(
-        router.requestCrossChainSwapPermit2(
-          await srcToken.getAddress(),
-          await dstToken.getAddress(),
-          amount,
-          solverFee,
-          DST_CHAIN_ID,
-          userAddr,
-          recipientAddr,
-          permitNonce,
-          permitDeadline,
-          signature,
-        ),
+        router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params),
       ).to.be.revertedWithCustomError(permit2, "SignatureExpired");
     });
 
@@ -653,19 +664,21 @@ describe("Router", function () {
 
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amount: amount,
+        solverFee: solverFee,
+        dstChainId: DST_CHAIN_ID,
+        recipient: recipientAddr,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+
       await expect(
-        router.requestCrossChainSwapPermit2(
-          await srcToken.getAddress(),
-          await dstToken.getAddress(),
-          amount,
-          solverFee,
-          DST_CHAIN_ID,
-          userAddr,
-          recipientAddr,
-          permitNonce,
-          permitDeadline,
-          signature,
-        ),
+        router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params),
       ).to.be.revertedWithCustomError(router, "ZeroAmount");
     });
 
@@ -733,19 +746,21 @@ describe("Router", function () {
 
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amount: amount,
+        solverFee: solverFee,
+        dstChainId: DST_CHAIN_ID,
+        recipient: ZeroAddress,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+
       await expect(
-        router.requestCrossChainSwapPermit2(
-          await srcToken.getAddress(),
-          await dstToken.getAddress(),
-          amount,
-          solverFee,
-          DST_CHAIN_ID,
-          userAddr,
-          ZeroAddress,
-          permitNonce,
-          permitDeadline,
-          signature,
-        ),
+        router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params),
       ).to.be.revertedWithCustomError(router, "ZeroAddress");
     });
 
@@ -814,19 +829,21 @@ describe("Router", function () {
 
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amount: amount,
+        solverFee: solverFee,
+        dstChainId: notPermittedDstChain,
+        recipient: recipientAddr,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+
       await expect(
-        router.requestCrossChainSwapPermit2(
-          await srcToken.getAddress(),
-          await dstToken.getAddress(),
-          amount,
-          solverFee,
-          notPermittedDstChain,
-          userAddr,
-          recipientAddr,
-          permitNonce,
-          permitDeadline,
-          signature,
-        ),
+        router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params),
       ).to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported");
     });
 
@@ -898,19 +915,21 @@ describe("Router", function () {
 
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amount: amount,
+        solverFee: solverFee,
+        dstChainId: newDstChain,
+        recipient: recipientAddr,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+
       await expect(
-        router.requestCrossChainSwapPermit2(
-          await srcToken.getAddress(),
-          await dstToken.getAddress(),
-          amount,
-          solverFee,
-          newDstChain,
-          userAddr,
-          recipientAddr,
-          permitNonce,
-          permitDeadline,
-          signature,
-        ),
+        router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params),
       ).to.be.revertedWithCustomError(router, "TokenNotSupported");
     });
   });
@@ -925,9 +944,27 @@ describe("Router", function () {
       const srcChainId = 1; // Example: source chain
       const dstChainId = await router.getChainId(); // current chain as destination
 
+      // Pre-compute valid requestId
+      const abiCoder = new AbiCoder();
+      const requestId: string = keccak256(
+        abiCoder.encode(
+          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            userAddr,
+            recipientAddr,
+            await srcToken.getAddress(),
+            await dstToken.getAddress(),
+            amountOut,
+            srcChainId,
+            dstChainId,
+            nonce,
+          ],
+        ),
+      );
+
       // Mint tokenOut for testing
-      await dstToken.mint(userAddr, amountOut);
-      await dstToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
+      await dstToken.mint(solverAddr, amountOut);
+      await dstToken.connect(solver).approve(await permit2.getAddress(), MaxUint256);
 
       // Generate Permit2 signature with relay witness
       const permit2Domain = {
@@ -955,18 +992,11 @@ describe("Router", function () {
         ],
       };
 
-      const requestId = ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
-          [userAddr, recipientAddr, srcToken.address, dstToken.address, amountOut, srcChainId, dstChainId, nonce],
-        ),
-      );
-
-      const additionalData = "0x";
+      const additionalData = ethers.solidityPacked(["address"], [solverRefundAddr]);
 
       const permit2Message = {
         permitted: {
-          token: dstToken.address,
+          token: await dstToken.getAddress(),
           amount: amountOut.toString(),
         },
         spender: await permit2Relayer.getAddress(),
@@ -979,29 +1009,31 @@ describe("Router", function () {
         },
       };
 
-      const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
+      const signature = await solver.signTypedData(permit2Domain, permit2Types, permit2Message);
 
-      await expect(
-        router.relayTokensPermit2(
-          requestId,
-          recipientAddr,
-          additionalData,
-          userAddr,
-          {
-            nonce: permitNonce,
-            deadline: permitDeadline,
-            permitted: {
-              token: dstToken.address,
-              amount: amountOut,
-            },
-          },
-          signature,
-        ),
-      )
+      const relayTokensPermit2Params = {
+        solver: solverAddr,
+        solverRefundAddress: solverRefundAddr,
+        requestId: requestId,
+        sender: userAddr,
+        recipient: recipientAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amountOut: amountOut,
+        srcChainId: srcChainId,
+        nonce: nonce,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+
+      // Relay tokens using Permit2 and fulfill the swap request
+
+      await expect(router.relayTokensPermit2(relayTokensPermit2Params))
         .to.emit(router, "SwapRequestFulfilled")
         .withArgs(requestId, srcChainId, dstChainId);
 
-      // Optionally check that the recipient received the tokens
+      // Check that the recipient received the tokens
       const recipientBalance = await dstToken.balanceOf(recipientAddr);
       expect(recipientBalance).to.equal(amountOut);
     });

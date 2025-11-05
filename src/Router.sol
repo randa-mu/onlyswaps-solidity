@@ -176,67 +176,75 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         emit SwapRequested(requestId, getChainId(), dstChainId);
     }
 
-    function requestCrossChainSwapPermit2(
-        address tokenIn,
-        address tokenOut,
-        uint256 amount,
-        uint256 solverFee,
-        uint256 dstChainId,
-        address requester,
-        address recipient,
-        uint256 permitNonce,
-        uint256 permitDeadline,
-        bytes calldata signature
-    ) external nonReentrant returns (bytes32 requestId) {
-        require(amount > 0, ErrorsLib.ZeroAmount());
-        require(recipient != address(0), ErrorsLib.ZeroAddress());
-        require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
-        require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
+    struct RequestCrossChainSwapPermit2Params {
+        address requester;
+        address tokenIn;
+        address tokenOut;
+        uint256 amount;
+        uint256 solverFee;
+        uint256 dstChainId;
+        address recipient;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+    }
 
-        // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
-        // based on the total fee provided
-        (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(amount);
-        // Calculate the solver fee by subtracting the swap fee from the total fee
-        // The solver fee is the remaining portion of the fee
-        // The total fee must be greater than the swap fee to ensure the solver is compensated
-        require(solverFee > 0, ErrorsLib.FeeTooLow());
+    function requestCrossChainSwapPermit2(RequestCrossChainSwapPermit2Params calldata params)
+        external
+        nonReentrant
+        returns (bytes32 requestId)
+    {
+        require(params.amount > 0, ErrorsLib.ZeroAmount());
+        require(params.recipient != address(0), ErrorsLib.ZeroAddress());
+        require(allowedDstChainIds[params.dstChainId], ErrorsLib.DestinationChainIdNotSupported(params.dstChainId));
+        require(isDstTokenMapped(params.tokenIn, params.dstChainId, params.tokenOut), ErrorsLib.TokenNotSupported());
 
-        // Accumulate the total verification fees balance for the specified token
-        totalVerificationFeeBalance[tokenIn] += verificationFeeAmount;
+        (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(params.amount);
+        require(params.solverFee > 0, ErrorsLib.FeeTooLow());
 
-        // Generate unique nonce and map it to sender
+        totalVerificationFeeBalance[params.tokenIn] += verificationFeeAmount;
+
         uint256 nonce = ++currentSwapRequestNonce;
-        nonceToRequester[nonce] = requester;
+        nonceToRequester[nonce] = params.requester;
 
-        SwapRequestParameters memory params = buildSwapRequestParameters(
-            requester, tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+        SwapRequestParameters memory swapParams = buildSwapRequestParameters(
+            params.requester,
+            params.tokenIn,
+            params.tokenOut,
+            amountOut,
+            verificationFeeAmount,
+            params.solverFee,
+            params.dstChainId,
+            params.recipient,
+            nonce
         );
 
-        requestId = getSwapRequestId(params);
+        requestId = getSwapRequestId(swapParams);
 
-        storeSwapRequest(requestId, params);
+        storeSwapRequest(requestId, swapParams);
 
         IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            nonce: permitNonce,
-            deadline: permitDeadline,
-            permitted: ISignatureTransfer.TokenPermissions({token: tokenIn, amount: amount + solverFee})
+            nonce: params.permitNonce,
+            deadline: params.permitDeadline,
+            permitted: ISignatureTransfer.TokenPermissions({
+                token: params.tokenIn, amount: params.amount + params.solverFee
+            })
         });
         permit2Relayer.requestCrossChainSwapPermit2(
             address(this),
-            requester,
-            tokenIn,
-            tokenOut,
-            amount,
-            solverFee,
-            dstChainId,
-            recipient,
+            params.requester,
+            params.tokenIn,
+            params.tokenOut,
+            params.amount,
+            params.solverFee,
+            params.dstChainId,
+            params.recipient,
             permit,
-            signature,
-            hex"" // no additional data
+            params.signature,
+            hex""
         );
 
-        // Handle Permit2 transfer
-        emit SwapRequested(requestId, getChainId(), dstChainId);
+        emit SwapRequested(requestId, getChainId(), params.dstChainId);
     }
 
     /// @notice Updates the solver fee for an unfulfilled swap request
@@ -327,92 +335,83 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         emit SwapRequestFulfilled(requestId, srcChainId, getChainId());
     }
 
-    /// @notice Relays tokens to the recipient and stores a receipt
-    /// @param solverRefundAddress The address to refund the solver on the source chain
-    /// @param requestId The original request ID from the source chain
-    /// @param sender The sender of the swap request on the source chain
-    /// @param recipient The target recipient of the tokens
-    /// @param tokenIn The address of the token deposited on the source chain
-    /// @param tokenOut The address of the token sent to the recipient on the destination chain
-    /// @param amountOut The amount transferred to the recipient on the destination chain
-    /// @param srcChainId The ID of the source chain where the request originated
-    /// @param nonce The nonce used for the swap request on the source chain for replay protection
-    /// @param permitNonce The Permit2 nonce for the permit
-    /// @param permitDeadline The Permit2 deadline for the permit
-    /// @param signature The Permit2 signature authorizing the transfer
-    function relayTokensPermit2(
-        address solverRefundAddress,
-        bytes32 requestId,
-        address sender,
-        address recipient,
-        address tokenIn,
-        address tokenOut,
-        uint256 amountOut,
-        uint256 srcChainId,
-        uint256 nonce,
-        uint256 permitNonce,
-        uint256 permitDeadline,
-        bytes calldata signature
-    ) external nonReentrant {
-        require(!swapRequestReceipts[requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
+    struct RelayTokensPermit2Params {
+        address solver;
+        address solverRefundAddress;
+        bytes32 requestId;
+        address sender;
+        address recipient;
+        address tokenIn;
+        address tokenOut;
+        uint256 amountOut;
+        uint256 srcChainId;
+        uint256 nonce;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+    }
+
+    function relayTokensPermit2(RelayTokensPermit2Params calldata params) external nonReentrant {
+        require(!swapRequestReceipts[params.requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
         require(
-            tokenIn != address(0) && tokenOut != address(0) && sender != address(0) && recipient != address(0),
+            params.tokenIn != address(0) && params.tokenOut != address(0) && params.sender != address(0)
+                && params.recipient != address(0),
             ErrorsLib.InvalidTokenOrRecipient()
         );
-        require(solverRefundAddress != address(0), ErrorsLib.ZeroAddress());
-        require(amountOut > 0, ErrorsLib.ZeroAmount());
+        require(params.solverRefundAddress != address(0), ErrorsLib.ZeroAddress());
+        require(params.amountOut > 0, ErrorsLib.ZeroAmount());
         require(
-            srcChainId != getChainId(),
-            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(srcChainId, getChainId())
+            params.srcChainId != getChainId(),
+            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(params.srcChainId, getChainId())
         );
         require(
-            requestId
+            params.requestId
                 == keccak256(
                     abi.encode(
-                        sender,
-                        recipient,
-                        tokenIn,
-                        tokenOut,
-                        amountOut,
-                        srcChainId,
+                        params.sender,
+                        params.recipient,
+                        params.tokenIn,
+                        params.tokenOut,
+                        params.amountOut,
+                        params.srcChainId,
                         // the relayTokens function is called on the destination chain, so dstChainId is the current chain ID
                         getChainId(),
-                        nonce
+                        params.nonce
                     )
                 ),
             ErrorsLib.SwapRequestParametersMismatch()
         );
 
-        fulfilledTransfers.add(requestId);
+        fulfilledTransfers.add(params.requestId);
 
         IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            nonce: permitNonce,
-            deadline: permitDeadline,
-            permitted: ISignatureTransfer.TokenPermissions({token: tokenOut, amount: amountOut})
+            nonce: params.permitNonce,
+            deadline: params.permitDeadline,
+            permitted: ISignatureTransfer.TokenPermissions({token: params.tokenOut, amount: params.amountOut})
         });
         permit2Relayer.relayTokensPermit2(
-            requestId,
-            recipient,
-            "", // no additional data
-            solverRefundAddress,
+            params.requestId,
+            params.solver,
+            params.recipient,
+            abi.encodePacked(params.solverRefundAddress),
             permit,
-            signature
+            params.signature
         );
 
-        swapRequestReceipts[requestId] = SwapRequestReceipt({
-            requestId: requestId,
-            srcChainId: srcChainId,
+        swapRequestReceipts[params.requestId] = SwapRequestReceipt({
+            requestId: params.requestId,
+            srcChainId: params.srcChainId,
             dstChainId: getChainId(),
-            tokenIn: tokenIn,
-            tokenOut: tokenOut, // tokenOut is the token being received on the destination chain
+            tokenIn: params.tokenIn,
+            tokenOut: params.tokenOut, // tokenOut is the token being received on the destination chain
             fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
-            solver: solverRefundAddress,
-            recipient: recipient,
-            amountOut: amountOut,
+            solver: params.solverRefundAddress,
+            recipient: params.recipient,
+            amountOut: params.amountOut,
             fulfilledAt: block.timestamp
         });
 
-        emit SwapRequestFulfilled(requestId, srcChainId, getChainId());
+        emit SwapRequestFulfilled(params.requestId, params.srcChainId, getChainId());
     }
 
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
