@@ -164,7 +164,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         nonceToRequester[nonce] = msg.sender;
 
         SwapRequestParameters memory params = buildSwapRequestParameters(
-            tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+            msg.sender, tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
         );
 
         requestId = getSwapRequestId(params);
@@ -209,7 +209,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         nonceToRequester[nonce] = requester;
 
         SwapRequestParameters memory params = buildSwapRequestParameters(
-            tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+            requester, tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
         );
 
         requestId = getSwapRequestId(params);
@@ -221,13 +221,18 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             deadline: permitDeadline,
             permitted: ISignatureTransfer.TokenPermissions({token: tokenIn, amount: amount + solverFee})
         });
-        permit2Relayer.relayTokensPermit2(
-            requestId,
+        permit2Relayer.requestCrossChainSwapPermit2(
             address(this),
-            hex"", // additional data can be request parameters
             requester,
+            tokenIn,
+            tokenOut,
+            amount,
+            solverFee,
+            dstChainId,
+            recipient,
             permit,
-            signature
+            signature,
+            hex"" // no additional data
         );
 
         // Handle Permit2 transfer
@@ -516,6 +521,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     }
 
     /// @notice Builds swap request parameters based on the provided details
+    /// @param sender The address initiating the swap request
     /// @param tokenIn The address of the input token on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountOut The amount of tokens to be swapped
@@ -526,6 +532,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param nonce A unique nonce for the request
     /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
+        address sender,
         address tokenIn,
         address tokenOut,
         uint256 amountOut,
@@ -536,7 +543,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         uint256 nonce
     ) public view returns (SwapRequestParameters memory swapRequestParams) {
         swapRequestParams = SwapRequestParameters({
-            sender: msg.sender,
+            sender: sender,
             recipient: recipient,
             tokenIn: tokenIn,
             tokenOut: tokenOut,

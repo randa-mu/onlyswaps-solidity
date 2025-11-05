@@ -299,6 +299,7 @@ interface IRouter {
     function isDstTokenMapped(address srcToken, uint256 dstChainId, address dstToken) external view returns (bool);
 
     /// @notice Builds swap request parameters based on the provided details
+    /// @param sender The address initiating the swap on the source chain
     /// @param tokenIn The address of the input token on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amount The amount of tokens to be swapped
@@ -309,6 +310,7 @@ interface IRouter {
     /// @param nonce A unique nonce for the request
     /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
+        address sender,
         address tokenIn,
         address tokenOut,
         uint256 amount,
