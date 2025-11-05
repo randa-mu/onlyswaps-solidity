@@ -46,9 +46,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @notice BLS validator used for swap request signature verification
     ISignatureScheme public swapRequestBlsValidator;
 
-    /// @notice The Permit2Relayer contract
-    Permit2Relayer private permit2Relayer;
-
     /// @dev Stores all fulfilled swap request IDs
     EnumerableSet.Bytes32Set private fulfilledTransfers;
 
@@ -85,6 +82,9 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @notice Unique nonce for each swap request
     uint256 public currentSwapRequestNonce;
 
+    /// @notice The Permit2Relayer contract
+    Permit2Relayer private permit2Relayer;
+    
     /// @notice Struct to hold parameters for a swap request using Permit2
     struct RequestCrossChainSwapPermit2Params {
         address requester;
