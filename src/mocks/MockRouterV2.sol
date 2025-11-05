@@ -14,7 +14,7 @@ import {ScheduledUpgradeable} from "../ScheduledUpgradeable.sol";
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 
 import {ISignatureScheme} from "bls-solidity/interfaces/ISignatureScheme.sol";
-import {IRouter, BLS} from "../interfaces/IRouter.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
 
 /// @title Mock Version 2 of the Router Contract for Cross-Chain Token Swaps
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.

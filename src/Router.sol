@@ -15,7 +15,7 @@ import {ScheduledUpgradeable} from "./ScheduledUpgradeable.sol";
 
 import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 
-import {IRouter, BLS} from "./interfaces/IRouter.sol";
+import {IRouter} from "./interfaces/IRouter.sol";
 
 /// @title Router Contract for Cross-Chain Token Swaps
 /// @author Randamu

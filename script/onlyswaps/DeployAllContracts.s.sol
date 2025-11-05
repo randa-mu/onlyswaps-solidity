@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {Script} from "forge-std/Script.sol";
-
-import {Constants} from "./libraries/Constants.sol";
-
 import {
     BLSBN254SignatureScheme,
     DeployBN254SwapRequestSignatureScheme
