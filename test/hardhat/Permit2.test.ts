@@ -133,7 +133,7 @@ describe("Router", function () {
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
 
-  describe("Request cross chain swap with Permit2", function () {
+  describe("requestCrossChainSwapPermit2", function () {
     it("should make a swap request with a valid Permit2 signature and emit swap requested event", async () => {
       const amount = parseEther("10");
       const solverFee = parseEther("1");
@@ -902,5 +902,11 @@ describe("Router", function () {
       ),
       ).to.be.revertedWithCustomError(router, "TokenNotSupported");
     });
+  });
+
+
+  describe("relayTokensPermit2", function () {
+
+
   });
 });
