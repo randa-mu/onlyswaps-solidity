@@ -310,7 +310,7 @@ interface IRouter {
     /// @param nonce A unique nonce for the request
     /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
-        address sender, 
+        address sender,
         address tokenIn,
         address tokenOut,
         uint256 amount,
