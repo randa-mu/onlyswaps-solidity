@@ -1036,6 +1036,9 @@ describe("Router", function () {
       // Check that the recipient received the tokens
       const recipientBalance = await dstToken.balanceOf(recipientAddr);
       expect(recipientBalance).to.equal(amountOut);
+
+      expect(await dstToken.balanceOf(await router.getAddress())).to.equal(0);
+      expect(await dstToken.balanceOf(await permit2Relayer.getAddress())).to.equal(0);
     });
   });
 });
