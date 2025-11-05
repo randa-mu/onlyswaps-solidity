@@ -19,6 +19,9 @@ number_underscore = "preserve"
 override_spacing = true
 ignore = []
 
+[lint]
+exclude_lints = ["mixed-case-function", "mixed-case-variable", "asm-keccak256"]
+
 [profile.test]
 gas_reports = ["*"]
 

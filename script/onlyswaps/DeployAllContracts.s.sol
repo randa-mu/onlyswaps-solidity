@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {Script} from "forge-std/Script.sol";
-
-import {Constants} from "./libraries/Constants.sol";
-
 import {
     BLSBN254SignatureScheme,
     DeployBN254SwapRequestSignatureScheme
 } from "./single-deployment/DeployBN254SwapRequestSignatureScheme.s.sol";
-import {
-    DeployBN254ContractUpgradeSignatureScheme
-} from "./single-deployment/DeployBN254ContractUpgradeSignatureScheme.s.sol";
+import {DeployBN254ContractUpgradeSignatureScheme} from
+    "./single-deployment/DeployBN254ContractUpgradeSignatureScheme.s.sol";
 import {Router, DeployRouter} from "./single-deployment/DeployRouter.s.sol";
 import {ERC20FaucetToken, DeployRUSD} from "./single-deployment/DeployRUSD.s.sol";
 
@@ -28,10 +23,7 @@ contract DeployAllContracts is
     function run()
         public
         override (
-            DeployBN254ContractUpgradeSignatureScheme,
-            DeployBN254SwapRequestSignatureScheme,
-            DeployRouter,
-            DeployRUSD
+            DeployBN254ContractUpgradeSignatureScheme, DeployBN254SwapRequestSignatureScheme, DeployRouter, DeployRUSD
         )
     {
         deployAll();

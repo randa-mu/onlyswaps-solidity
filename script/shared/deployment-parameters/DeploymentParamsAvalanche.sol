@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./DeploymentParamsCore.sol";
+import {DeploymentParamsCore, DeploymentParameters} from "./DeploymentParamsCore.sol";
 
 library DeploymentParamsAvalanche {
     function getDeploymentParams() internal pure returns (DeploymentParameters memory) {

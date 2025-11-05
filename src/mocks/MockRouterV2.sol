@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {
-    AccessControlEnumerableUpgradeable
-} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
+import {AccessControlEnumerableUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -14,7 +13,7 @@ import {ScheduledUpgradeable} from "../ScheduledUpgradeable.sol";
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 
 import {ISignatureScheme} from "bls-solidity/interfaces/ISignatureScheme.sol";
-import {IRouter, BLS} from "../interfaces/IRouter.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
 
 /// @title Mock Version 2 of the Router Contract for Cross-Chain Token Swaps
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
