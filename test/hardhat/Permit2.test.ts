@@ -141,35 +141,13 @@ describe("Router", function () {
       const permitDeadline = MaxUint256;
 
       const srcChainId = await router.getChainId();
-      const currentNonce = await router.currentSwapRequestNonce();
 
       await srcToken.mint(userAddr, amountToMint);
-      await srcToken.connect(user).approve(await permit2Relayer.getAddress(), MaxUint256);
+      await srcToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
 
-      // Generate requestId for the trade
-      const swapRequestParameters = {
-        sender: userAddr,
-        recipient: recipientAddr,
-        tokenIn: await srcToken.getAddress(),
-        tokenOut: await dstToken.getAddress(),
-        amountOut: (await router.getVerificationFeeAmount(amount))[1],
-        srcChainId: srcChainId,
-        dstChainId: DST_CHAIN_ID,
-        verificationFee: (await router.getVerificationFeeAmount(amount))[0],
-        solverFee: solverFee,
-        nonce: Number(currentNonce) + 1,
-        executed: false,
-        requestedAt: Math.floor(Date.now() / 1000),
-      };
-
-      const requestId = await router.getSwapRequestId(swapRequestParameters);
-      console.log("Generated requestId:", requestId);
-
-      // Generate Permit2 signature
       // Generate Permit2 signature with witness data
       const permit2Domain = {
         name: "Permit2",
-        version: "1",
         chainId: srcChainId,
         verifyingContract: await permit2.getAddress(),
       };
@@ -187,7 +165,12 @@ describe("Router", function () {
           { name: "amount", type: "uint256" },
         ],
         RelayerWitness: [
-          { name: "requestId", type: "bytes32" },
+          { name: "router", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amount", type: "uint256" },
+          { name: "solverFee", type: "uint256" },
+          { name: "dstChainId", type: "uint256" },
           { name: "recipient", type: "address" },
           { name: "additionalData", type: "bytes" },
         ],
@@ -202,8 +185,13 @@ describe("Router", function () {
         nonce: permitNonce,
         deadline: permitDeadline,
         witness: {
-          requestId: requestId,
-          recipient: await router.getAddress(),
+          router: await router.getAddress(),
+          tokenIn: await srcToken.getAddress(),
+          tokenOut: await dstToken.getAddress(),
+          amount: amount.toString(),
+          solverFee: solverFee.toString(),
+          dstChainId: DST_CHAIN_ID,
+          recipient: recipientAddr,
           additionalData: "0x",
         },
       };

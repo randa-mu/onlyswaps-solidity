@@ -46,9 +46,7 @@ contract DeployBN254ContractUpgradeSignatureScheme is JsonUtils, EnvReader {
                 Factory(deploymentParameters.customCREATE2FactoryContractAddress).deploy(Constants.SALT, code);
             bn254SignatureScheme = BLSBN254SignatureScheme(contractAddress);
         } else {
-            bn254SignatureScheme = new BLSBN254SignatureScheme{
-                salt: Constants.SALT
-            }(
+            bn254SignatureScheme = new BLSBN254SignatureScheme{salt: Constants.SALT}(
                 deploymentParameters.blsContractUpgradePublicKey.x,
                 deploymentParameters.blsContractUpgradePublicKey.y,
                 "upgrade-v1"

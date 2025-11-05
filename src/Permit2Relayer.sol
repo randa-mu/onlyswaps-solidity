@@ -70,6 +70,50 @@ contract Permit2Relayer {
         IERC20(permit.permitted.token).safeTransfer(recipient, permit.permitted.amount);
     }
 
+    function requestCrossChainSwapPermit2(
+        address router,
+        address signer,
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        uint256 solverFee,
+        uint256 dstChainId,
+        address recipient,
+        IPermit2.PermitTransferFrom memory permit,
+        bytes calldata signature,
+        bytes calldata additionalData
+    ) external {
+        /// @notice Type string of the custom witness
+        string memory WITNESS_TYPE_STRING =
+            string(abi.encodePacked(WITNESS_TYPE_NAME, "(address router,address tokenIn,address tokenOut,uint256 amount,uint256 solverFee,uint256 dstChainId,address recipient,bytes additionalData)"));
+
+        /// @notice Type hash used to compute the witness hash
+        bytes32 WITNESS_TYPE_HASH = keccak256(bytes(WITNESS_TYPE_STRING));
+
+        /// @notice The permit2 witnessTypeString parameter,
+        string memory PERMIT2_WITNESS_TYPE_STRING = string(
+            abi.encodePacked(
+                WITNESS_TYPE_NAME, " witness)", WITNESS_TYPE_STRING, "TokenPermissions(address token,uint256 amount)"
+            )
+        );
+
+        IPermit2.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
+            to: address(this),
+            // we require the permit amount to be the same as the requested amount
+            requestedAmount: permit.permitted.amount
+        });
+
+        // By computing the witness here, we ensure that the permit was approved for that request id specifically.
+        // That same reasoning cannot be applied to the additionalData as it is controlled by the caller entirely.
+        bytes32 witness = keccak256(abi.encode(WITNESS_TYPE_HASH, router, tokenIn, tokenOut, amount, solverFee, dstChainId, recipient, keccak256(additionalData)));
+
+        PERMIT2.permitWitnessTransferFrom(
+            permit, transferDetails, signer, witness, PERMIT2_WITNESS_TYPE_STRING, signature
+        );
+
+        IERC20(permit.permitted.token).safeTransfer(recipient, permit.permitted.amount);
+    }
+
     /// @notice Sets the Permit2 contract address
     /// @dev TODO: This function is used for testing purposes only
     function setPermit2Address(address permit2Address) external {
