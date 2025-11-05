@@ -86,6 +86,37 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice Unique nonce for each swap request
     uint256 public currentSwapRequestNonce;
 
+    /// @notice Struct to hold parameters for a swap request using Permit2
+    struct RequestCrossChainSwapPermit2Params {
+        address requester;
+        address tokenIn;
+        address tokenOut;
+        uint256 amount;
+        uint256 solverFee;
+        uint256 dstChainId;
+        address recipient;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+    }
+
+    /// @notice Struct to hold parameters for relaying tokens using Permit2
+    struct RelayTokensPermit2Params {
+        address solver;
+        address solverRefundAddress;
+        bytes32 requestId;
+        address sender;
+        address recipient;
+        address tokenIn;
+        address tokenOut;
+        uint256 amountOut;
+        uint256 srcChainId;
+        uint256 nonce;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+    }
+
     /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
     modifier onlyAdmin() {
         _checkRole(ADMIN_ROLE);
@@ -176,19 +207,9 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         emit SwapRequested(requestId, getChainId(), dstChainId);
     }
 
-    struct RequestCrossChainSwapPermit2Params {
-        address requester;
-        address tokenIn;
-        address tokenOut;
-        uint256 amount;
-        uint256 solverFee;
-        uint256 dstChainId;
-        address recipient;
-        uint256 permitNonce;
-        uint256 permitDeadline;
-        bytes signature;
-    }
-
+    /// @notice Initiates a swap request using Permit2 for token transfer approval
+    /// @param params Struct containing all parameters for the swap request
+    /// @return requestId The unique swap request id
     function requestCrossChainSwapPermit2(RequestCrossChainSwapPermit2Params calldata params)
         external
         nonReentrant
@@ -335,22 +356,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         emit SwapRequestFulfilled(requestId, srcChainId, getChainId());
     }
 
-    struct RelayTokensPermit2Params {
-        address solver;
-        address solverRefundAddress;
-        bytes32 requestId;
-        address sender;
-        address recipient;
-        address tokenIn;
-        address tokenOut;
-        uint256 amountOut;
-        uint256 srcChainId;
-        uint256 nonce;
-        uint256 permitNonce;
-        uint256 permitDeadline;
-        bytes signature;
-    }
-
+    /// @notice Relays tokens using Permit2 for token transfer approval and stores a receipt
+    /// @param params Struct containing all parameters for relaying tokens
     function relayTokensPermit2(RelayTokensPermit2Params calldata params) external nonReentrant {
         require(!swapRequestReceipts[params.requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
         require(

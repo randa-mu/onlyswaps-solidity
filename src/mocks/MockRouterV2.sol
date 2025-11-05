@@ -9,11 +9,12 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
+import {ISignatureScheme} from "bls-solidity/interfaces/ISignatureScheme.sol";
+
 import {ScheduledUpgradeable} from "../ScheduledUpgradeable.sol";
 
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 
-import {ISignatureScheme} from "bls-solidity/interfaces/ISignatureScheme.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 
 import {Permit2Relayer} from "../Permit2Relayer.sol";
@@ -83,6 +84,37 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
     /// @notice Unique nonce for each swap request
     uint256 public currentSwapRequestNonce;
+
+    /// @notice Struct to hold parameters for a swap request using Permit2
+    struct RequestCrossChainSwapPermit2Params {
+        address requester;
+        address tokenIn;
+        address tokenOut;
+        uint256 amount;
+        uint256 solverFee;
+        uint256 dstChainId;
+        address recipient;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+    }
+
+    /// @notice Struct to hold parameters for relaying tokens using Permit2
+    struct RelayTokensPermit2Params {
+        address solver;
+        address solverRefundAddress;
+        bytes32 requestId;
+        address sender;
+        address recipient;
+        address tokenIn;
+        address tokenOut;
+        uint256 amountOut;
+        uint256 srcChainId;
+        uint256 nonce;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+    }
 
     /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
     modifier onlyAdmin() {
@@ -174,6 +206,67 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         emit SwapRequested(requestId, getChainId(), dstChainId);
     }
 
+    /// @notice Initiates a swap request using Permit2 for token transfer approval
+    /// @param params Struct containing all parameters for the swap request
+    /// @return requestId The unique swap request id
+    function requestCrossChainSwapPermit2(RequestCrossChainSwapPermit2Params calldata params)
+        external
+        nonReentrant
+        returns (bytes32 requestId)
+    {
+        require(params.amount > 0, ErrorsLib.ZeroAmount());
+        require(params.recipient != address(0), ErrorsLib.ZeroAddress());
+        require(allowedDstChainIds[params.dstChainId], ErrorsLib.DestinationChainIdNotSupported(params.dstChainId));
+        require(isDstTokenMapped(params.tokenIn, params.dstChainId, params.tokenOut), ErrorsLib.TokenNotSupported());
+
+        (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(params.amount);
+        require(params.solverFee > 0, ErrorsLib.FeeTooLow());
+
+        totalVerificationFeeBalance[params.tokenIn] += verificationFeeAmount;
+
+        uint256 nonce = ++currentSwapRequestNonce;
+        nonceToRequester[nonce] = params.requester;
+
+        SwapRequestParameters memory swapParams = buildSwapRequestParameters(
+            params.requester,
+            params.tokenIn,
+            params.tokenOut,
+            amountOut,
+            verificationFeeAmount,
+            params.solverFee,
+            params.dstChainId,
+            params.recipient,
+            nonce
+        );
+
+        requestId = getSwapRequestId(swapParams);
+
+        storeSwapRequest(requestId, swapParams);
+
+        IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            nonce: params.permitNonce,
+            deadline: params.permitDeadline,
+            permitted: ISignatureTransfer.TokenPermissions({
+                token: params.tokenIn, amount: params.amount + params.solverFee
+            })
+        });
+        permit2Relayer.requestCrossChainSwapPermit2(
+            address(this),
+            params.requester,
+            params.tokenIn,
+            params.tokenOut,
+            params.amount,
+            params.solverFee,
+            params.dstChainId,
+            params.recipient,
+            permit,
+            params.signature,
+            hex""
+        );
+
+        emit SwapRequested(requestId, getChainId(), params.dstChainId);
+    }
+
     /// @notice Updates the solver fee for an unfulfilled swap request
     /// @param requestId The unique ID of the swap request to update
     /// @param newFee The new solver fee to be set for the swap request
@@ -260,6 +353,71 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         });
 
         emit SwapRequestFulfilled(requestId, srcChainId, getChainId());
+    }
+
+    /// @notice Relays tokens using Permit2 for token transfer approval and stores a receipt
+    /// @param params Struct containing all parameters for relaying tokens
+    function relayTokensPermit2(RelayTokensPermit2Params calldata params) external nonReentrant {
+        require(!swapRequestReceipts[params.requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
+        require(
+            params.tokenIn != address(0) && params.tokenOut != address(0) && params.sender != address(0)
+                && params.recipient != address(0),
+            ErrorsLib.InvalidTokenOrRecipient()
+        );
+        require(params.solverRefundAddress != address(0), ErrorsLib.ZeroAddress());
+        require(params.amountOut > 0, ErrorsLib.ZeroAmount());
+        require(
+            params.srcChainId != getChainId(),
+            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(params.srcChainId, getChainId())
+        );
+        require(
+            params.requestId
+                == keccak256(
+                    abi.encode(
+                        params.sender,
+                        params.recipient,
+                        params.tokenIn,
+                        params.tokenOut,
+                        params.amountOut,
+                        params.srcChainId,
+                        // the relayTokens function is called on the destination chain, so dstChainId is the current chain ID
+                        getChainId(),
+                        params.nonce
+                    )
+                ),
+            ErrorsLib.SwapRequestParametersMismatch()
+        );
+
+        fulfilledTransfers.add(params.requestId);
+
+        IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            nonce: params.permitNonce,
+            deadline: params.permitDeadline,
+            permitted: ISignatureTransfer.TokenPermissions({token: params.tokenOut, amount: params.amountOut})
+        });
+        permit2Relayer.relayTokensPermit2(
+            params.requestId,
+            params.solver,
+            params.recipient,
+            abi.encodePacked(params.solverRefundAddress),
+            permit,
+            params.signature
+        );
+
+        swapRequestReceipts[params.requestId] = SwapRequestReceipt({
+            requestId: params.requestId,
+            srcChainId: params.srcChainId,
+            dstChainId: getChainId(),
+            tokenIn: params.tokenIn,
+            tokenOut: params.tokenOut, // tokenOut is the token being received on the destination chain
+            fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
+            solver: params.solverRefundAddress,
+            recipient: params.recipient,
+            amountOut: params.amountOut,
+            fulfilledAt: block.timestamp
+        });
+
+        emit SwapRequestFulfilled(params.requestId, params.srcChainId, getChainId());
     }
 
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
