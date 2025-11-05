@@ -224,7 +224,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         permit2Relayer.relayTokensPermit2(
             requestId,
             address(this),
-            "", // additional data can be request parameters
+            hex"", // additional data can be request parameters
             requester,
             permit,
             signature
