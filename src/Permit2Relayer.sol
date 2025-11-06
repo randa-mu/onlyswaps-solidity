@@ -87,7 +87,7 @@ contract Permit2Relayer {
         bytes calldata additionalData
     ) external {
         /// @notice Type string of the custom witness
-        string memory WITNESS_TYPE_STRING = string(
+        string memory witnessTypeString = string(
             abi.encodePacked(
                 WITNESS_TYPE_NAME,
                 "(address router,address tokenIn,address tokenOut,uint256 amount,uint256 solverFee,uint256 dstChainId,address recipient,bytes additionalData)"
@@ -95,12 +95,12 @@ contract Permit2Relayer {
         );
 
         /// @notice Type hash used to compute the witness hash
-        bytes32 WITNESS_TYPE_HASH = keccak256(bytes(WITNESS_TYPE_STRING));
+        bytes32 witnessTypeHash = keccak256(bytes(witnessTypeString));
 
         /// @notice The permit2 witnessTypeString parameter,
-        string memory PERMIT2_WITNESS_TYPE_STRING = string(
+        string memory permit2WitnessTypeString = string(
             abi.encodePacked(
-                WITNESS_TYPE_NAME, " witness)", WITNESS_TYPE_STRING, "TokenPermissions(address token,uint256 amount)"
+                WITNESS_TYPE_NAME, " witness)", witnessTypeString, "TokenPermissions(address token,uint256 amount)"
             )
         );
 
@@ -114,7 +114,7 @@ contract Permit2Relayer {
         // That same reasoning cannot be applied to the additionalData as it is controlled by the caller entirely.
         bytes32 witness = keccak256(
             abi.encode(
-                WITNESS_TYPE_HASH,
+                witnessTypeHash,
                 router,
                 tokenIn,
                 tokenOut,
@@ -130,9 +130,7 @@ contract Permit2Relayer {
         // No need to track used identifiers here as the Router will do that
         // and this function only forwards tokens to it.
         // The Router will then ensure that each request id is used at most once.
-        PERMIT2.permitWitnessTransferFrom(
-            permit, transferDetails, signer, witness, PERMIT2_WITNESS_TYPE_STRING, signature
-        );
+        PERMIT2.permitWitnessTransferFrom(permit, transferDetails, signer, witness, permit2WitnessTypeString, signature);
         // Forward the tokens to the Router
         // The Router will handle the rest of the request logic
         IERC20(permit.permitted.token).safeTransfer(router, permit.permitted.amount);
