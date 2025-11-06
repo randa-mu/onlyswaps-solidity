@@ -28,6 +28,7 @@ library ErrorsLib {
     error TooLateToCancelUpgrade(uint256 upgradeTime);
     error ZeroAddress();
     error GrantRoleFailed();
+    error RevokeRoleFailed();
     error UpgradeMustGoThroughExecuteUpgrade();
     error UpgradeFailed();
     error UpgradeDelayTooShort();

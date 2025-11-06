@@ -2,6 +2,10 @@
 pragma solidity ^0.8;
 
 import {
+    IAccessControl,
+    AccessControlUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {
     AccessControlEnumerableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -877,6 +881,74 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice Executes a scheduled upgrade
     function executeUpgrade() public override (IRouter, ScheduledUpgradeable) {
         super.executeUpgrade();
+    }
+
+    // --------------- Role Management with BLS Signatures ------------------
+
+    function grantRole(bytes32 /* role */, address /* account */)
+        public
+        pure
+        override (AccessControlUpgradeable, IAccessControl)
+        // onlyRole(getRoleAdmin(role))
+
+    {
+        revert("Direct grantRole disabled; use grantRoleWithBlsSignature()");
+    }
+
+    function grantRoleWithBlsSignature(bytes32 role, address account, bytes calldata signature) external {
+        // bls logic before granting the role
+        string memory action = "grant-role";
+        uint256 nonce = ++currentNonce;
+        (, bytes memory messageAsG1Bytes) = roleManagementParamsToBytes(action, role, account, nonce);
+
+        require(
+            contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),
+            ErrorsLib.BLSSignatureVerificationFailed()
+        );
+
+        // call parent logic or grant directly
+        require(_grantRole(role, account), ErrorsLib.GrantRoleFailed());
+    }
+
+    function revokeRole(bytes32 /* role */, address /* account */)
+        public
+        pure
+        override (AccessControlUpgradeable, IAccessControl)
+        // onlyRole(getRoleAdmin(role))
+
+    {
+        revert("Direct revokeRole disabled; use revokeRoleWithBlsSignature()");
+    }
+
+    function revokeRoleWithBlsSignature(bytes32 role, address account, bytes calldata signature) external {
+        // bls logic before revoking the role
+        string memory action = "revoke-role";
+        uint256 nonce = ++currentNonce;
+        (, bytes memory messageAsG1Bytes) = roleManagementParamsToBytes(action, role, account, nonce);
+
+        require(
+            contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),
+            ErrorsLib.BLSSignatureVerificationFailed()
+        );
+
+        // call parent logic or grant directly
+        require(_revokeRole(role, account), ErrorsLib.RevokeRoleFailed());
+    }
+
+    /// @notice Converts role management parameters to bytes for BLS signature verification
+    /// @param action The action being performed
+    /// @param role The role being managed
+    /// @param account The account being granted or revoked the role
+    /// @param nonce The nonce for replay protection
+    /// @return message The encoded message bytes
+    /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
+    function roleManagementParamsToBytes(string memory action, bytes32 role, address account, uint256 nonce)
+        public
+        view
+        returns (bytes memory message, bytes memory messageAsG1Bytes)
+    {
+        message = abi.encode(action, role, account, nonce);
+        messageAsG1Bytes = contractUpgradeBlsValidator.hashToBytes(message);
     }
 
     // ---------------------- Internal Functions ----------------------
