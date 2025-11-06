@@ -15,15 +15,155 @@ import {ScheduledUpgradeable} from "../ScheduledUpgradeable.sol";
 
 import {ErrorsLib} from "../libraries/ErrorsLib.sol";
 
-import {IRouter} from "../interfaces/IRouter.sol";
+/// @title Router Interface for Cross-Chain Token Swaps
+/// @author Randamu
+/// @notice This interface defines the functions and events for a router facilitating cross-chain token swaps.
+interface IRouter {
+    struct SwapRequestParameters {
+        address sender;
+        address recipient;
+        address tokenIn;
+        address tokenOut;
+        uint256 amountOut;
+        uint256 srcChainId;
+        uint256 dstChainId;
+        uint256 verificationFee;
+        uint256 solverFee;
+        uint256 nonce;
+        bool executed;
+        uint256 requestedAt;
+    }
 
-import {Permit2Relayer} from "../Permit2Relayer.sol";
-import {IPermit2} from "uniswap-permit2/interfaces/IPermit2.sol";
-import {ISignatureTransfer} from "uniswap-permit2/interfaces/ISignatureTransfer.sol";
+    struct SwapRequestReceipt {
+        bytes32 requestId;
+        uint256 srcChainId;
+        uint256 dstChainId;
+        address tokenIn;
+        address tokenOut;
+        bool fulfilled;
+        address solver;
+        address recipient;
+        uint256 amountOut;
+        uint256 fulfilledAt;
+    }
 
-/// @title Mock Version 2 of the Router Contract for Cross-Chain Token Swaps
+    event SwapRequested(bytes32 indexed requestId, uint256 indexed srcChainId, uint256 indexed dstChainId);
+    event SwapRequestFulfilled(bytes32 indexed requestId, uint256 indexed srcChainId, uint256 indexed dstChainId);
+    event SolverPayoutFulfilled(bytes32 indexed requestId);
+    event SwapRequestSolverFeeUpdated(bytes32 indexed requestId);
+    event VerificationFeeBpsUpdated(uint256 newFeeBps);
+    event BLSValidatorUpdated(address indexed blsValidator);
+    event DestinationChainIdPermitted(uint256 chainId);
+    event DestinationChainIdBlocked(uint256 chainId);
+    event TokenMappingAdded(uint256 dstChainId, address dstToken, address srcToken);
+    event TokenMappingRemoved(uint256 dstChainId, address dstToken, address srcToken);
+    event VerificationFeeWithdrawn(address indexed token, address indexed recipient, uint256 amountOut);
+    event SwapRequestCancellationStaged(bytes32 indexed requestId, address indexed user, uint256 initiatedAt);
+    event SwapRequestRefundClaimed(
+        bytes32 indexed requestId, address indexed user, address indexed recipient, uint256 amount
+    );
+    event SwapRequestCancellationWindowUpdated(uint256 newSwapRequestCancellationWindow);
+
+    function requestCrossChainSwap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        uint256 fee,
+        uint256 dstChainId,
+        address recipient
+    ) external returns (bytes32 requestId);
+
+    function updateSolverFeesIfUnfulfilled(bytes32 requestId, uint256 newFee) external;
+    function rebalanceSolver(address solver, bytes32 requestId, bytes calldata signature) external;
+    function relayTokens(
+        address solverRefundAddress,
+        bytes32 requestId,
+        address sender,
+        address recipient,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut,
+        uint256 srcChainId,
+        uint256 nonce
+    ) external;
+
+    function stageSwapRequestCancellation(bytes32 requestId) external;
+    function cancelSwapRequestAndRefund(bytes32 requestId, address refundRecipient) external;
+    function cancelUpgrade(bytes calldata signature) external;
+    function executeUpgrade() external;
+
+    function getVerificationFeeAmount(uint256 amountToSwap) external view returns (uint256, uint256);
+    function getMinimumContractUpgradeDelay() external view returns (uint256);
+    function getSwapRequestId(SwapRequestParameters memory p) external view returns (bytes32);
+    function getSwapRequestBlsValidator() external view returns (address);
+    function getVerificationFeeBps() external view returns (uint256);
+    function getTotalVerificationFeeBalance(address token) external view returns (uint256);
+    function getAllowedDstChainId(uint256 chainId) external view returns (bool);
+    function getTokenMapping(address srcToken, uint256 dstChainId) external view returns (address[] memory);
+    function getSwapRequestParameters(bytes32 requestId)
+        external
+        view
+        returns (SwapRequestParameters memory swapRequestParams);
+    function getFulfilledTransfers() external view returns (bytes32[] memory);
+    function getUnfulfilledSolverRefunds() external view returns (bytes32[] memory);
+    function getFulfilledSolverRefunds() external view returns (bytes32[] memory);
+    function getCancelledSwapRequests() external view returns (bytes32[] memory);
+    function getSwapRequestReceipt(bytes32 _requestId)
+        external
+        view
+        returns (
+            bytes32 requestId,
+            uint256 srcChainId,
+            uint256 dstChainId,
+            address tokenIn,
+            address tokenOut,
+            bool fulfilled,
+            address solver,
+            address recipient,
+            uint256 amountOut,
+            uint256 fulfilledAt
+        );
+    function getContractUpgradeBlsValidator() external view returns (address);
+    function getVersion() external view returns (string memory);
+    function isDstTokenMapped(address srcToken, uint256 dstChainId, address dstToken) external view returns (bool);
+    function buildSwapRequestParameters(
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        uint256 verificationFeeAmount,
+        uint256 solverFeeAmount,
+        uint256 dstChainId,
+        address recipient,
+        uint256 nonce
+    ) external view returns (SwapRequestParameters memory swapRequestParams);
+
+    function swapRequestParametersToBytes(bytes32 requestId, address solver)
+        external
+        view
+        returns (bytes memory message, bytes memory messageAsG1Bytes);
+
+    function setVerificationFeeBps(uint256 _verificationFeeBps) external;
+    function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay, bytes calldata signature) external;
+    function setSwapRequestBlsValidator(address _swapRequestBlsValidator, bytes calldata signature) external;
+    function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator, bytes calldata signature) external;
+    function scheduleUpgrade(
+        address _newImplementation,
+        bytes calldata _upgradeCalldata,
+        uint256 _upgradeTime,
+        bytes calldata signature
+    ) external;
+    function permitDestinationChainId(uint256 chainId) external;
+    function blockDestinationChainId(uint256 chainId) external;
+    function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external;
+    function removeTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external;
+    function withdrawVerificationFee(address token, address to) external;
+    function setCancellationWindow(uint256 newSwapRequestCancellationWindow, bytes calldata signature) external;
+}
+
+/// @title Mock Version 1 of the Router Contract for Cross-Chain Token Swaps
+/// @author Randamu
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
-contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControlEnumerableUpgradeable {
+contract MockRouterV1 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControlEnumerableUpgradeable {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -81,40 +221,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
     /// @notice Unique nonce for each swap request
     uint256 public currentSwapRequestNonce;
-
-    /// @notice The Permit2Relayer contract
-    Permit2Relayer private permit2Relayer;
-
-    /// @notice Struct to hold parameters for a swap request using Permit2
-    struct RequestCrossChainSwapPermit2Params {
-        address requester;
-        address tokenIn;
-        address tokenOut;
-        uint256 amount;
-        uint256 solverFee;
-        uint256 dstChainId;
-        address recipient;
-        uint256 permitNonce;
-        uint256 permitDeadline;
-        bytes signature;
-    }
-
-    /// @notice Struct to hold parameters for relaying tokens using Permit2
-    struct RelayTokensPermit2Params {
-        address solver;
-        address solverRefundAddress;
-        bytes32 requestId;
-        address sender;
-        address recipient;
-        address tokenIn;
-        address tokenOut;
-        uint256 amountOut;
-        uint256 srcChainId;
-        uint256 nonce;
-        uint256 permitNonce;
-        uint256 permitDeadline;
-        bytes signature;
-    }
 
     /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
     modifier onlyAdmin() {
@@ -191,7 +297,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         nonceToRequester[nonce] = msg.sender;
 
         SwapRequestParameters memory params = buildSwapRequestParameters(
-            msg.sender, tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+            tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
         );
 
         requestId = getSwapRequestId(params);
@@ -397,7 +503,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     }
 
     /// @notice Builds swap request parameters based on the provided details
-    /// @param sender The address initiating the swap request
     /// @param tokenIn The address of the input token on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountOut The amount of tokens to be swapped
@@ -408,7 +513,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @param nonce A unique nonce for the request
     /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
-        address sender,
         address tokenIn,
         address tokenOut,
         uint256 amountOut,
@@ -419,7 +523,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         uint256 nonce
     ) public view returns (SwapRequestParameters memory swapRequestParams) {
         swapRequestParams = SwapRequestParameters({
-            sender: sender,
+            sender: msg.sender,
             recipient: recipient,
             tokenIn: tokenIn,
             tokenOut: tokenOut,
@@ -749,148 +853,9 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
     // ---------------------- Mock Upgrade Test Functions ----------------------
 
-    /// @notice A mock function to test new functionality in the upgraded contract
-    /// @return True indicating the new functionality works
-    function testNewFunctionality() external pure returns (bool) {
-        return true;
-    }
-
-    /// @notice Initiates a swap request using Permit2 for token transfer approval
-    /// @param params Struct containing all parameters for the swap request
-    /// @return requestId The unique swap request id
-    function requestCrossChainSwapPermit2(RequestCrossChainSwapPermit2Params calldata params)
-        external
-        nonReentrant
-        returns (bytes32 requestId)
-    {
-        require(params.amount > 0, ErrorsLib.ZeroAmount());
-        require(params.recipient != address(0), ErrorsLib.ZeroAddress());
-        require(allowedDstChainIds[params.dstChainId], ErrorsLib.DestinationChainIdNotSupported(params.dstChainId));
-        require(isDstTokenMapped(params.tokenIn, params.dstChainId, params.tokenOut), ErrorsLib.TokenNotSupported());
-
-        (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(params.amount);
-        require(params.solverFee > 0, ErrorsLib.FeeTooLow());
-
-        totalVerificationFeeBalance[params.tokenIn] += verificationFeeAmount;
-
-        uint256 nonce = ++currentSwapRequestNonce;
-        nonceToRequester[nonce] = params.requester;
-
-        SwapRequestParameters memory swapParams = buildSwapRequestParameters(
-            params.requester,
-            params.tokenIn,
-            params.tokenOut,
-            amountOut,
-            verificationFeeAmount,
-            params.solverFee,
-            params.dstChainId,
-            params.recipient,
-            nonce
-        );
-
-        requestId = getSwapRequestId(swapParams);
-
-        storeSwapRequest(requestId, swapParams);
-
-        IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            nonce: params.permitNonce,
-            deadline: params.permitDeadline,
-            permitted: ISignatureTransfer.TokenPermissions({
-                token: params.tokenIn, amount: params.amount + params.solverFee
-            })
-        });
-        permit2Relayer.requestCrossChainSwapPermit2(
-            address(this),
-            params.requester,
-            params.tokenIn,
-            params.tokenOut,
-            params.amount,
-            params.solverFee,
-            params.dstChainId,
-            params.recipient,
-            permit,
-            params.signature,
-            hex""
-        );
-
-        emit SwapRequested(requestId, getChainId(), params.dstChainId);
-    }
-
-    /// @notice Relays tokens using Permit2 for token transfer approval and stores a receipt
-    /// @param params Struct containing all parameters for relaying tokens
-    function relayTokensPermit2(RelayTokensPermit2Params calldata params) external nonReentrant {
-        require(!swapRequestReceipts[params.requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
-        require(
-            params.tokenIn != address(0) && params.tokenOut != address(0) && params.sender != address(0)
-                && params.recipient != address(0),
-            ErrorsLib.InvalidTokenOrRecipient()
-        );
-        require(params.solverRefundAddress != address(0), ErrorsLib.ZeroAddress());
-        require(params.amountOut > 0, ErrorsLib.ZeroAmount());
-        require(
-            params.srcChainId != getChainId(),
-            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(params.srcChainId, getChainId())
-        );
-        require(
-            params.requestId
-                == keccak256(
-                    abi.encode(
-                        params.sender,
-                        params.recipient,
-                        params.tokenIn,
-                        params.tokenOut,
-                        params.amountOut,
-                        params.srcChainId,
-                        // the relayTokens function is called on the destination chain, so dstChainId is the current chain ID
-                        getChainId(),
-                        params.nonce
-                    )
-                ),
-            ErrorsLib.SwapRequestParametersMismatch()
-        );
-
-        fulfilledTransfers.add(params.requestId);
-
-        IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            nonce: params.permitNonce,
-            deadline: params.permitDeadline,
-            permitted: ISignatureTransfer.TokenPermissions({token: params.tokenOut, amount: params.amountOut})
-        });
-        permit2Relayer.relayTokensPermit2(
-            params.requestId,
-            params.solver,
-            params.recipient,
-            abi.encodePacked(params.solverRefundAddress),
-            permit,
-            params.signature
-        );
-
-        swapRequestReceipts[params.requestId] = SwapRequestReceipt({
-            requestId: params.requestId,
-            srcChainId: params.srcChainId,
-            dstChainId: getChainId(),
-            tokenIn: params.tokenIn,
-            tokenOut: params.tokenOut, // tokenOut is the token being received on the destination chain
-            fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
-            solver: params.solverRefundAddress,
-            recipient: params.recipient,
-            amountOut: params.amountOut,
-            fulfilledAt: block.timestamp
-        });
-
-        emit SwapRequestFulfilled(params.requestId, params.srcChainId, getChainId());
-    }
-
-    /// @notice Sets the Permit2Relayer contract address
-    /// @param _permit2Relayer The Permit2Relayer contract address
-    function setPermit2Relayer(address _permit2Relayer) external onlyAdmin {
-        require(_permit2Relayer != address(0), ErrorsLib.ZeroAddress());
-        permit2Relayer = Permit2Relayer(_permit2Relayer);
-    }
-
     /// @notice Retrieves the current version of the contract
     /// @return The current version of the contract
     function getVersion() public pure returns (string memory) {
-        return "1.2.0";
+        return "1.1.0";
     }
 }

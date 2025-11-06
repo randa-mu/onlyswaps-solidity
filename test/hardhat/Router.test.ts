@@ -105,7 +105,6 @@ describe("Router", function () {
         ownerAddr,
         await swapBn254SigScheme.getAddress(),
         await upgradeBn254SigScheme.getAddress(),
-        await permit2Relayer.getAddress(),
         VERIFICATION_FEE_BPS,
       ]),
     );
@@ -116,6 +115,7 @@ describe("Router", function () {
     router = routerAttached;
 
     // Router contract configuration
+    await router.connect(owner).setPermit2Relayer(await permit2Relayer.getAddress());
     await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
@@ -141,7 +141,6 @@ describe("Router", function () {
             ownerAddr,
             await swapBn254SigScheme.getAddress(),
             await upgradeBn254SigScheme.getAddress(),
-            await permit2Relayer.getAddress(),
             0, // invalid fee
           ]),
         ),
@@ -156,7 +155,6 @@ describe("Router", function () {
             ownerAddr,
             await swapBn254SigScheme.getAddress(),
             await upgradeBn254SigScheme.getAddress(),
-            await permit2Relayer.getAddress(),
             Number(maxFeeBps) + 1, // invalid fee
           ]),
         ),
@@ -178,7 +176,6 @@ describe("Router", function () {
             ownerAddr,
             await swapBn254SigScheme.getAddress(),
             ZeroAddress, // invalid validator
-            await permit2Relayer.getAddress(),
             VERIFICATION_FEE_BPS,
           ]),
         ),
@@ -192,7 +189,6 @@ describe("Router", function () {
             ownerAddr,
             ZeroAddress, // invalid validator
             await upgradeBn254SigScheme.getAddress(),
-            await permit2Relayer.getAddress(),
             VERIFICATION_FEE_BPS,
           ]),
         ),
@@ -1624,7 +1620,6 @@ describe("Router", function () {
           ownerAddr,
           await swapBn254SigScheme.getAddress(),
           validValidator,
-          await permit2Relayer.getAddress(),
           VERIFICATION_FEE_BPS,
         ]),
       );
@@ -1649,7 +1644,6 @@ describe("Router", function () {
             ownerAddr,
             await swapBn254SigScheme.getAddress(),
             ZeroAddress, // zero address for contractUpgradeBlsValidator
-            await permit2Relayer.getAddress(),
             VERIFICATION_FEE_BPS,
           ]),
         ),

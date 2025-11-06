@@ -132,13 +132,11 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param _owner Initial contract owner
     /// @param _swapRequestBlsValidator BLS validator address for swap request verification
     /// @param _contractUpgradeBlsValidator BLS validator address for contract upgrades
-    /// @param _permit2Relayer The Permit2Relayer contract address
     /// @param _verificationFeeBps Verification fee in basis points
     function initialize(
         address _owner,
         address _swapRequestBlsValidator,
         address _contractUpgradeBlsValidator,
-        address _permit2Relayer,
         uint256 _verificationFeeBps
     ) public initializer {
         __UUPSUpgradeable_init();
@@ -153,7 +151,6 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         verificationFeeBps = _verificationFeeBps;
         swapRequestBlsValidator = ISignatureScheme(_swapRequestBlsValidator);
         swapRequestCancellationWindow = 1 days;
-        permit2Relayer = Permit2Relayer(_permit2Relayer);
     }
 
     // ---------------------- Core Logic ----------------------
@@ -841,6 +838,13 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         );
         swapRequestCancellationWindow = newSwapRequestCancellationWindow;
         emit SwapRequestCancellationWindowUpdated(newSwapRequestCancellationWindow);
+    }
+
+    /// @notice Sets the Permit2Relayer contract address
+    /// @param _permit2Relayer The Permit2Relayer contract address
+    function setPermit2Relayer(address _permit2Relayer) external onlyAdmin {
+        require(_permit2Relayer != address(0), ErrorsLib.ZeroAddress());
+        permit2Relayer = Permit2Relayer(_permit2Relayer);
     }
 
     // ---------------------- Scheduled Upgrade Functions ----------------------

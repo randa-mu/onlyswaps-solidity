@@ -74,7 +74,6 @@ contract DeploymentTest is Test {
             owner,
             address(srcSwapRequestBLSSigVerifier),
             address(srcContractUpgradeBLSSigVerifier),
-            address(srcPermit2Relayer),
             VERIFICATION_FEE_BPS
         );
 
@@ -93,12 +92,18 @@ contract DeploymentTest is Test {
             owner,
             address(dstSwapRequestBLSSigVerifier),
             address(dstContractUpgradeBLSSigVerifier),
-            address(dstPermit2Relayer),
             VERIFICATION_FEE_BPS
         );
 
         /// @dev configurations
-        /// Whitelist requests to specific destination chain ids
+        /// @dev Set Permit2 relayer addresses in routers
+        vm.prank(owner);
+        srcRouter.setPermit2Relayer(address(srcPermit2Relayer));
+
+        vm.prank(owner);
+        dstRouter.setPermit2Relayer(address(dstPermit2Relayer));
+
+        /// @devWhitelist requests to specific destination chain ids
         vm.prank(owner);
         srcRouter.permitDestinationChainId(dstChainId);
 

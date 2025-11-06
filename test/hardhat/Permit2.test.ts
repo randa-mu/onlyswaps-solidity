@@ -117,7 +117,6 @@ describe("Router", function () {
         ownerAddr,
         await swapBn254SigScheme.getAddress(),
         await upgradeBn254SigScheme.getAddress(),
-        await permit2Relayer.getAddress(),
         VERIFICATION_FEE_BPS,
       ]),
     );
@@ -128,6 +127,7 @@ describe("Router", function () {
     router = routerAttached;
 
     // Router contract configuration
+    await router.connect(owner).setPermit2Relayer(await permit2Relayer.getAddress());
     await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
