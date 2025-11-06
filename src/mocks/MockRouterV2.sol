@@ -892,7 +892,11 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         permit2Relayer = Permit2Relayer(_permit2Relayer);
     }
 
-    function grantRole(bytes32 /* role */, address /* account */)
+    function grantRole(
+        bytes32,
+        /* role */
+        address /* account */
+    )
         public
         pure
         override (AccessControlUpgradeable, IAccessControl)
@@ -917,7 +921,11 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         require(_grantRole(role, account), ErrorsLib.GrantRoleFailed());
     }
 
-    function revokeRole(bytes32 /* role */, address /* account */)
+    function revokeRole(
+        bytes32,
+        /* role */
+        address /* account */
+    )
         public
         pure
         override (AccessControlUpgradeable, IAccessControl)

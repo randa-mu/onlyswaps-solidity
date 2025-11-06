@@ -885,7 +885,11 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
     // --------------- Role Management with BLS Signatures ------------------
 
-    function grantRole(bytes32 /* role */, address /* account */)
+    function grantRole(
+        bytes32,
+        /* role */
+        address /* account */
+    )
         public
         pure
         override (AccessControlUpgradeable, IAccessControl)
@@ -910,7 +914,11 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         require(_grantRole(role, account), ErrorsLib.GrantRoleFailed());
     }
 
-    function revokeRole(bytes32 /* role */, address /* account */)
+    function revokeRole(
+        bytes32,
+        /* role */
+        address /* account */
+    )
         public
         pure
         override (AccessControlUpgradeable, IAccessControl)

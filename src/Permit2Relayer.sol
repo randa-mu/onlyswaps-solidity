@@ -130,9 +130,7 @@ contract Permit2Relayer {
         // No need to track used identifiers here as the Router will do that
         // and this function only forwards tokens to it.
         // The Router will then ensure that each request id is used at most once.
-        PERMIT2.permitWitnessTransferFrom(
-            permit, transferDetails, signer, witness, permit2WitnessTypeString, signature
-        );
+        PERMIT2.permitWitnessTransferFrom(permit, transferDetails, signer, witness, permit2WitnessTypeString, signature);
         // Forward the tokens to the Router
         // The Router will handle the rest of the request logic
         IERC20(permit.permitted.token).safeTransfer(router, permit.permitted.amount);
