@@ -11,4 +11,4 @@ import {AllowanceTransfer} from "uniswap-permit2-unlocked/AllowanceTransfer.sol"
 contract Permit2 is SignatureTransfer, AllowanceTransfer {
     // Permit2 unifies the two contracts so users have maximal flexibility with their approval.
 
-    }
+}
