@@ -79,6 +79,26 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice Unique nonce for each swap request
     uint256 public currentSwapRequestNonce;
 
+    /// @dev Precision constant for amount normalization
+    uint256 internal constant PRECISION = 1e36;
+
+    // Mapping to store decimals per token mapping
+    // srcToken => dstChainId => dstToken => (srcDecimals, dstDecimals)
+    struct TokenDecimals {
+        uint8 srcDecimals;
+        uint8 dstDecimals;
+    }
+
+    mapping(address => mapping(uint256 => mapping(address => TokenDecimals))) public tokenDecimals;
+
+    event TokenDecimalsSet(
+        uint256 indexed dstChainId,
+        address indexed dstToken,
+        address indexed srcToken,
+        uint8 srcDecimals,
+        uint8 dstDecimals
+    );
+
     /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
     modifier onlyAdmin() {
         _checkRole(ADMIN_ROLE);
@@ -153,8 +173,14 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         uint256 nonce = ++currentSwapRequestNonce;
         nonceToRequester[nonce] = msg.sender;
 
+        TokenDecimals memory decimalsInfo = tokenDecimals[tokenIn][dstChainId][tokenOut];
+        uint8 srcDecimals = decimalsInfo.srcDecimals;
+        uint8 dstDecimals = decimalsInfo.dstDecimals;
+
+        uint256 normalizedAmount = _normalizeAmount(amount, srcDecimals, dstDecimals);
+
         SwapRequestParameters memory params = buildSwapRequestParameters(
-            tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+            tokenIn, tokenOut, normalizedAmount, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
         );
 
         requestId = getSwapRequestId(params);
@@ -164,6 +190,43 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amount + solverFee);
 
         emit SwapRequested(requestId, getChainId(), dstChainId);
+    }
+
+    /// @notice Converts token amounts between different decimal precisions
+    /// @dev Handles decimal normalization while preventing overflow and underflow
+    /// @param amount The amount to normalize
+    /// @param srcDecimals The source token's decimal places
+    /// @param dstDecimals The destination token's decimal places
+    /// @return normalizedAmount The amount adjusted to the destination decimal precision
+    function _normalizeAmount(uint256 amount, uint8 srcDecimals, uint8 dstDecimals)
+        internal
+        pure
+        returns (uint256 normalizedAmount)
+    {
+        // No conversion needed
+        if (dstDecimals == srcDecimals) return amount;
+
+        if (dstDecimals > srcDecimals) {
+            // Scale up: amount * 10^(dst - src)
+            uint256 diff = dstDecimals - srcDecimals;
+            uint256 scale = 10 ** diff;
+
+            // Check overflow manually
+            require(amount == 0 || amount <= type(uint256).max / scale, "Overflow");
+            normalizedAmount = amount * scale;
+        } else {
+            // Scale down: amount / 10^(src - dst)
+            uint256 diff = srcDecimals - dstDecimals;
+            uint256 scale = 10 ** diff;
+
+            // High precision division
+            normalizedAmount = (amount * PRECISION) / scale / (PRECISION / 1e18);
+
+            // Prevent zero for small amounts
+            if (normalizedAmount == 0 && amount > 0) {
+                normalizedAmount = 1;
+            }
+        }
     }
 
     /// @notice Updates the solver fee for an unfulfilled swap request
@@ -623,15 +686,24 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         emit DestinationChainIdBlocked(chainId);
     }
 
-    /// @notice Sets the token mapping for a specific destination chain
-    /// @param dstChainId The destination chain ID
-    /// @param dstToken The address of the destination token
-    /// @param srcToken The address of the source token
-    function setTokenMapping(uint256 dstChainId, address dstToken, address srcToken) external onlyAdmin {
+    function setTokenMapping(
+        uint256 dstChainId,
+        address dstToken,
+        address srcToken,
+        uint8 srcDecimals,
+        uint8 dstDecimals
+    ) external onlyAdmin {
         require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
         require(!tokenMappings[srcToken][dstChainId].contains(dstToken), ErrorsLib.TokenMappingAlreadyExists());
+
+        // Add the token mapping
         tokenMappings[srcToken][dstChainId].add(dstToken);
+
+        // Store decimals for the mapping
+        tokenDecimals[srcToken][dstChainId][dstToken] = TokenDecimals(srcDecimals, dstDecimals);
+
         emit TokenMappingAdded(dstChainId, dstToken, srcToken);
+        emit TokenDecimalsSet(dstChainId, dstToken, srcToken, srcDecimals, dstDecimals);
     }
 
     /// @notice Removes the token mapping for a specific destination chain
