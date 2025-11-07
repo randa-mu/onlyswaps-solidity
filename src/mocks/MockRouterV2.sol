@@ -900,8 +900,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         public
         pure
         override (AccessControlUpgradeable, IAccessControl)
-        // onlyRole(getRoleAdmin(role))
-
     {
         revert("Direct grantRole disabled; use grantRoleWithBlsSignature()");
     }
@@ -929,8 +927,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         public
         pure
         override (AccessControlUpgradeable, IAccessControl)
-        // onlyRole(getRoleAdmin(role))
-
     {
         revert("Direct revokeRole disabled; use revokeRoleWithBlsSignature()");
     }

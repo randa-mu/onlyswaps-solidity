@@ -893,8 +893,6 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         public
         pure
         override (AccessControlUpgradeable, IAccessControl)
-        // onlyRole(getRoleAdmin(role))
-
     {
         revert("Direct grantRole disabled; use grantRoleWithBlsSignature()");
     }
@@ -922,8 +920,6 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         public
         pure
         override (AccessControlUpgradeable, IAccessControl)
-        // onlyRole(getRoleAdmin(role))
-
     {
         revert("Direct revokeRole disabled; use revokeRoleWithBlsSignature()");
     }

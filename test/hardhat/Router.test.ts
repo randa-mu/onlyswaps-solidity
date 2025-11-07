@@ -2039,7 +2039,12 @@ describe("Router", function () {
         expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.true;
 
         const currentNonce = Number(await router.currentNonce()) + 1;
-        const signature = await generateRoleManagementSignature("revoke-role", defaultAdminRole, ownerAddr, currentNonce);
+        const signature = await generateRoleManagementSignature(
+          "revoke-role",
+          defaultAdminRole,
+          ownerAddr,
+          currentNonce,
+        );
 
         await router.connect(owner).revokeRoleWithBlsSignature(defaultAdminRole, ownerAddr, signature);
 
@@ -2107,19 +2112,24 @@ describe("Router", function () {
       it("should prevent traditional role management after default admin abdication", async () => {
         // First abdicate default admin role
         const currentNonce = Number(await router.currentNonce()) + 1;
-        const signature = await generateRoleManagementSignature("revoke-role", defaultAdminRole, ownerAddr, currentNonce);
+        const signature = await generateRoleManagementSignature(
+          "revoke-role",
+          defaultAdminRole,
+          ownerAddr,
+          currentNonce,
+        );
         await router.connect(owner).revokeRoleWithBlsSignature(defaultAdminRole, ownerAddr, signature);
 
         expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.false;
 
         // Traditional role management should fail
-        await expect(
-          router.connect(owner).grantRole(testRole, userAddr)
-        ).to.be.revertedWith("Direct grantRole disabled; use grantRoleWithBlsSignature()");
+        await expect(router.connect(owner).grantRole(testRole, userAddr)).to.be.revertedWith(
+          "Direct grantRole disabled; use grantRoleWithBlsSignature()",
+        );
 
-        await expect(
-          router.connect(owner).revokeRole(testRole, userAddr)
-        ).to.be.revertedWith("Direct revokeRole disabled; use revokeRoleWithBlsSignature()");
+        await expect(router.connect(owner).revokeRole(testRole, userAddr)).to.be.revertedWith(
+          "Direct revokeRole disabled; use revokeRoleWithBlsSignature()",
+        );
       });
 
       it("should maintain admin role functionality after default admin abdication", async () => {
@@ -2138,9 +2148,9 @@ describe("Router", function () {
 
         // User with admin role should still be able to use admin functions
         const newFeeBps = 300;
-        await expect(
-          router.connect(user).setVerificationFeeBps(newFeeBps)
-        ).to.emit(router, "VerificationFeeBpsUpdated").withArgs(newFeeBps);
+        await expect(router.connect(user).setVerificationFeeBps(newFeeBps))
+          .to.emit(router, "VerificationFeeBpsUpdated")
+          .withArgs(newFeeBps);
 
         expect(await router.getVerificationFeeBps()).to.equal(newFeeBps);
       });
@@ -2203,16 +2213,17 @@ describe("Router", function () {
 
         // New admin should be able to perform admin functions
         const newFeeBps = 400;
-        await expect(
-          router.connect(solver).setVerificationFeeBps(newFeeBps)
-        ).to.emit(router, "VerificationFeeBpsUpdated").withArgs(newFeeBps);
+        await expect(router.connect(solver).setVerificationFeeBps(newFeeBps))
+          .to.emit(router, "VerificationFeeBpsUpdated")
+          .withArgs(newFeeBps);
       });
     });
 
     describe("grantRole", () => {
       it("should revert direct grantRole calls", async () => {
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.true;
         await expect(router.connect(owner).grantRole(testRole, userAddr)).to.be.revertedWith(
-          "Direct grantRole disabled; use grantRoleWithBlsSignature()"
+          "Direct grantRole disabled; use grantRoleWithBlsSignature()",
         );
       });
 
@@ -2231,7 +2242,7 @@ describe("Router", function () {
         const invalidSignature = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
 
         await expect(
-          router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, invalidSignature)
+          router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, invalidSignature),
         ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
       });
 
@@ -2267,7 +2278,7 @@ describe("Router", function () {
         const signature2 = await generateRoleManagementSignature("grant-role", testRole, userAddr, nextNonce);
 
         await expect(
-          router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature2)
+          router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature2),
         ).to.be.revertedWithCustomError(router, "GrantRoleFailed");
       });
 
@@ -2276,7 +2287,7 @@ describe("Router", function () {
         const signature = await generateRoleManagementSignature("grant-role", testRole, userAddr, wrongNonce);
 
         await expect(
-          router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature)
+          router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature),
         ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
       });
     });
@@ -2290,8 +2301,9 @@ describe("Router", function () {
       });
 
       it("should revert direct revokeRole calls", async () => {
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.true;
         await expect(router.connect(owner).revokeRole(testRole, userAddr)).to.be.revertedWith(
-          "Direct revokeRole disabled; use revokeRoleWithBlsSignature()"
+          "Direct revokeRole disabled; use revokeRoleWithBlsSignature()",
         );
       });
 
@@ -2310,7 +2322,7 @@ describe("Router", function () {
         const invalidSignature = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
 
         await expect(
-          router.connect(owner).revokeRoleWithBlsSignature(testRole, userAddr, invalidSignature)
+          router.connect(owner).revokeRoleWithBlsSignature(testRole, userAddr, invalidSignature),
         ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
       });
 
@@ -2340,7 +2352,7 @@ describe("Router", function () {
         const signature = await generateRoleManagementSignature("revoke-role", testRole, solverAddr, currentNonce);
 
         await expect(
-          router.connect(owner).revokeRoleWithBlsSignature(testRole, solverAddr, signature)
+          router.connect(owner).revokeRoleWithBlsSignature(testRole, solverAddr, signature),
         ).to.be.revertedWithCustomError(router, "RevokeRoleFailed");
       });
 
@@ -2349,7 +2361,7 @@ describe("Router", function () {
         const signature = await generateRoleManagementSignature("grant-role", testRole, userAddr, currentNonce); // Wrong action
 
         await expect(
-          router.connect(owner).revokeRoleWithBlsSignature(testRole, userAddr, signature)
+          router.connect(owner).revokeRoleWithBlsSignature(testRole, userAddr, signature),
         ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
       });
     });
@@ -2366,7 +2378,7 @@ describe("Router", function () {
         // Verify the message is correctly encoded
         const expectedMessage = AbiCoder.defaultAbiCoder().encode(
           ["string", "bytes32", "address", "uint256"],
-          [action, role, account, nonce]
+          [action, role, account, nonce],
         );
         expect(message).to.equal(expectedMessage);
 
@@ -2447,7 +2459,7 @@ describe("Router", function () {
 
         // Second call with same signature should fail due to nonce increment
         await expect(
-          router.connect(owner).grantRoleWithBlsSignature(testRole, solverAddr, signature)
+          router.connect(owner).grantRoleWithBlsSignature(testRole, solverAddr, signature),
         ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
       });
     });
