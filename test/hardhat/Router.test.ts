@@ -2008,4 +2008,448 @@ describe("Router", function () {
       );
     });
   });
+
+  describe.only("role management with bls signatures", () => {
+    let defaultAdminRole: string;
+    let adminRole: string;
+    let testRole: string;
+
+    beforeEach(async () => {
+      defaultAdminRole = await router.DEFAULT_ADMIN_ROLE();
+      adminRole = await router.ADMIN_ROLE();
+      testRole = keccak256(toUtf8Bytes("TEST_ROLE"));
+    });
+
+    async function generateRoleManagementSignature(
+      action: string,
+      role: string,
+      account: string,
+      currentNonce: number,
+    ): Promise<string> {
+      const [, messageAsG1Bytes] = await router.roleManagementParamsToBytes(action, role, account, currentNonce);
+      const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+      const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+      const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+      const sigPointToAffine = sigPoint.toAffine();
+      return AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sigPointToAffine.x, sigPointToAffine.y]);
+    }
+
+    describe("defaultAdminRole", () => {
+      it("should allow default admin role abdication with valid BLS signature", async () => {
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.true;
+
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("revoke-role", defaultAdminRole, ownerAddr, currentNonce);
+
+        await router.connect(owner).revokeRoleWithBlsSignature(defaultAdminRole, ownerAddr, signature);
+
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.false;
+      });
+
+      it("should still allow role management with BLS signature after default admin abdication", async () => {
+        // First abdicate default admin role
+        let currentNonce = Number(await router.currentNonce()) + 1;
+        let signature = await generateRoleManagementSignature("revoke-role", defaultAdminRole, ownerAddr, currentNonce);
+        await router.connect(owner).revokeRoleWithBlsSignature(defaultAdminRole, ownerAddr, signature);
+
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.false;
+
+        // Should still be able to grant roles with BLS signature
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("grant-role", testRole, userAddr, currentNonce);
+
+        await router.connect(user).grantRoleWithBlsSignature(testRole, userAddr, signature);
+
+        expect(await router.hasRole(testRole, userAddr)).to.be.true;
+      });
+
+      it("should still allow role revocation with BLS signature after default admin abdication", async () => {
+        // First grant a role
+        let currentNonce = Number(await router.currentNonce()) + 1;
+        let signature = await generateRoleManagementSignature("grant-role", testRole, userAddr, currentNonce);
+        await router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature);
+
+        // Then abdicate default admin role
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("revoke-role", defaultAdminRole, ownerAddr, currentNonce);
+        await router.connect(owner).revokeRoleWithBlsSignature(defaultAdminRole, ownerAddr, signature);
+
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.false;
+        expect(await router.hasRole(testRole, userAddr)).to.be.true;
+
+        // Should still be able to revoke roles with BLS signature
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("revoke-role", testRole, userAddr, currentNonce);
+
+        await router.connect(solver).revokeRoleWithBlsSignature(testRole, userAddr, signature);
+
+        expect(await router.hasRole(testRole, userAddr)).to.be.false;
+      });
+
+      it("should allow granting default admin role back with BLS signature after abdication", async () => {
+        // First abdicate default admin role
+        let currentNonce = Number(await router.currentNonce()) + 1;
+        let signature = await generateRoleManagementSignature("revoke-role", defaultAdminRole, ownerAddr, currentNonce);
+        await router.connect(owner).revokeRoleWithBlsSignature(defaultAdminRole, ownerAddr, signature);
+
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.false;
+
+        // Grant default admin role back to same or different address
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("grant-role", defaultAdminRole, userAddr, currentNonce);
+
+        await router.connect(solver).grantRoleWithBlsSignature(defaultAdminRole, userAddr, signature);
+
+        expect(await router.hasRole(defaultAdminRole, userAddr)).to.be.true;
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.false;
+      });
+
+      it("should prevent traditional role management after default admin abdication", async () => {
+        // First abdicate default admin role
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("revoke-role", defaultAdminRole, ownerAddr, currentNonce);
+        await router.connect(owner).revokeRoleWithBlsSignature(defaultAdminRole, ownerAddr, signature);
+
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.false;
+
+        // Traditional role management should fail
+        await expect(
+          router.connect(owner).grantRole(testRole, userAddr)
+        ).to.be.revertedWith("Direct grantRole disabled; use grantRoleWithBlsSignature()");
+
+        await expect(
+          router.connect(owner).revokeRole(testRole, userAddr)
+        ).to.be.revertedWith("Direct revokeRole disabled; use revokeRoleWithBlsSignature()");
+      });
+
+      it("should maintain admin role functionality after default admin abdication", async () => {
+        // Grant admin role to user first
+        let currentNonce = Number(await router.currentNonce()) + 1;
+        let signature = await generateRoleManagementSignature("grant-role", adminRole, userAddr, currentNonce);
+        await router.connect(owner).grantRoleWithBlsSignature(adminRole, userAddr, signature);
+
+        // Abdicate default admin role
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("revoke-role", defaultAdminRole, ownerAddr, currentNonce);
+        await router.connect(owner).revokeRoleWithBlsSignature(defaultAdminRole, ownerAddr, signature);
+
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.false;
+        expect(await router.hasRole(adminRole, userAddr)).to.be.true;
+
+        // User with admin role should still be able to use admin functions
+        const newFeeBps = 300;
+        await expect(
+          router.connect(user).setVerificationFeeBps(newFeeBps)
+        ).to.emit(router, "VerificationFeeBpsUpdated").withArgs(newFeeBps);
+
+        expect(await router.getVerificationFeeBps()).to.equal(newFeeBps);
+      });
+
+      it("should allow multiple default admin role holders before abdication", async () => {
+        // Grant default admin role to additional addresses
+        let currentNonce = Number(await router.currentNonce()) + 1;
+        let signature = await generateRoleManagementSignature("grant-role", defaultAdminRole, userAddr, currentNonce);
+        await router.connect(owner).grantRoleWithBlsSignature(defaultAdminRole, userAddr, signature);
+
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("grant-role", defaultAdminRole, solverAddr, currentNonce);
+        await router.connect(owner).grantRoleWithBlsSignature(defaultAdminRole, solverAddr, signature);
+
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.true;
+        expect(await router.hasRole(defaultAdminRole, userAddr)).to.be.true;
+        expect(await router.hasRole(defaultAdminRole, solverAddr)).to.be.true;
+
+        // Original owner abdicates
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("revoke-role", defaultAdminRole, ownerAddr, currentNonce);
+        await router.connect(owner).revokeRoleWithBlsSignature(defaultAdminRole, ownerAddr, signature);
+
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.false;
+        expect(await router.hasRole(defaultAdminRole, userAddr)).to.be.true;
+        expect(await router.hasRole(defaultAdminRole, solverAddr)).to.be.true;
+
+        // Role management should still work with BLS signatures
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("grant-role", testRole, recipientAddr, currentNonce);
+        await router.connect(recipient).grantRoleWithBlsSignature(testRole, recipientAddr, signature);
+
+        expect(await router.hasRole(testRole, recipientAddr)).to.be.true;
+      });
+
+      it("should handle complete default admin role abdication scenario", async () => {
+        // Grant default admin to another address first
+        let currentNonce = Number(await router.currentNonce()) + 1;
+        let signature = await generateRoleManagementSignature("grant-role", defaultAdminRole, userAddr, currentNonce);
+        await router.connect(owner).grantRoleWithBlsSignature(defaultAdminRole, userAddr, signature);
+
+        // Both addresses abdicate default admin role
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("revoke-role", defaultAdminRole, ownerAddr, currentNonce);
+        await router.connect(owner).revokeRoleWithBlsSignature(defaultAdminRole, ownerAddr, signature);
+
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("revoke-role", defaultAdminRole, userAddr, currentNonce);
+        await router.connect(user).revokeRoleWithBlsSignature(defaultAdminRole, userAddr, signature);
+
+        expect(await router.hasRole(defaultAdminRole, ownerAddr)).to.be.false;
+        expect(await router.hasRole(defaultAdminRole, userAddr)).to.be.false;
+
+        // System should still work with BLS signatures
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("grant-role", adminRole, solverAddr, currentNonce);
+        await router.connect(solver).grantRoleWithBlsSignature(adminRole, solverAddr, signature);
+
+        expect(await router.hasRole(adminRole, solverAddr)).to.be.true;
+
+        // New admin should be able to perform admin functions
+        const newFeeBps = 400;
+        await expect(
+          router.connect(solver).setVerificationFeeBps(newFeeBps)
+        ).to.emit(router, "VerificationFeeBpsUpdated").withArgs(newFeeBps);
+      });
+    });
+
+    describe("grantRole", () => {
+      it("should revert direct grantRole calls", async () => {
+        await expect(router.connect(owner).grantRole(testRole, userAddr)).to.be.revertedWith(
+          "Direct grantRole disabled; use grantRoleWithBlsSignature()"
+        );
+      });
+
+      it("should grant role with valid BLS signature", async () => {
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("grant-role", testRole, userAddr, currentNonce);
+
+        expect(await router.hasRole(testRole, userAddr)).to.be.false;
+
+        await router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature);
+
+        expect(await router.hasRole(testRole, userAddr)).to.be.true;
+      });
+
+      it("should revert grantRoleWithBlsSignature with invalid signature", async () => {
+        const invalidSignature = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
+
+        await expect(
+          router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, invalidSignature)
+        ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
+      });
+
+      it("should allow non-owner to call grantRoleWithBlsSignature with valid signature", async () => {
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("grant-role", testRole, userAddr, currentNonce);
+
+        expect(await router.hasRole(testRole, userAddr)).to.be.false;
+
+        await router.connect(user).grantRoleWithBlsSignature(testRole, userAddr, signature);
+
+        expect(await router.hasRole(testRole, userAddr)).to.be.true;
+      });
+
+      it("should increment nonce when granting role", async () => {
+        const initialNonce = await router.currentNonce();
+        const nextNonce = Number(initialNonce) + 1;
+        const signature = await generateRoleManagementSignature("grant-role", testRole, userAddr, nextNonce);
+
+        await router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature);
+
+        expect(await router.currentNonce()).to.equal(nextNonce);
+      });
+
+      it("should revert if trying to grant role that already exists for account", async () => {
+        // First grant the role
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature1 = await generateRoleManagementSignature("grant-role", testRole, userAddr, currentNonce);
+        await router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature1);
+
+        // Try to grant same role again
+        const nextNonce = Number(await router.currentNonce()) + 1;
+        const signature2 = await generateRoleManagementSignature("grant-role", testRole, userAddr, nextNonce);
+
+        await expect(
+          router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature2)
+        ).to.be.revertedWithCustomError(router, "GrantRoleFailed");
+      });
+
+      it("should revert with wrong nonce in signature", async () => {
+        const wrongNonce = Number(await router.currentNonce()) + 2; // Skip one nonce
+        const signature = await generateRoleManagementSignature("grant-role", testRole, userAddr, wrongNonce);
+
+        await expect(
+          router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature)
+        ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
+      });
+    });
+
+    describe("revokeRole", () => {
+      beforeEach(async () => {
+        // Grant role first for revocation tests
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("grant-role", testRole, userAddr, currentNonce);
+        await router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature);
+      });
+
+      it("should revert direct revokeRole calls", async () => {
+        await expect(router.connect(owner).revokeRole(testRole, userAddr)).to.be.revertedWith(
+          "Direct revokeRole disabled; use revokeRoleWithBlsSignature()"
+        );
+      });
+
+      it("should revoke role with valid BLS signature", async () => {
+        expect(await router.hasRole(testRole, userAddr)).to.be.true;
+
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("revoke-role", testRole, userAddr, currentNonce);
+
+        await router.connect(owner).revokeRoleWithBlsSignature(testRole, userAddr, signature);
+
+        expect(await router.hasRole(testRole, userAddr)).to.be.false;
+      });
+
+      it("should revert revokeRoleWithBlsSignature with invalid signature", async () => {
+        const invalidSignature = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [123, 456]);
+
+        await expect(
+          router.connect(owner).revokeRoleWithBlsSignature(testRole, userAddr, invalidSignature)
+        ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
+      });
+
+      it("should allow non-owner to call revokeRoleWithBlsSignature with valid signature", async () => {
+        expect(await router.hasRole(testRole, userAddr)).to.be.true;
+
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("revoke-role", testRole, userAddr, currentNonce);
+
+        await router.connect(solver).revokeRoleWithBlsSignature(testRole, userAddr, signature);
+
+        expect(await router.hasRole(testRole, userAddr)).to.be.false;
+      });
+
+      it("should increment nonce when revoking role", async () => {
+        const initialNonce = await router.currentNonce();
+        const nextNonce = Number(initialNonce) + 1;
+        const signature = await generateRoleManagementSignature("revoke-role", testRole, userAddr, nextNonce);
+
+        await router.connect(owner).revokeRoleWithBlsSignature(testRole, userAddr, signature);
+
+        expect(await router.currentNonce()).to.equal(nextNonce);
+      });
+
+      it("should revert if trying to revoke role that account doesn't have", async () => {
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("revoke-role", testRole, solverAddr, currentNonce);
+
+        await expect(
+          router.connect(owner).revokeRoleWithBlsSignature(testRole, solverAddr, signature)
+        ).to.be.revertedWithCustomError(router, "RevokeRoleFailed");
+      });
+
+      it("should revert with wrong action in signature", async () => {
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("grant-role", testRole, userAddr, currentNonce); // Wrong action
+
+        await expect(
+          router.connect(owner).revokeRoleWithBlsSignature(testRole, userAddr, signature)
+        ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
+      });
+    });
+
+    describe("roleManagementParamsToBytes", () => {
+      it("should return correct encoded message and G1 bytes", async () => {
+        const action = "grant-role";
+        const role = testRole;
+        const account = userAddr;
+        const nonce = 123;
+
+        const [message, messageAsG1Bytes] = await router.roleManagementParamsToBytes(action, role, account, nonce);
+
+        // Verify the message is correctly encoded
+        const expectedMessage = AbiCoder.defaultAbiCoder().encode(
+          ["string", "bytes32", "address", "uint256"],
+          [action, role, account, nonce]
+        );
+        expect(message).to.equal(expectedMessage);
+
+        // Verify messageAsG1Bytes is not empty and starts with 0x
+        expect(messageAsG1Bytes).to.match(/^0x[0-9a-fA-F]+$/);
+        expect(messageAsG1Bytes.length).to.be.greaterThan(2); // More than just "0x"
+      });
+
+      it("should produce different G1 bytes for different parameters", async () => {
+        const [, messageAsG1Bytes1] = await router.roleManagementParamsToBytes("grant-role", testRole, userAddr, 1);
+        const [, messageAsG1Bytes2] = await router.roleManagementParamsToBytes("revoke-role", testRole, userAddr, 1);
+        const [, messageAsG1Bytes3] = await router.roleManagementParamsToBytes("grant-role", adminRole, userAddr, 1);
+        const [, messageAsG1Bytes4] = await router.roleManagementParamsToBytes("grant-role", testRole, solverAddr, 1);
+        const [, messageAsG1Bytes5] = await router.roleManagementParamsToBytes("grant-role", testRole, userAddr, 2);
+
+        // All should be different
+        expect(messageAsG1Bytes1).to.not.equal(messageAsG1Bytes2);
+        expect(messageAsG1Bytes1).to.not.equal(messageAsG1Bytes3);
+        expect(messageAsG1Bytes1).to.not.equal(messageAsG1Bytes4);
+        expect(messageAsG1Bytes1).to.not.equal(messageAsG1Bytes5);
+      });
+    });
+
+    describe("role management edge cases", () => {
+      it("should handle granting admin role correctly", async () => {
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("grant-role", adminRole, userAddr, currentNonce);
+
+        expect(await router.hasRole(adminRole, userAddr)).to.be.false;
+
+        await router.connect(owner).grantRoleWithBlsSignature(adminRole, userAddr, signature);
+
+        expect(await router.hasRole(adminRole, userAddr)).to.be.true;
+      });
+
+      it("should handle revoking admin role correctly", async () => {
+        // First grant admin role
+        let currentNonce = Number(await router.currentNonce()) + 1;
+        let signature = await generateRoleManagementSignature("grant-role", adminRole, userAddr, currentNonce);
+        await router.connect(owner).grantRoleWithBlsSignature(adminRole, userAddr, signature);
+
+        expect(await router.hasRole(adminRole, userAddr)).to.be.true;
+
+        // Then revoke it
+        currentNonce = Number(await router.currentNonce()) + 1;
+        signature = await generateRoleManagementSignature("revoke-role", adminRole, userAddr, currentNonce);
+        await router.connect(owner).revokeRoleWithBlsSignature(adminRole, userAddr, signature);
+
+        expect(await router.hasRole(adminRole, userAddr)).to.be.false;
+      });
+
+      it("should handle zero address in role management", async () => {
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("grant-role", testRole, ZeroAddress, currentNonce);
+
+        // Should not revert but also shouldn't grant role to zero address
+        await router.connect(owner).grantRoleWithBlsSignature(testRole, ZeroAddress, signature);
+
+        expect(await router.hasRole(testRole, ZeroAddress)).to.be.true;
+      });
+
+      it("should handle bytes32(0) role", async () => {
+        const zeroRole = "0x0000000000000000000000000000000000000000000000000000000000000000";
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("grant-role", zeroRole, userAddr, currentNonce);
+
+        await router.connect(owner).grantRoleWithBlsSignature(zeroRole, userAddr, signature);
+
+        expect(await router.hasRole(zeroRole, userAddr)).to.be.true;
+      });
+
+      it("should prevent signature replay attacks", async () => {
+        const currentNonce = Number(await router.currentNonce()) + 1;
+        const signature = await generateRoleManagementSignature("grant-role", testRole, userAddr, currentNonce);
+
+        // First call should succeed
+        await router.connect(owner).grantRoleWithBlsSignature(testRole, userAddr, signature);
+
+        // Second call with same signature should fail due to nonce increment
+        await expect(
+          router.connect(owner).grantRoleWithBlsSignature(testRole, solverAddr, signature)
+        ).to.be.revertedWithCustomError(router, "BLSSignatureVerificationFailed");
+      });
+    });
+  });
 });
