@@ -21,8 +21,9 @@ contract Permit2Relayer {
     string constant RELAY_TOKENS_WITNESS_TYPE_NAME = "RelayerWitness";
 
     /// @notice Type string of the custom witness
-    string constant RELAY_TOKENS_WITNESS_TYPE_STRING =
-        string(abi.encodePacked(RELAY_TOKENS_WITNESS_TYPE_NAME, "(bytes32 requestId,address recipient,bytes additionalData)"));
+    string constant RELAY_TOKENS_WITNESS_TYPE_STRING = string(
+        abi.encodePacked(RELAY_TOKENS_WITNESS_TYPE_NAME, "(bytes32 requestId,address recipient,bytes additionalData)")
+    );
 
     /// @notice Type hash used to compute the witness hash
     bytes32 constant RELAY_TOKENS_WITNESS_TYPE_HASH = keccak256(bytes(RELAY_TOKENS_WITNESS_TYPE_STRING));
@@ -30,7 +31,10 @@ contract Permit2Relayer {
     /// @notice The permit2 witnessTypeString parameter,
     string constant RELAY_TOKENS_PERMIT2_WITNESS_TYPE_STRING = string(
         abi.encodePacked(
-            RELAY_TOKENS_WITNESS_TYPE_NAME, " witness)", RELAY_TOKENS_WITNESS_TYPE_STRING, "TokenPermissions(address token,uint256 amount)"
+            RELAY_TOKENS_WITNESS_TYPE_NAME,
+            " witness)",
+            RELAY_TOKENS_WITNESS_TYPE_STRING,
+            "TokenPermissions(address token,uint256 amount)"
         )
     );
 
@@ -96,7 +100,8 @@ contract Permit2Relayer {
 
         // By computing the witness here, we ensure that the permit was approved for that request id specifically.
         // That same reasoning cannot be applied to the additionalData as it is controlled by the caller entirely.
-        bytes32 witness = keccak256(abi.encode(RELAY_TOKENS_WITNESS_TYPE_HASH, requestId, recipient, keccak256(additionalData)));
+        bytes32 witness =
+            keccak256(abi.encode(RELAY_TOKENS_WITNESS_TYPE_HASH, requestId, recipient, keccak256(additionalData)));
 
         PERMIT2.permitWitnessTransferFrom(
             permit, transferDetails, signer, witness, RELAY_TOKENS_PERMIT2_WITNESS_TYPE_STRING, signature
