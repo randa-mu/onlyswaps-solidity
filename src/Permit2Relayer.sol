@@ -16,20 +16,46 @@ contract Permit2Relayer {
     /// @notice The address of the canonical Permit2 contract
     IPermit2 public immutable PERMIT2;
 
+    /// @notice Permit2 type data for relaying tokens with witness
     /// @notice Type name of the custom witness
-    string constant WITNESS_TYPE_NAME = "RelayerWitness";
+    string constant RELAY_TOKENS_WITNESS_TYPE_NAME = "RelayerWitness";
 
     /// @notice Type string of the custom witness
-    string constant WITNESS_TYPE_STRING =
-        string(abi.encodePacked(WITNESS_TYPE_NAME, "(bytes32 requestId,address recipient,bytes additionalData)"));
+    string constant RELAY_TOKENS_WITNESS_TYPE_STRING =
+        string(abi.encodePacked(RELAY_TOKENS_WITNESS_TYPE_NAME, "(bytes32 requestId,address recipient,bytes additionalData)"));
 
     /// @notice Type hash used to compute the witness hash
-    bytes32 constant WITNESS_TYPE_HASH = keccak256(bytes(WITNESS_TYPE_STRING));
+    bytes32 constant RELAY_TOKENS_WITNESS_TYPE_HASH = keccak256(bytes(RELAY_TOKENS_WITNESS_TYPE_STRING));
 
     /// @notice The permit2 witnessTypeString parameter,
-    string constant PERMIT2_WITNESS_TYPE_STRING = string(
+    string constant RELAY_TOKENS_PERMIT2_WITNESS_TYPE_STRING = string(
         abi.encodePacked(
-            WITNESS_TYPE_NAME, " witness)", WITNESS_TYPE_STRING, "TokenPermissions(address token,uint256 amount)"
+            RELAY_TOKENS_WITNESS_TYPE_NAME, " witness)", RELAY_TOKENS_WITNESS_TYPE_STRING, "TokenPermissions(address token,uint256 amount)"
+        )
+    );
+
+    /// @notice Type hash used to compute the witness hash for cross-chain swap requests
+    /// @notice Type name of the custom witness for swap requests
+    string constant SWAP_REQUEST_WITNESS_TYPE_NAME = "SwapRequestWitness";
+
+    /// @notice Type string of the custom witness for swap requests
+    string constant SWAP_REQUEST_WITNESS_TYPE_STRING = string(
+        abi.encodePacked(
+            SWAP_REQUEST_WITNESS_TYPE_NAME,
+            "(address router,address tokenIn,address tokenOut,uint256 amount,uint256 solverFee,uint256 dstChainId,address recipient,bytes additionalData)"
+        )
+    );
+
+    /// @notice Type hash used to compute the witness hash for swap requests
+    bytes32 constant SWAP_REQUEST_WITNESS_TYPE_HASH = keccak256(bytes(SWAP_REQUEST_WITNESS_TYPE_STRING));
+
+    /// @notice The permit2 witnessTypeString parameter for swap requests
+    string constant SWAP_REQUEST_PERMIT2_WITNESS_TYPE_STRING = string(
+        abi.encodePacked(
+            SWAP_REQUEST_WITNESS_TYPE_NAME,
+            " witness)",
+            SWAP_REQUEST_WITNESS_TYPE_STRING,
+            "TokenPermissions(address token,uint256 amount)"
         )
     );
 
@@ -70,10 +96,10 @@ contract Permit2Relayer {
 
         // By computing the witness here, we ensure that the permit was approved for that request id specifically.
         // That same reasoning cannot be applied to the additionalData as it is controlled by the caller entirely.
-        bytes32 witness = keccak256(abi.encode(WITNESS_TYPE_HASH, requestId, recipient, keccak256(additionalData)));
+        bytes32 witness = keccak256(abi.encode(RELAY_TOKENS_WITNESS_TYPE_HASH, requestId, recipient, keccak256(additionalData)));
 
         PERMIT2.permitWitnessTransferFrom(
-            permit, transferDetails, signer, witness, PERMIT2_WITNESS_TYPE_STRING, signature
+            permit, transferDetails, signer, witness, RELAY_TOKENS_PERMIT2_WITNESS_TYPE_STRING, signature
         );
 
         IERC20(permit.permitted.token).safeTransfer(recipient, permit.permitted.amount);
@@ -92,26 +118,6 @@ contract Permit2Relayer {
         bytes calldata signature,
         bytes calldata additionalData
     ) external {
-        // todo change these to constants
-        // https://github.com/randa-mu/onlyswaps-solidity/pull/93#discussion_r2503762905
-        /// @notice Type string of the custom witness
-        string memory witnessTypeString = string(
-            abi.encodePacked(
-                WITNESS_TYPE_NAME,
-                "(address router,address tokenIn,address tokenOut,uint256 amount,uint256 solverFee,uint256 dstChainId,address recipient,bytes additionalData)"
-            )
-        );
-
-        /// @notice Type hash used to compute the witness hash
-        bytes32 witnessTypeHash = keccak256(bytes(witnessTypeString));
-
-        /// @notice The permit2 witnessTypeString parameter,
-        string memory permit2WitnessTypeString = string(
-            abi.encodePacked(
-                WITNESS_TYPE_NAME, " witness)", witnessTypeString, "TokenPermissions(address token,uint256 amount)"
-            )
-        );
-
         // Ensure the permit amount equals the sum of swap amount and solver fee
         require(permit.permitted.amount == amount + solverFee, "Permit amount must equal amount + solverFee");
 
@@ -125,7 +131,7 @@ contract Permit2Relayer {
         // That same reasoning cannot be applied to the additionalData as it is controlled by the caller entirely.
         bytes32 witness = keccak256(
             abi.encode(
-                witnessTypeHash,
+                SWAP_REQUEST_WITNESS_TYPE_HASH,
                 router,
                 tokenIn,
                 tokenOut,
@@ -141,7 +147,9 @@ contract Permit2Relayer {
         // No need to track used identifiers here as the Router will do that
         // and this function only forwards tokens to it.
         // The Router will then ensure that each request id is used at most once.
-        PERMIT2.permitWitnessTransferFrom(permit, transferDetails, signer, witness, permit2WitnessTypeString, signature);
+        PERMIT2.permitWitnessTransferFrom(
+            permit, transferDetails, signer, witness, SWAP_REQUEST_PERMIT2_WITNESS_TYPE_STRING, signature
+        );
         // Forward the tokens to the Router
         // The Router will handle the rest of the request logic
         IERC20(permit.permitted.token).safeTransfer(router, permit.permitted.amount);

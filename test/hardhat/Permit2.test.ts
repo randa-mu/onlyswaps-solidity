@@ -155,13 +155,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -252,13 +252,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -373,13 +373,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -457,13 +457,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -543,13 +543,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -626,13 +626,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -709,13 +709,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -793,13 +793,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -880,13 +880,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
