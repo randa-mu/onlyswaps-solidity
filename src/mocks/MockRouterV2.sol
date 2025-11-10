@@ -22,6 +22,7 @@ import {IPermit2} from "uniswap-permit2/interfaces/IPermit2.sol";
 import {ISignatureTransfer} from "uniswap-permit2/interfaces/ISignatureTransfer.sol";
 
 /// @title Mock Version 2 of the Router Contract for Cross-Chain Token Swaps
+/// @notice New version of the MockRouterV1 contract to upgrade to for testing purposes
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
 contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControlEnumerableUpgradeable {
     using SafeERC20 for IERC20;

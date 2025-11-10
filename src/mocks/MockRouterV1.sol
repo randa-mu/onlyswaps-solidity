@@ -161,6 +161,7 @@ interface IRouter {
 }
 
 /// @title Mock Version 1 of the Router Contract for Cross-Chain Token Swaps
+/// @notice Currently deployed version for upgrade tests
 /// @author Randamu
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
 contract MockRouterV1 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControlEnumerableUpgradeable {
