@@ -14,7 +14,7 @@ contract Permit2Relayer {
     using SafeERC20 for IERC20;
 
     /// @notice The address of the canonical Permit2 contract
-    IPermit2 public PERMIT2 = IPermit2(0x000000000022D473030F116dDEE9F6B43aC78BA3);
+    IPermit2 public immutable PERMIT2;
 
     /// @notice Type name of the custom witness
     string constant WITNESS_TYPE_NAME = "RelayerWitness";
@@ -35,6 +35,12 @@ contract Permit2Relayer {
 
     /// @notice Mapping to store which identifiers have been used. This ensures that a permit can be used at most once.
     mapping(bytes32 => bool) public usedRelayTokensIdentifiers;
+
+    /// @notice Constructor
+    /// @param permit2Address The address of the Permit2 contract
+    constructor(address permit2Address) {
+        PERMIT2 = IPermit2(permit2Address);
+    }
 
     /// @notice Relays tokens to a recipient at most once per request identifier
     /// @param requestId A unique request ID
@@ -134,11 +140,5 @@ contract Permit2Relayer {
         // Forward the tokens to the Router
         // The Router will handle the rest of the request logic
         IERC20(permit.permitted.token).safeTransfer(router, permit.permitted.amount);
-    }
-
-    /// @notice Sets the Permit2 contract address
-    /// @dev TODO: This function is used for testing purposes only
-    function setPermit2Address(address permit2Address) external {
-        PERMIT2 = IPermit2(permit2Address);
     }
 }

@@ -14,4 +14,5 @@ library Constants {
     string constant KEY_PERMIT2_RELAYER = "permit2Relayer";
     string constant KEY_ROUTER_PROXY = "routerProxyAddress";
     string constant KEY_ROUTER_IMPLEMENTATION = "routerImplementationAddress";
+    string constant KEY_PERMIT2 = "permit2Address";
 }

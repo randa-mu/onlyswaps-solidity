@@ -92,16 +92,13 @@ describe("Router", function () {
       [y.c0, y.c1],
       upgradeType,
     );
-    // Deploy Permit2Relayer
-    permit2Relayer = await new Permit2Relayer__factory(owner).deploy();
-    await permit2Relayer.waitForDeployment();
 
     // Deploy Permit2
     permit2 = await new Permit2__factory(owner).deploy();
     await permit2.waitForDeployment();
-
-    // Set Permit2 address in Permit2Relayer
-    await permit2Relayer.connect(owner).setPermit2Address(await permit2.getAddress());
+    // Deploy Permit2Relayer
+    permit2Relayer = await new Permit2Relayer__factory(owner).deploy(await permit2.getAddress());
+    await permit2Relayer.waitForDeployment();
 
     const Router = new ethers.ContractFactory(Router__factory.abi, Router__factory.bytecode, owner);
 

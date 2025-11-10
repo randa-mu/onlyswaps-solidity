@@ -11,6 +11,7 @@ import {
   Permit2Relayer,
   Permit2Relayer__factory,
   Permit2__factory,
+  Permit2,
 } from "../../typechain-types";
 import { extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
@@ -34,6 +35,7 @@ describe("Router Upgrade", function () {
   let dstToken: ERC20Token;
   let swapBn254SigScheme: BLSBN254SignatureScheme;
   let upgradeBn254SigScheme: BLSBN254SignatureScheme;
+  let permit2: Permit2;
   let permit2Relayer: Permit2Relayer;
 
   let privKeyBytes: Uint8Array;
@@ -92,8 +94,11 @@ describe("Router Upgrade", function () {
       [y.c0, y.c1],
       upgradeType,
     );
+    // Deploy Permit2
+    permit2 = await new Permit2__factory(owner).deploy();
+    await permit2.waitForDeployment();
     // Deploy Permit2Relayer
-    permit2Relayer = await new Permit2Relayer__factory(owner).deploy();
+    permit2Relayer = await new Permit2Relayer__factory(owner).deploy(await permit2.getAddress());
 
     const Router = new ethers.ContractFactory(MockRouterV1__factory.abi, MockRouterV1__factory.bytecode, owner);
 
@@ -600,13 +605,6 @@ describe("Router Upgrade", function () {
 
       // Connect to the upgraded contract with MockRouterV2 interface
       const upgradedRouter = MockRouterV2__factory.connect(await router.getAddress(), user);
-
-      // Deploy Permit2
-      const permit2 = await new Permit2__factory(owner).deploy();
-      await permit2.waitForDeployment();
-
-      // Set Permit2 address in Permit2Relayer
-      await permit2Relayer.connect(owner).setPermit2Address(await permit2.getAddress());
 
       // Set Permit2Relayer as approved relayer in Permit2
       await upgradedRouter.connect(owner).setPermit2Relayer(await permit2Relayer.getAddress());

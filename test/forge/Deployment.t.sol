@@ -65,7 +65,7 @@ contract DeploymentTest is Test {
         srcContractUpgradeBLSSigVerifier =
             new BLSBN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]], "upgrade-v1");
         srcToken = new ERC20Token("Source Token", "ST", tokenDecimals);
-        srcPermit2Relayer = new Permit2Relayer();
+        srcPermit2Relayer = new Permit2Relayer(0x000000000022D473030F116dDEE9F6B43aC78BA3); // Permit2 address
         // Deploy upgradable router on src chain
         Router srcRouterImplementation = new Router();
         UUPSProxy srcRouterProxy = new UUPSProxy(address(srcRouterImplementation), "");
@@ -83,7 +83,7 @@ contract DeploymentTest is Test {
         dstContractUpgradeBLSSigVerifier =
             new BLSBN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]], "upgrade-v1");
         dstToken = new ERC20Token("Destination Token", "DT", tokenDecimals);
-        dstPermit2Relayer = new Permit2Relayer();
+        dstPermit2Relayer = new Permit2Relayer(0x000000000022D473030F116dDEE9F6B43aC78BA3); // Permit2 address
         // Deploy upgradable router on dst chain
         Router dstRouterImplementation = new Router();
         UUPSProxy dstRouterProxy = new UUPSProxy(address(dstRouterImplementation), "");

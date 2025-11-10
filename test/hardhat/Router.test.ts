@@ -9,6 +9,7 @@ import {
   UUPSProxy__factory,
   Permit2Relayer,
   Permit2Relayer__factory,
+  Permit2__factory,
 } from "../../typechain-types";
 import { extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
@@ -88,8 +89,11 @@ describe("Router", function () {
       [y.c0, y.c1],
       upgradeType,
     );
+    // Deploy Permit2
+    const permit2 = await new Permit2__factory(owner).deploy();
+    await permit2.waitForDeployment();
     // Deploy Permit2Relayer
-    permit2Relayer = await new Permit2Relayer__factory(owner).deploy();
+    permit2Relayer = await new Permit2Relayer__factory(owner).deploy(await permit2.getAddress());
 
     const Router = new ethers.ContractFactory(Router__factory.abi, Router__factory.bytecode, owner);
 
