@@ -341,6 +341,7 @@ describe("Router", function () {
             await srcToken.getAddress(),
             await dstToken.getAddress(),
             amount,
+            amount,
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
@@ -363,6 +364,7 @@ describe("Router", function () {
             await srcToken.getAddress(),
             await dstToken.getAddress(),
             amount,
+            amount,
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
@@ -383,6 +385,7 @@ describe("Router", function () {
         .requestCrossChainSwap(
           await srcToken.getAddress(),
           await dstToken.getAddress(),
+          amount,
           amount,
           solverFee,
           DST_CHAIN_ID,
@@ -450,6 +453,7 @@ describe("Router", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,
+          amount,
           solverFee,
           DST_CHAIN_ID,
           recipient.address,
@@ -500,6 +504,7 @@ describe("Router", function () {
         .requestCrossChainSwap(
           await srcToken.getAddress(),
           await dstToken.getAddress(),
+          amount,
           amount,
           solverFee,
           DST_CHAIN_ID,
@@ -1093,6 +1098,7 @@ describe("Router", function () {
             await srcToken.getAddress(),
             await dstToken.getAddress(),
             amount,
+            amount,
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
@@ -1116,6 +1122,7 @@ describe("Router", function () {
             await srcToken.getAddress(),
             await dstToken.getAddress(),
             amount,
+            amount,
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
@@ -1135,6 +1142,7 @@ describe("Router", function () {
           .requestCrossChainSwap(
             await srcToken.getAddress(),
             await dstToken.getAddress(),
+            amount,
             amount,
             solverFee,
             newChainId,
@@ -1163,6 +1171,7 @@ describe("Router", function () {
             await srcToken.getAddress(),
             await dstToken.getAddress(),
             amount,
+            amount,
             solverFee,
             newChainId,
             recipientAddr,
@@ -1183,6 +1192,7 @@ describe("Router", function () {
         .requestCrossChainSwap(
           await srcToken.getAddress(),
           await dstToken.getAddress(),
+          amount,
           amount,
           solverFee,
           DST_CHAIN_ID,
@@ -1362,6 +1372,7 @@ describe("Router", function () {
             await srcToken.getAddress(),
             await dstToken.getAddress(),
             amount,
+            amount,
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
@@ -1382,6 +1393,7 @@ describe("Router", function () {
         .requestCrossChainSwap(
           await srcToken.getAddress(),
           await dstToken.getAddress(),
+          amount,
           amount,
           solverFee,
           DST_CHAIN_ID,
@@ -1801,6 +1813,7 @@ describe("Router", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,
+          amount,
           fee,
           DST_CHAIN_ID,
           recipientAddr,
@@ -1911,6 +1924,7 @@ describe("Router", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,
+          amount,
           fee,
           DST_CHAIN_ID,
           recipientAddr,
@@ -1923,7 +1937,7 @@ describe("Router", function () {
       const beforeBalance = await srcToken.balanceOf(recipientAddr);
 
       const params = await router.getSwapRequestParameters(requestId);
-      const totalRefund = params.amountOut + params.verificationFee + params.solverFee;
+      const totalRefund = amount + params.solverFee;
 
       await expect(router.connect(user).cancelSwapRequestAndRefund(requestId, recipientAddr))
         .to.emit(router, "SwapRequestRefundClaimed")

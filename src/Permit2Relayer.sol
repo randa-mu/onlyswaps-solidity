@@ -92,6 +92,8 @@ contract Permit2Relayer {
         bytes calldata signature,
         bytes calldata additionalData
     ) external {
+        // todo change these to constants
+        // https://github.com/randa-mu/onlyswaps-solidity/pull/93#discussion_r2503762905
         /// @notice Type string of the custom witness
         string memory witnessTypeString = string(
             abi.encodePacked(
@@ -109,6 +111,9 @@ contract Permit2Relayer {
                 WITNESS_TYPE_NAME, " witness)", witnessTypeString, "TokenPermissions(address token,uint256 amount)"
             )
         );
+
+        // Ensure the permit amount equals the sum of swap amount and solver fee
+        require(permit.permitted.amount == amount + solverFee, "Permit amount must equal amount + solverFee");
 
         IPermit2.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
             to: address(this),

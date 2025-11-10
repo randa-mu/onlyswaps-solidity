@@ -432,7 +432,6 @@ contract MockRouterV1 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     function stageSwapRequestCancellation(bytes32 requestId) external nonReentrant {
         SwapRequestParameters storage params = swapRequestParameters[requestId];
         require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
-        require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         require(swapRequestCancellationInitiatedAt[requestId] == 0, ErrorsLib.SwapRequestCancellationAlreadyStaged());
 
