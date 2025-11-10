@@ -159,7 +159,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
     // ---------------------- Core Logic ----------------------
 
-    // todo move reusable logic to internal
     /// @notice Initiates a swap request
     /// @param tokenIn The address of the token deposited on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
