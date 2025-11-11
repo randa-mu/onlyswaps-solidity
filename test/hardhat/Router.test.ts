@@ -326,7 +326,7 @@ describe("Router", function () {
   });
 
   describe("Swap Requests", function () {
-    it("should initiate a swap request and emit message", async () => {
+    it("should make a swap request and emit message", async () => {
       const amount = parseEther("10");
       const solverFee = parseEther("1");
       const amountToMint = amount + solverFee;
@@ -347,6 +347,93 @@ describe("Router", function () {
             recipientAddr,
           ),
       ).to.emit(router, "SwapRequested");
+    });
+
+    it("should make a swap request and emit message with 6 decimals src token and 18 decimals dst token", async () => {
+      // Deploy tokens with different decimals
+      const srcToken6Decimals = await new ERC20Token__factory(owner).deploy("RUSD6", "RUSD6", 6);
+      const dstToken18Decimals = await new ERC20Token__factory(owner).deploy("RUSD18", "RUSD18", 18);
+      // Set up token mapping
+      await router
+        .connect(owner)
+        .setTokenMapping(DST_CHAIN_ID, await dstToken18Decimals.getAddress(), await srcToken6Decimals.getAddress());
+      const amountIn = BigInt(10_000_000); // 10 RUSD6 with 6 decimals
+      const amountOut = BigInt(10_000_000_000_000_000_000); // 10 RUSD18 with 18 decimals
+      const solverFee = BigInt(1_000_000); // 1 RUSD6 with 6 decimals
+      await srcToken6Decimals.mint(userAddr, amountIn + solverFee);
+      await srcToken6Decimals.connect(user).approve(router.getAddress(), amountIn + solverFee);
+      // Make swap request
+      const tx = await router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken6Decimals.getAddress(),
+          await dstToken18Decimals.getAddress(),
+          amountIn,
+          amountOut,
+          solverFee,
+          DST_CHAIN_ID,
+          recipientAddr,
+        );
+
+      let receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error("transaction has not been mined");
+      }
+
+      const routerInterface = Router__factory.createInterface();
+      const [requestId] = extractSingleLog(
+        routerInterface,
+        receipt,
+        await router.getAddress(),
+        routerInterface.getEvent("SwapRequested"),
+      );
+
+      // check request parameters
+      const swapRequestParams = await router.getSwapRequestParameters(requestId);
+      expect(swapRequestParams.amountOut).to.equal(amountOut);
+    });
+
+    it("should make a swap request and emit message with 18 decimals src token and 6 decimals dst token", async () => {
+      // Deploy tokens with different decimals
+      const srcToken18Decimals = await new ERC20Token__factory(owner).deploy("RUSD18", "RUSD18", 18);
+      const dstToken6Decimals = await new ERC20Token__factory(owner).deploy("RUSD6", "RUSD6", 6);
+
+      // Set up token mapping
+      await router
+        .connect(owner)
+        .setTokenMapping(DST_CHAIN_ID, await dstToken6Decimals.getAddress(), await srcToken18Decimals.getAddress());
+      const amountIn = BigInt(10_000_000_000_000_000_000); // 10 RUSD18 with 18 decimals
+      const amountOut = BigInt(10_000_000); // 10 RUSD6 with 6 decimals
+      const solverFee = BigInt(1_000_000_000_000_000); // 0.001 RUSD18 with 18 decimals
+      await srcToken18Decimals.mint(userAddr, amountIn + solverFee);
+      await srcToken18Decimals.connect(user).approve(router.getAddress(), amountIn + solverFee);
+      // Make swap request
+      const tx = await router
+
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken18Decimals.getAddress(),
+          await dstToken6Decimals.getAddress(),
+          amountIn,
+          amountOut,
+          solverFee,
+          DST_CHAIN_ID,
+          recipientAddr,
+        );
+      let receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error("transaction has not been mined");
+      }
+      const routerInterface = Router__factory.createInterface();
+      const [requestId] = extractSingleLog(
+        routerInterface,
+        receipt,
+        await router.getAddress(),
+        routerInterface.getEvent("SwapRequested"),
+      );
+      // check request parameters
+      const swapRequestParams = await router.getSwapRequestParameters(requestId);
+      expect(swapRequestParams.amountOut).to.equal(amountOut);
     });
 
     it("should revert if fee is too low", async () => {
