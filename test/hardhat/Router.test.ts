@@ -747,6 +747,148 @@ describe("Router", function () {
       expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
     });
 
+    it("should relay tokens and store a receipt with 6 decimals src token and 18 decimals dst token", async () => {
+      // Deploy tokens with different decimals
+      const srcToken6Decimals = await new ERC20Token__factory(owner).deploy("RUSD6", "RUSD6", 6);
+      const dstToken18Decimals = await new ERC20Token__factory(owner).deploy("RUSD18", "RUSD18", 18);
+
+      const amountOut = BigInt(10_000_000_000_000_000_000); // 10 RUSD18 with 18 decimals
+      const srcChainId = 1;
+      const dstChainId = await router.getChainId();
+      const nonce = 1;
+
+      // Check recipient balance before transfer
+      expect(await dstToken18Decimals.balanceOf(recipientAddr)).to.equal(0);
+
+      // Mint tokens for user
+      await dstToken18Decimals.mint(solverAddr, amountOut);
+
+      // Approve Router to spend user's tokens
+      await dstToken18Decimals.connect(solver).approve(await router.getAddress(), amountOut);
+
+      // Pre-compute valid requestId
+      const abiCoder = new AbiCoder();
+      const requestId: string = keccak256(
+        abiCoder.encode(
+          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            userAddr,
+            recipientAddr,
+            await srcToken6Decimals.getAddress(),
+            await dstToken18Decimals.getAddress(),
+            amountOut,
+            srcChainId,
+            dstChainId,
+            nonce,
+          ],
+        ),
+      );
+
+      // Relay tokens
+      await expect(
+        router
+          .connect(solver)
+          .relayTokens(
+            solverRefundAddr,
+            requestId,
+            userAddr,
+            recipientAddr,
+            await srcToken6Decimals.getAddress(),
+            await dstToken18Decimals.getAddress(),
+            amountOut,
+            srcChainId,
+            nonce,
+          ),
+      ).to.emit(router, "SwapRequestFulfilled");
+
+      // Check recipient balance after transfer
+      expect(await dstToken18Decimals.balanceOf(recipientAddr)).to.equal(amountOut);
+
+      // Check receipt
+      const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
+      const [, , , , , fulfilled, solverFromReceipt, , amountOutReceived] = swapRequestReceipt;
+
+      expect(fulfilled).to.be.true;
+      expect(amountOut).to.equal(amountOutReceived);
+      // solver address in the receipt should match the solver refund address specified in call to relayTokens
+      expect(solverFromReceipt).to.equal(solverRefundAddr);
+      expect(solverAddr).to.not.equal(solverRefundAddr);
+
+      expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
+      expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+    });
+
+    it("should relay tokens and store a receipt with 18 decimals src token and 6 decimals dst token", async () => {
+      // Deploy tokens with different decimals  
+      const srcToken18Decimals = await new ERC20Token__factory(owner).deploy("RUSD18", "RUSD18", 18);
+      const dstToken6Decimals = await new ERC20Token__factory(owner).deploy("RUSD6", "RUSD6", 6);
+
+      const amountOut = BigInt(10_000_000); // 10 RUSD6 with 6 decimals
+      const srcChainId = 1;
+      const dstChainId = await router.getChainId();
+      const nonce = 1;
+
+      // Check recipient balance before transfer
+      expect(await dstToken6Decimals.balanceOf(recipientAddr)).to.equal(0);
+
+      // Mint tokens for user
+      await dstToken6Decimals.mint(solverAddr, amountOut);
+
+      // Approve Router to spend user's tokens
+      await dstToken6Decimals.connect(solver).approve(await router.getAddress(), amountOut);
+
+      // Pre-compute valid requestId
+      const abiCoder = new AbiCoder();
+      const requestId: string = keccak256(
+        abiCoder.encode(
+          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            userAddr, 
+            recipientAddr,
+            await srcToken18Decimals.getAddress(),
+            await dstToken6Decimals.getAddress(),
+            amountOut,
+            srcChainId,
+            dstChainId,
+            nonce,
+          ],
+        ),
+      );
+
+      // Relay tokens
+      await expect(
+        router
+          .connect(solver)
+          .relayTokens(
+            solverRefundAddr,
+            requestId,
+            userAddr,
+            recipientAddr,
+            await srcToken18Decimals.getAddress(),
+            await dstToken6Decimals.getAddress(),
+            amountOut,
+            srcChainId,
+            nonce,
+          ),
+      ).to.emit(router, "SwapRequestFulfilled");
+
+      // Check recipient balance after transfer
+      expect(await dstToken6Decimals.balanceOf(recipientAddr)).to.equal(amountOut);
+
+      // Check receipt
+      const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
+      const [, , , , , fulfilled, solverFromReceipt, , amountOutReceived] = swapRequestReceipt;
+
+      expect(fulfilled).to.be.true;
+      expect(amountOut).to.equal(amountOutReceived);
+      // solver address in the receipt should match the solver refund address specified in call to relayTokens
+      expect(solverFromReceipt).to.equal(solverRefundAddr);
+      expect(solverAddr).to.not.equal(solverRefundAddr);
+
+      expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
+      expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+    });
+
     it("should revert relay tokens if solverRefundAddress is zero address", async () => {
       const amount = parseEther("10");
       const srcChainId = 1;
