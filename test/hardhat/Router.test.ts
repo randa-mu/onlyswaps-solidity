@@ -819,7 +819,7 @@ describe("Router", function () {
     });
 
     it("should relay tokens and store a receipt with 18 decimals src token and 6 decimals dst token", async () => {
-      // Deploy tokens with different decimals  
+      // Deploy tokens with different decimals
       const srcToken18Decimals = await new ERC20Token__factory(owner).deploy("RUSD18", "RUSD18", 18);
       const dstToken6Decimals = await new ERC20Token__factory(owner).deploy("RUSD6", "RUSD6", 6);
 
@@ -843,7 +843,7 @@ describe("Router", function () {
         abiCoder.encode(
           ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
           [
-            userAddr, 
+            userAddr,
             recipientAddr,
             await srcToken18Decimals.getAddress(),
             await dstToken6Decimals.getAddress(),
