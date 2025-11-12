@@ -23,10 +23,10 @@ library DeploymentParamsCore {
     string constant TOKEN_SYMBOL = "RUSD";
 
     /// @dev The number of decimals the token uses - e.g. 8, means to divide the token amount by 100,000,000 to get its user representation.
-    uint8 constant TOKEN_DECIMALS = 18;
+    uint8 constant TOKEN_DECIMALS = 6;
 
     /// @dev The amount of tokens to be minted to each address that requests tokens from the faucet.
-    uint256 constant FAUCET_AMOUNT = 1000 ether;
+    uint256 constant FAUCET_AMOUNT = 1000;
 
     /// @dev The maximum basis points (BPS) for verification fees (i.e., 100% = 10,000 BPS).
     uint256 constant VERIFICATION_FEE_BPS = 500;
