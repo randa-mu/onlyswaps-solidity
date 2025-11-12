@@ -821,13 +821,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         emit SwapRequestCancellationWindowUpdated(newSwapRequestCancellationWindow);
     }
 
-    /**
-     * @notice Sets the Permit2Relayer contract address.
-     * @dev Only callable by accounts with ADMIN_ROLE.
-     *      Changing the relayer during active swaps may affect ongoing Permit2-based requests,
-     *      as the new relayer may not be able to process requests initiated with the previous relayer.
-     * @param _permit2Relayer The Permit2Relayer contract address.
-     */
+    /// @notice Sets the Permit2Relayer contract address
+    /// @param _permit2Relayer The Permit2Relayer contract address
     function setPermit2Relayer(address _permit2Relayer) external onlyAdmin {
         require(_permit2Relayer != address(0), ErrorsLib.ZeroAddress());
         permit2Relayer = Permit2Relayer(_permit2Relayer);
