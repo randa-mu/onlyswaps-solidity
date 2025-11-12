@@ -13,7 +13,8 @@ library DeploymentParamsCalibrationTestnet {
             tokenDecimals: DeploymentParamsCore.TOKEN_DECIMALS,
             faucetAmount: DeploymentParamsCore.FAUCET_AMOUNT,
             verificationFeeBps: DeploymentParamsCore.VERIFICATION_FEE_BPS,
-            customCREATE2FactoryContractAddress: 0xFFC8c99da81ac76789FC12671Dea0Ca93E1fcf18
+            customCREATE2FactoryContractAddress: 0x93B465392F8B4993Db724690A3b527Ec035d3a9F,
+            permit2Address: address(0)
         });
     }
 }

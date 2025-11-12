@@ -12,6 +12,7 @@ struct DeploymentParameters {
     uint256 faucetAmount;
     uint256 verificationFeeBps;
     address customCREATE2FactoryContractAddress;
+    address permit2Address;
 }
 
 library DeploymentParamsCore {
@@ -32,6 +33,9 @@ library DeploymentParamsCore {
 
     /// @dev The default CREATE2 deployer address used by the `CREATE2Factory` contract.
     address constant DEFAULT_CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+
+    /// @dev The default Permit2 contract address.
+    address constant DEFAULT_PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     /// @notice Returns the BLS public key used for validating swap requests.
     function getBLSSwapRequestPublicKey() internal pure returns (BLS.PointG2 memory) {
