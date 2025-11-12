@@ -21,6 +21,8 @@ import {Permit2Relayer} from "./Permit2Relayer.sol";
 import {IPermit2} from "uniswap-permit2/interfaces/IPermit2.sol";
 import {ISignatureTransfer} from "uniswap-permit2/interfaces/ISignatureTransfer.sol";
 
+import {IHookExecutor, Hook} from "./interfaces/IHookExecutor.sol";
+
 /// @title Router Contract for Cross-Chain Token Swaps
 /// @author Randamu
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
@@ -88,6 +90,9 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
     /// @notice The Permit2Relayer contract
     Permit2Relayer public permit2Relayer;
+
+    /// @notice The HookExecutor contract address
+    address public hookExecutor;
 
     /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
     modifier onlyAdmin() {
@@ -859,6 +864,48 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice Executes a scheduled upgrade
     function executeUpgrade() public override (IRouter, ScheduledUpgradeable) {
         super.executeUpgrade();
+    }
+
+    /// @notice Emitted when the hook executor contract address is updated.
+    /// @param newHookExecutor The address of the new hook executor contract.
+    event HookExecutorUpdated(address newHookExecutor);
+
+    /// @notice Emitted when the gas limit for callExactCheck is updated.
+    /// @param newGasForCallExactCheck The new gas limit for callExactCheck.
+    event GasForCallExactCheckSet(uint32 newGasForCallExactCheck);
+
+    /// @notice Sets the hook executor contract address.
+    /// @param _hookExecutor The address of the new hook executor contract.
+    function setHookExecutor(address _hookExecutor) external onlyAdmin {
+        require(_hookExecutor != address(0), ErrorsLib.ZeroAddress());
+        hookExecutor = _hookExecutor;
+        emit HookExecutorUpdated(_hookExecutor);
+    }
+
+    /// @notice Executes an array of hooks.
+    /// @param hooks Array of hooks to execute.
+    function _executeHooks(Hook[] memory hooks) internal {
+        if (hooks.length > 0) {
+            IHookExecutor(hookExecutor).execute(hooks);
+        }
+    }
+
+    /// @notice Updates the gas limit for the callExactCheck hook executor.
+    /// @param gasForCallExactCheck_ The new gas limit to set for callExactCheck.
+    function setGasForCallExactCheck(uint32 gasForCallExactCheck_) external onlyAdmin {
+        // Cache the interface to avoid repeated casting
+        IHookExecutor executor = IHookExecutor(hookExecutor);
+
+        // Revert if the new gas value is the same as the current one.
+        if (gasForCallExactCheck_ == executor.gasForCallExactCheck()) {
+            revert ErrorsLib.GasForCallExactCheckAlreadySet();
+        }
+
+        // Update the gas limit in the hook executor contract.
+        executor.setGasForCallExactCheck(gasForCallExactCheck_);
+
+        // Emit an event to signal the update.
+        emit GasForCallExactCheckSet(gasForCallExactCheck_);
     }
 
     // ---------------------- Internal Functions ----------------------
