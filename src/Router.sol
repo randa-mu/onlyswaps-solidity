@@ -89,38 +89,6 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice The Permit2Relayer contract
     Permit2Relayer public permit2Relayer;
 
-    /// @notice Struct to hold parameters for a swap request using Permit2
-    struct RequestCrossChainSwapPermit2Params {
-        address requester;
-        address tokenIn;
-        address tokenOut;
-        uint256 amountIn;
-        uint256 amountOut;
-        uint256 solverFee;
-        uint256 dstChainId;
-        address recipient;
-        uint256 permitNonce;
-        uint256 permitDeadline;
-        bytes signature;
-    }
-
-    /// @notice Struct to hold parameters for relaying tokens using Permit2
-    struct RelayTokensPermit2Params {
-        address solver;
-        address solverRefundAddress;
-        bytes32 requestId;
-        address sender;
-        address recipient;
-        address tokenIn;
-        address tokenOut;
-        uint256 amountOut;
-        uint256 srcChainId;
-        uint256 nonce;
-        uint256 permitNonce;
-        uint256 permitDeadline;
-        bytes signature;
-    }
-
     /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
     modifier onlyAdmin() {
         _checkRole(ADMIN_ROLE);

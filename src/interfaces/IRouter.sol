@@ -43,6 +43,38 @@ interface IRouter {
         uint256 fulfilledAt; // Timestamp when the request was fulfilled
     }
 
+    /// @notice Struct to hold parameters for a swap request using Permit2
+    struct RequestCrossChainSwapPermit2Params {
+        address requester;
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint256 amountOut;
+        uint256 solverFee;
+        uint256 dstChainId;
+        address recipient;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+    }
+
+    /// @notice Struct to hold parameters for relaying tokens using Permit2
+    struct RelayTokensPermit2Params {
+        address solver;
+        address solverRefundAddress;
+        bytes32 requestId;
+        address sender;
+        address recipient;
+        address tokenIn;
+        address tokenOut;
+        uint256 amountOut;
+        uint256 srcChainId;
+        uint256 nonce;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+    }
+
     // -------- Events --------
 
     /// @notice Emitted when a new swap request is created
@@ -393,4 +425,15 @@ interface IRouter {
     /// @param newSwapRequestCancellationWindow The new cancellation window in seconds
     /// @param signature The BLS signature authorising the update
     function setCancellationWindow(uint256 newSwapRequestCancellationWindow, bytes calldata signature) external;
+
+    /// @notice Initiates a swap request using Permit2 for token transfer approval
+    /// @param params Struct containing all parameters for the swap request
+    /// @return requestId The unique swap request id
+    function requestCrossChainSwapPermit2(RequestCrossChainSwapPermit2Params calldata params)
+        external
+        returns (bytes32 requestId);
+
+    /// @notice Relays tokens using Permit2 for token transfer approval and stores a receipt
+    /// @param params Struct containing all parameters for relaying tokens
+    function relayTokensPermit2(RelayTokensPermit2Params calldata params) external;
 }
