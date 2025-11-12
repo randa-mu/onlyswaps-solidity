@@ -378,7 +378,9 @@ describe("Router", function () {
     it("should make a swap request with a valid Permit2 signature where src token is 18 decimals and dst token is 6 decimals", async () => {
       // Redeploy dstToken with 6 decimals
       dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 6);
-      await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
+      await router
+        .connect(owner)
+        .setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
       const amountIn = parseEther("10");
       const amountOut = BigInt(10_000_000); // 10 USDC with 6 decimals
       const solverFee = parseEther("1");
@@ -452,7 +454,7 @@ describe("Router", function () {
         signature: signature,
       };
       const tx = await router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params);
-      
+
       let receipt = await tx.wait();
       if (!receipt) {
         throw new Error("transaction has not been mined");
@@ -469,8 +471,8 @@ describe("Router", function () {
       // check request parameters
       const swapRequestParams = await router.getSwapRequestParameters(requestId);
       expect(swapRequestParams.amountOut).to.equal(amountOut);
-      
-      expect (await router.solverFeeRefunds(requestId)).to.equal(amountToMint - swapRequestParams.verificationFee);
+
+      expect(await router.solverFeeRefunds(requestId)).to.equal(amountToMint - swapRequestParams.verificationFee);
     });
 
     it("should fail to make a swap request with an invalid Permit2 signature", async () => {
@@ -1069,7 +1071,7 @@ describe("Router", function () {
       // Redeploy srcToken with 6 decimals and dstToken with 8 decimals
       srcToken = await new ERC20Token__factory(owner).deploy("USDC", "USDC", 6);
       dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 8);
-      
+
       const amountOut = BigInt(10_000_000); // 10 USDC with 6 decimals
       const permitNonce = 0;
       const permitDeadline = MaxUint256;
@@ -1096,7 +1098,7 @@ describe("Router", function () {
         ),
       );
 
-      // Mint tokenOut for testing  
+      // Mint tokenOut for testing
       await dstToken.mint(solverAddr, amountOut);
       await dstToken.connect(solver).approve(await permit2.getAddress(), MaxUint256);
 

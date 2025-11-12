@@ -229,9 +229,9 @@ describe("Router", function () {
       );
       expect(isMapped).to.be.true;
 
-      expect(await router.getTokenMapping(await srcToken.getAddress(), dstChainId)).to.deep.equal(
-        [await dstToken.getAddress()]
-      );
+      expect(await router.getTokenMapping(await srcToken.getAddress(), dstChainId)).to.deep.equal([
+        await dstToken.getAddress(),
+      ]);
     });
 
     it("should revert removeTokenMapping if destination chain is not permitted", async () => {

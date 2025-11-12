@@ -3,14 +3,15 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import { parseEther } from "ethers";
 import { ethers } from "hardhat";
+import { parse } from "path";
 
 describe("ERC20FaucetToken - setFaucetAmount", function () {
   let token: ERC20FaucetToken;
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
 
-  const initialFaucetAmount = parseEther("10");
-  const newFaucetAmount = parseEther("20");
+  const initialFaucetAmount = 10;
+  const newFaucetAmount = 20;
 
   beforeEach(async function () {
     [owner, addr1] = await ethers.getSigners();
@@ -42,10 +43,10 @@ describe("ERC20FaucetToken - setFaucetAmount", function () {
     // Mint initial amount
     await token.connect(addr1).mint();
     const firstMintBalance = await token.balanceOf(addr1.address);
-    expect(firstMintBalance).to.equal(initialFaucetAmount);
+    expect(firstMintBalance).to.equal(parseEther(initialFaucetAmount.toString()));
 
     // Set new faucet amount
-    await token.connect(owner).setFaucetAmount(newFaucetAmount);
+    await token.connect(owner).setFaucetAmount(parseEther(newFaucetAmount.toString()));
 
     // Increase time beyond FAUCET_INTERVAL (24 hours)
     await ethers.provider.send("evm_increaseTime", [24 * 60 * 60 + 1]); // add 1 second for safety
@@ -54,8 +55,9 @@ describe("ERC20FaucetToken - setFaucetAmount", function () {
     // Mint again
     await token.connect(addr1).mint();
     const totalBalance = await token.balanceOf(addr1.address);
+    console.log("Total Balance after second mint:", totalBalance.toString());
 
     // Confirm second mint is new faucet amount
-    expect(totalBalance).to.equal(initialFaucetAmount + newFaucetAmount);
+    expect(totalBalance).to.equal(parseEther(initialFaucetAmount.toString()) + parseEther(newFaucetAmount.toString()));
   });
 });
