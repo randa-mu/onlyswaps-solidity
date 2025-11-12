@@ -1,7 +1,6 @@
 import {
   Router,
   Router__factory,
-  MockRouterV2__factory,
   ERC20Token,
   ERC20Token__factory,
   BLSBN254SignatureScheme,
@@ -11,7 +10,6 @@ import {
   Permit2Relayer__factory,
   Permit2,
   Permit2__factory,
-  src,
 } from "../../typechain-types";
 import { extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
@@ -129,11 +127,34 @@ describe("Router", function () {
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
 
+  describe("setPermit2Relayer", function () {
+    it("should set the Permit2 relayer address", async () => {
+      const newPermit2Relayer = await new Permit2Relayer__factory(owner).deploy(await permit2.getAddress());
+      await router.connect(owner).setPermit2Relayer(await newPermit2Relayer.getAddress());
+      expect(await router.permit2Relayer()).to.equal(await newPermit2Relayer.getAddress());
+    });
+
+    it("should fail to set the Permit2 relayer address when called by non-admin", async () => {
+      const newPermit2Relayer = await new Permit2Relayer__factory(owner).deploy(await permit2.getAddress());
+      await expect(
+        router.connect(user).setPermit2Relayer(await newPermit2Relayer.getAddress()),
+      ).to.be.revertedWithCustomError(router, "AccessControlUnauthorizedAccount");
+    });
+
+    it("should fail to set the Permit2 relayer address to zero address", async () => {
+      await expect(router.connect(owner).setPermit2Relayer(ZeroAddress)).to.be.revertedWithCustomError(
+        router,
+        "ZeroAddress",
+      );
+    });
+  });
+
   describe("requestCrossChainSwapPermit2", function () {
     it("should make a swap request with a valid Permit2 signature and emit swap requested event", async () => {
-      const amount = parseEther("10");
+      const amountIn = parseEther("10");
+      const amountOut = parseEther("10");
       const solverFee = parseEther("1");
-      const amountToMint = amount + solverFee;
+      const amountToMint = amountIn + solverFee;
       const permitNonce = 0;
       const permitDeadline = MaxUint256;
 
@@ -155,17 +176,18 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
-          { name: "amount", type: "uint256" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOut", type: "uint256" },
           { name: "solverFee", type: "uint256" },
           { name: "dstChainId", type: "uint256" },
           { name: "recipient", type: "address" },
@@ -185,7 +207,8 @@ describe("Router", function () {
           router: await router.getAddress(),
           tokenIn: await srcToken.getAddress(),
           tokenOut: await dstToken.getAddress(),
-          amount: amount.toString(),
+          amountIn: amountIn.toString(),
+          amountOut: amountOut.toString(),
           solverFee: solverFee.toString(),
           dstChainId: DST_CHAIN_ID,
           recipient: recipientAddr,
@@ -211,8 +234,9 @@ describe("Router", function () {
         requester: userAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amount: amount,
-        solverFee: solverFee,
+        amountIn: amountIn.toString(),
+        amountOut: amountOut.toString(),
+        solverFee: solverFee.toString(),
         dstChainId: DST_CHAIN_ID,
         recipient: recipientAddr,
         permitNonce: permitNonce,
@@ -227,9 +251,10 @@ describe("Router", function () {
     });
 
     it("should make a swap request with a valid Permit2 signature and emit swap requested event with the correct request id", async () => {
-      const amount = parseEther("10");
+      const amountIn = parseEther("10");
+      const amountOut = parseEther("10");
       const solverFee = parseEther("1");
-      const amountToMint = amount + solverFee;
+      const amountToMint = amountIn + solverFee;
       const permitNonce = 0;
       const permitDeadline = MaxUint256;
 
@@ -251,17 +276,18 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
-          { name: "amount", type: "uint256" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOut", type: "uint256" },
           { name: "solverFee", type: "uint256" },
           { name: "dstChainId", type: "uint256" },
           { name: "recipient", type: "address" },
@@ -281,7 +307,8 @@ describe("Router", function () {
           router: await router.getAddress(),
           tokenIn: await srcToken.getAddress(),
           tokenOut: await dstToken.getAddress(),
-          amount: amount.toString(),
+          amountIn: amountIn.toString(),
+          amountOut: amountOut.toString(),
           solverFee: solverFee.toString(),
           dstChainId: DST_CHAIN_ID,
           recipient: recipientAddr,
@@ -295,8 +322,9 @@ describe("Router", function () {
         requester: userAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amount: amount,
-        solverFee: solverFee,
+        amountIn: amountIn.toString(),
+        amountOut: amountOut.toString(),
+        solverFee: solverFee.toString(),
         dstChainId: DST_CHAIN_ID,
         recipient: recipientAddr,
         permitNonce: permitNonce,
@@ -327,11 +355,11 @@ describe("Router", function () {
         recipient: recipientAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amountOut: (await router.getVerificationFeeAmount(amount))[1],
+        amountOut: amountOut.toString(),
         srcChainId: srcChainId,
         dstChainId: DST_CHAIN_ID,
-        verificationFee: (await router.getVerificationFeeAmount(amount))[0],
-        solverFee: solverFee,
+        verificationFee: (await router.getVerificationFeeAmount(amountIn))[0],
+        solverFee: solverFee.toString(),
         nonce: await router.currentSwapRequestNonce(),
         executed: false,
         requestedAt: requestedAt,
@@ -343,8 +371,106 @@ describe("Router", function () {
 
       expect(await srcToken.balanceOf(userAddr)).to.equal(0);
       expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
-      expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + solverFee);
+      expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amountIn + solverFee);
       expect(await srcToken.balanceOf(await permit2.getAddress())).to.equal(0);
+    });
+
+    it("should make a swap request with a valid Permit2 signature where src token is 18 decimals and dst token is 6 decimals", async () => {
+      // Redeploy dstToken with 6 decimals
+      dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 6);
+      await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
+      const amountIn = parseEther("10");
+      const amountOut = BigInt(10_000_000); // 10 USDC with 6 decimals
+      const solverFee = parseEther("1");
+      const amountToMint = amountIn + solverFee;
+      const permitNonce = 0;
+      const permitDeadline = MaxUint256;
+      const srcChainId = await router.getChainId();
+      await srcToken.mint(userAddr, amountToMint);
+      await srcToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
+      const permit2Domain = {
+        name: "Permit2",
+        chainId: srcChainId,
+        verifyingContract: await permit2.getAddress(),
+      };
+      const permit2Types = {
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "SwapRequestWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        SwapRequestWitness: [
+          { name: "router", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOut", type: "uint256" },
+          { name: "solverFee", type: "uint256" },
+          { name: "dstChainId", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
+      };
+      const permit2Message = {
+        permitted: {
+          token: await srcToken.getAddress(),
+          amount: amountToMint.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          router: await router.getAddress(),
+          tokenIn: await srcToken.getAddress(),
+          tokenOut: await dstToken.getAddress(),
+          amountIn: amountIn.toString(),
+          amountOut: amountOut.toString(),
+          solverFee: solverFee.toString(),
+          dstChainId: DST_CHAIN_ID,
+          recipient: recipientAddr,
+          additionalData: "0x",
+        },
+      };
+      const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amountIn: amountIn.toString(),
+        amountOut: amountOut.toString(),
+        solverFee: solverFee.toString(),
+        dstChainId: DST_CHAIN_ID,
+        recipient: recipientAddr,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+      const tx = await router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params);
+      
+      let receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error("transaction has not been mined");
+      }
+
+      const routerInterface = Router__factory.createInterface();
+      const [requestId] = extractSingleLog(
+        routerInterface,
+        receipt,
+        await router.getAddress(),
+        routerInterface.getEvent("SwapRequested"),
+      );
+
+      // check request parameters
+      const swapRequestParams = await router.getSwapRequestParameters(requestId);
+      expect(swapRequestParams.amountOut).to.equal(amountOut);
+      
+      expect (await router.solverFeeRefunds(requestId)).to.equal(amountToMint - swapRequestParams.verificationFee);
     });
 
     it("should fail to make a swap request with an invalid Permit2 signature", async () => {
@@ -371,13 +497,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -416,7 +542,8 @@ describe("Router", function () {
         requester: userAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amount: amount,
+        amountIn: amount,
+        amountOut: amount,
         solverFee: solverFee,
         dstChainId: DST_CHAIN_ID,
         recipient: recipientAddr,
@@ -454,13 +581,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -500,7 +627,8 @@ describe("Router", function () {
         requester: ownerAddr, // mismatched requester
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amount: amount,
+        amountIn: amount,
+        amountOut: amount,
         solverFee: solverFee,
         dstChainId: DST_CHAIN_ID,
         recipient: recipientAddr,
@@ -539,13 +667,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -583,7 +711,8 @@ describe("Router", function () {
         requester: userAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amount: amount,
+        amountIn: amount,
+        amountOut: amount,
         solverFee: solverFee,
         dstChainId: DST_CHAIN_ID,
         recipient: recipientAddr,
@@ -621,13 +750,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -665,7 +794,8 @@ describe("Router", function () {
         requester: userAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amount: amount,
+        amountIn: amount,
+        amountOut: amount,
         solverFee: solverFee,
         dstChainId: DST_CHAIN_ID,
         recipient: recipientAddr,
@@ -703,13 +833,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -747,7 +877,8 @@ describe("Router", function () {
         requester: userAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amount: amount,
+        amountIn: amount,
+        amountOut: amount,
         solverFee: solverFee,
         dstChainId: DST_CHAIN_ID,
         recipient: ZeroAddress,
@@ -786,13 +917,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -830,7 +961,8 @@ describe("Router", function () {
         requester: userAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amount: amount,
+        amountIn: amount,
+        amountOut: amount,
         solverFee: solverFee,
         dstChainId: notPermittedDstChain,
         recipient: recipientAddr,
@@ -872,13 +1004,13 @@ describe("Router", function () {
           { name: "spender", type: "address" },
           { name: "nonce", type: "uint256" },
           { name: "deadline", type: "uint256" },
-          { name: "witness", type: "RelayerWitness" },
+          { name: "witness", type: "SwapRequestWitness" },
         ],
         TokenPermissions: [
           { name: "token", type: "address" },
           { name: "amount", type: "uint256" },
         ],
-        RelayerWitness: [
+        SwapRequestWitness: [
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
@@ -916,7 +1048,8 @@ describe("Router", function () {
         requester: userAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amount: amount,
+        amountIn: amount,
+        amountOut: amount,
         solverFee: solverFee,
         dstChainId: newDstChain,
         recipient: recipientAddr,
@@ -932,6 +1065,116 @@ describe("Router", function () {
   });
 
   describe("relayTokensPermit2", function () {
+    it("should relay tokens with a valid Permit2 signature when src token is 6 decimals and dst token is 8 decimals", async () => {
+      // Redeploy srcToken with 6 decimals and dstToken with 8 decimals
+      srcToken = await new ERC20Token__factory(owner).deploy("USDC", "USDC", 6);
+      dstToken = await new ERC20Token__factory(owner).deploy("RUSD", "RUSD", 8);
+      
+      const amountOut = BigInt(10_000_000); // 10 USDC with 6 decimals
+      const permitNonce = 0;
+      const permitDeadline = MaxUint256;
+      const nonce = 1;
+
+      const srcChainId = 1; // Example: source chain
+      const dstChainId = await router.getChainId(); // current chain as destination
+
+      // Pre-compute valid requestId
+      const abiCoder = new AbiCoder();
+      const requestId: string = keccak256(
+        abiCoder.encode(
+          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            userAddr,
+            recipientAddr,
+            await srcToken.getAddress(),
+            await dstToken.getAddress(),
+            amountOut,
+            srcChainId,
+            dstChainId,
+            nonce,
+          ],
+        ),
+      );
+
+      // Mint tokenOut for testing  
+      await dstToken.mint(solverAddr, amountOut);
+      await dstToken.connect(solver).approve(await permit2.getAddress(), MaxUint256);
+
+      // Generate Permit2 signature with relay witness
+      const permit2Domain = {
+        name: "Permit2",
+        chainId: dstChainId,
+        verifyingContract: await permit2.getAddress(),
+      };
+
+      const permit2Types = {
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "RelayerWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        RelayerWitness: [
+          { name: "requestId", type: "bytes32" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
+      };
+
+      const additionalData = ethers.AbiCoder.defaultAbiCoder().encode(["address"], [solverRefundAddr]);
+
+      const permit2Message = {
+        permitted: {
+          token: await dstToken.getAddress(),
+          amount: amountOut.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          requestId: requestId,
+          recipient: recipientAddr,
+          additionalData: additionalData,
+        },
+      };
+
+      const signature = await solver.signTypedData(permit2Domain, permit2Types, permit2Message);
+
+      const relayTokensPermit2Params = {
+        solver: solverAddr,
+        solverRefundAddress: solverRefundAddr,
+        requestId: requestId,
+        sender: userAddr,
+        recipient: recipientAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amountOut: amountOut,
+        srcChainId: srcChainId,
+        nonce: nonce,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+
+      // Relay tokens using Permit2 and fulfill the swap request
+
+      await expect(router.relayTokensPermit2(relayTokensPermit2Params))
+        .to.emit(router, "SwapRequestFulfilled")
+        .withArgs(requestId, srcChainId, dstChainId);
+
+      // Check that the recipient received the tokens
+      const recipientBalance = await dstToken.balanceOf(recipientAddr);
+      expect(recipientBalance).to.equal(amountOut);
+
+      expect(await dstToken.balanceOf(await router.getAddress())).to.equal(0);
+      expect(await dstToken.balanceOf(await permit2Relayer.getAddress())).to.equal(0);
+    });
+
     it("should relay tokens with a valid Permit2 signature and mark request as fulfilled", async () => {
       const amountOut = parseEther("10");
       const permitNonce = 0;

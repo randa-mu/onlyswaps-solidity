@@ -83,15 +83,19 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @notice Unique nonce for each swap request
     uint256 public currentSwapRequestNonce;
 
-    /// @notice The Permit2Relayer contract
-    Permit2Relayer private permit2Relayer;
+    /// @notice The Permit2Relayer contract used for handling Permit2-based token transfers
+    Permit2Relayer public permit2Relayer;
+
+    /// @notice Refund amounts for solvers per request ID
+    mapping(bytes32 => uint256) public solverFeeRefunds;
 
     /// @notice Struct to hold parameters for a swap request using Permit2
     struct RequestCrossChainSwapPermit2Params {
         address requester;
         address tokenIn;
         address tokenOut;
-        uint256 amount;
+        uint256 amountIn;
+        uint256 amountOut;
         uint256 solverFee;
         uint256 dstChainId;
         address recipient;
@@ -158,7 +162,8 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @notice Initiates a swap request
     /// @param tokenIn The address of the token deposited on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
-    /// @param amount Amount of tokens to swap
+    /// @param amountIn Amount of tokens to swap
+    /// @param amountOut Expected amount of tokens to be received on the destination chain
     /// @param solverFee The solver fee (in token units) to be paid by the user
     /// @param dstChainId Target chain ID
     /// @param recipient Address to receive swaped tokens on target chain
@@ -166,22 +171,20 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     function requestCrossChainSwap(
         address tokenIn,
         address tokenOut,
-        uint256 amount,
+        uint256 amountIn,
+        uint256 amountOut,
         uint256 solverFee,
         uint256 dstChainId,
         address recipient
     ) external nonReentrant returns (bytes32 requestId) {
-        require(amount > 0, ErrorsLib.ZeroAmount());
+        require(amountIn > 0 && amountOut > 0, ErrorsLib.ZeroAmount());
         require(recipient != address(0), ErrorsLib.ZeroAddress());
         require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
         require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
 
-        // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
-        // based on the total fee provided
-        (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(amount);
-        // Calculate the solver fee by subtracting the swap fee from the total fee
-        // The solver fee is the remaining portion of the fee
-        // The total fee must be greater than the swap fee to ensure the solver is compensated
+        // Calculate the swap fee (for the protocol) to be deducted from the amountIn
+        (uint256 verificationFeeAmount, uint256 amountInAfterFee) = getVerificationFeeAmount(amountIn);
+        // Ensure the solver fee is greater than zero
         require(solverFee > 0, ErrorsLib.FeeTooLow());
 
         // Accumulate the total verification fees balance for the specified token
@@ -199,7 +202,10 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
         storeSwapRequest(requestId, params);
 
-        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amount + solverFee);
+        // Track the solver refund per request id
+        solverFeeRefunds[requestId] = amountInAfterFee + solverFee;
+
+        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn + solverFee);
 
         emit SwapRequested(requestId, getChainId(), dstChainId);
     }
@@ -216,6 +222,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         IERC20(params.tokenIn).safeTransferFrom(msg.sender, address(this), newFee - params.solverFee);
 
         // Update the fees in the stored params
+        solverFeeRefunds[requestId] = solverFeeRefunds[requestId] - params.solverFee + newFee;
         params.solverFee = newFee;
 
         // Emit event if needed for tracking fee updates
@@ -314,7 +321,10 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         unfulfilledSolverRefunds.remove(requestId);
         params.executed = true;
 
-        uint256 solverRefund = params.amountOut + params.solverFee;
+        uint256 solverRefund = solverFeeRefunds[requestId];
+        delete solverFeeRefunds[requestId];
+
+        require(solverRefund > 0, ErrorsLib.ZeroAmount());
 
         IERC20(params.tokenIn).safeTransfer(solver, solverRefund);
 
@@ -325,7 +335,6 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @param requestId The unique ID of the swap request to cancel
     function stageSwapRequestCancellation(bytes32 requestId) external nonReentrant {
         SwapRequestParameters storage params = swapRequestParameters[requestId];
-        require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
         require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         require(swapRequestCancellationInitiatedAt[requestId] == 0, ErrorsLib.SwapRequestCancellationAlreadyStaged());
@@ -360,7 +369,8 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
         // Do NOT add to fulfilledTransfers or fulfilledSolverRefunds, since this is a cancellation/refund
 
-        uint256 totalRefund = params.amountOut + params.verificationFee + params.solverFee;
+        uint256 totalRefund = solverFeeRefunds[requestId] + params.verificationFee;
+        delete solverFeeRefunds[requestId];
 
         IERC20(params.tokenIn).safeTransfer(refundRecipient, totalRefund);
 
@@ -764,12 +774,12 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         nonReentrant
         returns (bytes32 requestId)
     {
-        require(params.amount > 0, ErrorsLib.ZeroAmount());
+        require(params.amountIn > 0 && params.amountOut > 0, ErrorsLib.ZeroAmount());
         require(params.recipient != address(0), ErrorsLib.ZeroAddress());
         require(allowedDstChainIds[params.dstChainId], ErrorsLib.DestinationChainIdNotSupported(params.dstChainId));
         require(isDstTokenMapped(params.tokenIn, params.dstChainId, params.tokenOut), ErrorsLib.TokenNotSupported());
 
-        (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(params.amount);
+        (uint256 verificationFeeAmount, uint256 amountInAfterFee) = getVerificationFeeAmount(params.amountIn);
         require(params.solverFee > 0, ErrorsLib.FeeTooLow());
 
         totalVerificationFeeBalance[params.tokenIn] += verificationFeeAmount;
@@ -781,7 +791,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
             params.requester,
             params.tokenIn,
             params.tokenOut,
-            amountOut,
+            params.amountOut,
             verificationFeeAmount,
             params.solverFee,
             params.dstChainId,
@@ -793,11 +803,14 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
         storeSwapRequest(requestId, swapParams);
 
+        // Track the solver refund per request id
+        solverFeeRefunds[requestId] = amountInAfterFee + params.solverFee;
+
         IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
             nonce: params.permitNonce,
             deadline: params.permitDeadline,
             permitted: ISignatureTransfer.TokenPermissions({
-                token: params.tokenIn, amount: params.amount + params.solverFee
+                token: params.tokenIn, amount: params.amountIn + params.solverFee
             })
         });
         permit2Relayer.requestCrossChainSwapPermit2(
@@ -805,7 +818,8 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
             params.requester,
             params.tokenIn,
             params.tokenOut,
-            params.amount,
+            params.amountIn,
+            params.amountOut,
             params.solverFee,
             params.dstChainId,
             params.recipient,
@@ -891,6 +905,8 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
     /// @notice Retrieves the current version of the contract
     /// @return The current version of the contract
+    /// @dev Update the returned version string with each contract upgrade to reflect the new version.
+    ///      Follow semantic versioning (major.minor.patch) for consistency and clarity.
     function getVersion() public pure returns (string memory) {
         return "1.2.0";
     }

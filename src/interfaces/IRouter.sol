@@ -123,7 +123,8 @@ interface IRouter {
     /// @notice Initiates a swap request
     /// @param tokenIn The address of the token deposited on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
-    /// @param amount Amount of tokens to swap
+    /// @param amountIn Amount of tokens to swap
+    /// @param amountOut Minimum amount of tokens to be received by the recipient on the destination chain
     /// @param fee Total fee amount (in token units) to be paid by the user
     /// @param dstChainId Target chain ID
     /// @param recipient Address to receive swaped tokens on target chain
@@ -131,7 +132,8 @@ interface IRouter {
     function requestCrossChainSwap(
         address tokenIn,
         address tokenOut,
-        uint256 amount,
+        uint256 amountIn,
+        uint256 amountOut,
         uint256 fee,
         uint256 dstChainId,
         address recipient
