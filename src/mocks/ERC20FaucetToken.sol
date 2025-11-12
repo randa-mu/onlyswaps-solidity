@@ -42,7 +42,7 @@ contract ERC20FaucetToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
     }
 
     function setFaucetAmount(uint256 faucetAmount_) external onlyOwner {
-        faucetAmount = faucetAmount_;
+        faucetAmount = faucetAmount_ * 10 ** decimals();
         emit FaucetAmountSet(faucetAmount);
     }
 

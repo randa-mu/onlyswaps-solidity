@@ -3,7 +3,6 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import { parseEther } from "ethers";
 import { ethers } from "hardhat";
-import { parse } from "path";
 
 describe("ERC20FaucetToken - setFaucetAmount", function () {
   let token: ERC20FaucetToken;
@@ -28,9 +27,9 @@ describe("ERC20FaucetToken - setFaucetAmount", function () {
   it("should set a new faucet amount when called by owner", async function () {
     await expect(token.connect(owner).setFaucetAmount(newFaucetAmount))
       .to.emit(token, "FaucetAmountSet")
-      .withArgs(newFaucetAmount);
+      .withArgs(parseEther(newFaucetAmount.toString()));
 
-    expect(await token.faucetAmount()).to.equal(newFaucetAmount);
+    expect(await token.faucetAmount()).to.equal(parseEther(newFaucetAmount.toString()));
   });
 
   it("should revert if non-owner tries to set faucet amount", async function () {
@@ -46,7 +45,7 @@ describe("ERC20FaucetToken - setFaucetAmount", function () {
     expect(firstMintBalance).to.equal(parseEther(initialFaucetAmount.toString()));
 
     // Set new faucet amount
-    await token.connect(owner).setFaucetAmount(parseEther(newFaucetAmount.toString()));
+    await token.connect(owner).setFaucetAmount(newFaucetAmount.toString());
 
     // Increase time beyond FAUCET_INTERVAL (24 hours)
     await ethers.provider.send("evm_increaseTime", [24 * 60 * 60 + 1]); // add 1 second for safety
@@ -55,7 +54,6 @@ describe("ERC20FaucetToken - setFaucetAmount", function () {
     // Mint again
     await token.connect(addr1).mint();
     const totalBalance = await token.balanceOf(addr1.address);
-    console.log("Total Balance after second mint:", totalBalance.toString());
 
     // Confirm second mint is new faucet amount
     expect(totalBalance).to.equal(parseEther(initialFaucetAmount.toString()) + parseEther(newFaucetAmount.toString()));
