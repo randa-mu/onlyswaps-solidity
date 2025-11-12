@@ -869,6 +869,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     function setPermit2Relayer(address _permit2Relayer) external onlyAdmin {
         require(_permit2Relayer != address(0), ErrorsLib.ZeroAddress());
         permit2Relayer = Permit2Relayer(_permit2Relayer);
+        emit Permit2RelayerUpdated(_permit2Relayer);
     }
 
     /// @notice Retrieves the current version of the contract

@@ -150,6 +150,10 @@ interface IRouter {
     /// @param newSwapRequestCancellationWindow The new cancellation window in seconds
     event SwapRequestCancellationWindowUpdated(uint256 newSwapRequestCancellationWindow);
 
+    /// @notice Emitted when the Permit2Relayer address is updated
+    /// @param newPermit2Relayer The new Permit2Relayer contract address
+    event Permit2RelayerUpdated(address indexed newPermit2Relayer);
+
     // -------- Core Transfer Logic --------
 
     /// @notice Initiates a swap request
