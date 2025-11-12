@@ -819,6 +819,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
             params.tokenIn,
             params.tokenOut,
             params.amountIn,
+            params.amountOut,
             params.solverFee,
             params.dstChainId,
             params.recipient,

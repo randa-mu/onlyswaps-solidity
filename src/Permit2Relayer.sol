@@ -46,7 +46,7 @@ contract Permit2Relayer {
     string constant SWAP_REQUEST_WITNESS_TYPE_STRING = string(
         abi.encodePacked(
             SWAP_REQUEST_WITNESS_TYPE_NAME,
-            "(address router,address tokenIn,address tokenOut,uint256 amount,uint256 solverFee,uint256 dstChainId,address recipient,bytes additionalData)"
+            "(address router,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut,uint256 solverFee,uint256 dstChainId,address recipient,bytes additionalData)"
         )
     );
 
@@ -115,7 +115,8 @@ contract Permit2Relayer {
         address signer,
         address tokenIn,
         address tokenOut,
-        uint256 amount,
+        uint256 amountIn,
+        uint256 amountOut,
         uint256 solverFee,
         uint256 dstChainId,
         address recipient,
@@ -124,7 +125,7 @@ contract Permit2Relayer {
         bytes calldata additionalData
     ) external {
         // Ensure the permit amount equals the sum of swap amount and solver fee
-        require(permit.permitted.amount == amount + solverFee, "Permit amount must equal amount + solverFee");
+        require(permit.permitted.amount == amountIn + solverFee, "Permit amount must equal amount + solverFee");
 
         IPermit2.SignatureTransferDetails memory transferDetails = ISignatureTransfer.SignatureTransferDetails({
             to: address(this),
@@ -140,7 +141,8 @@ contract Permit2Relayer {
                 router,
                 tokenIn,
                 tokenOut,
-                amount,
+                amountIn,
+                amountOut,
                 solverFee,
                 dstChainId,
                 recipient,

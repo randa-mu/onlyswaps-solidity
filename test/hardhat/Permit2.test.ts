@@ -151,9 +151,10 @@ describe("Router", function () {
 
   describe("requestCrossChainSwapPermit2", function () {
     it("should make a swap request with a valid Permit2 signature and emit swap requested event", async () => {
-      const amount = parseEther("10");
+      const amountIn = parseEther("10");
+      const amountOut = parseEther("10");
       const solverFee = parseEther("1");
-      const amountToMint = amount + solverFee;
+      const amountToMint = amountIn + solverFee;
       const permitNonce = 0;
       const permitDeadline = MaxUint256;
 
@@ -185,7 +186,8 @@ describe("Router", function () {
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
-          { name: "amount", type: "uint256" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOut", type: "uint256" },
           { name: "solverFee", type: "uint256" },
           { name: "dstChainId", type: "uint256" },
           { name: "recipient", type: "address" },
@@ -205,7 +207,8 @@ describe("Router", function () {
           router: await router.getAddress(),
           tokenIn: await srcToken.getAddress(),
           tokenOut: await dstToken.getAddress(),
-          amount: amount.toString(),
+          amountIn: amountIn.toString(),
+          amountOut: amountOut.toString(),
           solverFee: solverFee.toString(),
           dstChainId: DST_CHAIN_ID,
           recipient: recipientAddr,
@@ -231,9 +234,9 @@ describe("Router", function () {
         requester: userAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amountIn: amount,
-        amountOut: amount,
-        solverFee: solverFee,
+        amountIn: amountIn.toString(),
+        amountOut: amountOut.toString(),
+        solverFee: solverFee.toString(),
         dstChainId: DST_CHAIN_ID,
         recipient: recipientAddr,
         permitNonce: permitNonce,
@@ -248,9 +251,10 @@ describe("Router", function () {
     });
 
     it("should make a swap request with a valid Permit2 signature and emit swap requested event with the correct request id", async () => {
-      const amount = parseEther("10");
+      const amountIn = parseEther("10");
+      const amountOut = parseEther("10");
       const solverFee = parseEther("1");
-      const amountToMint = amount + solverFee;
+      const amountToMint = amountIn + solverFee;
       const permitNonce = 0;
       const permitDeadline = MaxUint256;
 
@@ -282,7 +286,8 @@ describe("Router", function () {
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
-          { name: "amount", type: "uint256" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOut", type: "uint256" },
           { name: "solverFee", type: "uint256" },
           { name: "dstChainId", type: "uint256" },
           { name: "recipient", type: "address" },
@@ -302,7 +307,8 @@ describe("Router", function () {
           router: await router.getAddress(),
           tokenIn: await srcToken.getAddress(),
           tokenOut: await dstToken.getAddress(),
-          amount: amount.toString(),
+          amountIn: amountIn.toString(),
+          amountOut: amountOut.toString(),
           solverFee: solverFee.toString(),
           dstChainId: DST_CHAIN_ID,
           recipient: recipientAddr,
@@ -316,9 +322,9 @@ describe("Router", function () {
         requester: userAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amountIn: amount,
-        amountOut: amount,
-        solverFee: solverFee,
+        amountIn: amountIn.toString(),
+        amountOut: amountOut.toString(),
+        solverFee: solverFee.toString(),
         dstChainId: DST_CHAIN_ID,
         recipient: recipientAddr,
         permitNonce: permitNonce,
@@ -349,11 +355,11 @@ describe("Router", function () {
         recipient: recipientAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-        amountOut: amount,
+        amountOut: amountOut.toString(),
         srcChainId: srcChainId,
         dstChainId: DST_CHAIN_ID,
-        verificationFee: (await router.getVerificationFeeAmount(amount))[0],
-        solverFee: solverFee,
+        verificationFee: (await router.getVerificationFeeAmount(amountIn))[0],
+        solverFee: solverFee.toString(),
         nonce: await router.currentSwapRequestNonce(),
         executed: false,
         requestedAt: requestedAt,
@@ -365,7 +371,7 @@ describe("Router", function () {
 
       expect(await srcToken.balanceOf(userAddr)).to.equal(0);
       expect(await srcToken.balanceOf(recipientAddr)).to.equal(0);
-      expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amount + solverFee);
+      expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amountIn + solverFee);
       expect(await srcToken.balanceOf(await permit2.getAddress())).to.equal(0);
     });
 
@@ -403,7 +409,8 @@ describe("Router", function () {
           { name: "router", type: "address" },
           { name: "tokenIn", type: "address" },
           { name: "tokenOut", type: "address" },
-          { name: "amount", type: "uint256" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOut", type: "uint256" },
           { name: "solverFee", type: "uint256" },
           { name: "dstChainId", type: "uint256" },
           { name: "recipient", type: "address" },
@@ -422,7 +429,8 @@ describe("Router", function () {
           router: await router.getAddress(),
           tokenIn: await srcToken.getAddress(),
           tokenOut: await dstToken.getAddress(),
-          amount: amountIn.toString(),
+          amountIn: amountIn.toString(),
+          amountOut: amountOut.toString(),
           solverFee: solverFee.toString(),
           dstChainId: DST_CHAIN_ID,
           recipient: recipientAddr,
@@ -434,10 +442,9 @@ describe("Router", function () {
         requester: userAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
-
-        amountIn: amountIn,
-        amountOut: amountOut,
-        solverFee: solverFee,
+        amountIn: amountIn.toString(),
+        amountOut: amountOut.toString(),
+        solverFee: solverFee.toString(),
         dstChainId: DST_CHAIN_ID,
         recipient: recipientAddr,
         permitNonce: permitNonce,

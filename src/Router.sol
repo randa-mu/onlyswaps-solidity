@@ -263,6 +263,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             params.tokenIn,
             params.tokenOut,
             params.amountIn,
+            params.amountOut,
             params.solverFee,
             params.dstChainId,
             params.recipient,
