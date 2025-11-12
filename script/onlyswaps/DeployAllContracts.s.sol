@@ -63,10 +63,7 @@ contract DeployAllContracts is
         permit2Relayer = deployPermit2Relayer();
         // Router
         router = deployRouterProxy(
-            isUpgrade,
-            address(bn254SwapRequestSignatureScheme),
-            address(bn254ContractUpgradeSignatureScheme),
-            address(permit2Relayer)
+            isUpgrade, address(bn254SwapRequestSignatureScheme), address(bn254ContractUpgradeSignatureScheme)
         );
         // RUSD
         rusd = deployRUSD();

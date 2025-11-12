@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 import {Factory} from "../../shared/Factory.sol";
@@ -32,7 +31,11 @@ contract DeployPermit2Relayer is JsonUtils, EnvReader {
                 Factory(deploymentParameters.customCREATE2FactoryContractAddress).deploy(Constants.SALT, code);
             permit2Relayer = Permit2Relayer(contractAddress);
         } else {
-            permit2Relayer = new Permit2Relayer{salt: Constants.SALT}();
+            address permit2Address = _readAddressFromJsonInput(
+                string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),
+                Constants.KEY_PERMIT2
+            );
+            permit2Relayer = new Permit2Relayer{salt: Constants.SALT}(permit2Address);
         }
 
         console.log("Permit2Relayer contract deployed at: ", address(permit2Relayer));

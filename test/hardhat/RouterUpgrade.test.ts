@@ -1,6 +1,6 @@
 import {
-  Router,
-  Router__factory,
+  MockRouterV1,
+  MockRouterV1__factory,
   MockRouterV2,
   MockRouterV2__factory,
   ERC20Token,
@@ -10,13 +10,15 @@ import {
   UUPSProxy__factory,
   Permit2Relayer,
   Permit2Relayer__factory,
+  Permit2__factory,
+  Permit2,
 } from "../../typechain-types";
 import { extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { AbiCoder, keccak256, toUtf8Bytes, ZeroAddress } from "ethers";
+import { AbiCoder, keccak256, toUtf8Bytes, ZeroAddress, parseEther, MaxUint256, TypedDataEncoder } from "ethers";
 import { ethers } from "hardhat";
 
 const DST_CHAIN_ID = 137;
@@ -26,14 +28,14 @@ const VERIFICATION_FEE_BPS = 500;
 describe("Router Upgrade", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
-  let solver: SignerWithAddress;
   let recipient: SignerWithAddress;
 
-  let router: Router;
+  let router: MockRouterV1;
   let srcToken: ERC20Token;
   let dstToken: ERC20Token;
   let swapBn254SigScheme: BLSBN254SignatureScheme;
   let upgradeBn254SigScheme: BLSBN254SignatureScheme;
+  let permit2: Permit2;
   let permit2Relayer: Permit2Relayer;
 
   let privKeyBytes: Uint8Array;
@@ -69,7 +71,7 @@ describe("Router Upgrade", function () {
   }
 
   beforeEach(async () => {
-    [owner, user, solver, recipient] = await ethers.getSigners();
+    [owner, user, recipient] = await ethers.getSigners();
 
     ownerAddr = await owner.getAddress();
 
@@ -92,13 +94,16 @@ describe("Router Upgrade", function () {
       [y.c0, y.c1],
       upgradeType,
     );
+    // Deploy Permit2
+    permit2 = await new Permit2__factory(owner).deploy();
+    await permit2.waitForDeployment();
     // Deploy Permit2Relayer
-    permit2Relayer = await new Permit2Relayer__factory(owner).deploy();
+    permit2Relayer = await new Permit2Relayer__factory(owner).deploy(await permit2.getAddress());
 
-    const Router = new ethers.ContractFactory(Router__factory.abi, Router__factory.bytecode, owner);
+    const Router = new ethers.ContractFactory(MockRouterV1__factory.abi, MockRouterV1__factory.bytecode, owner);
 
     // Deploy Router implementation
-    const routerImplementation: Router = await new Router__factory(owner).deploy();
+    const routerImplementation: MockRouterV1 = await new MockRouterV1__factory(owner).deploy();
     await routerImplementation.waitForDeployment();
 
     // Deploy UUPS proxy for Router using the implementation address and initialize data
@@ -109,14 +114,13 @@ describe("Router Upgrade", function () {
         ownerAddr,
         await swapBn254SigScheme.getAddress(),
         await upgradeBn254SigScheme.getAddress(),
-        await permit2Relayer.getAddress(),
         VERIFICATION_FEE_BPS,
       ]),
     );
     await routerProxy.waitForDeployment();
 
     // Attach Router interface to proxy address
-    const routerAttached = Router__factory.connect(await routerProxy.getAddress(), owner);
+    const routerAttached = MockRouterV1__factory.connect(await routerProxy.getAddress(), owner);
     router = routerAttached;
 
     // Router contract configuration
@@ -129,7 +133,7 @@ describe("Router Upgrade", function () {
       const version = await router.getVersion();
       expect(version).to.equal("1.1.0");
 
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -150,7 +154,7 @@ describe("Router Upgrade", function () {
     });
 
     it("should revert if upgrade time is not in the future (bad path)", async () => {
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -163,7 +167,7 @@ describe("Router Upgrade", function () {
     });
 
     it("should not revert if called by non-admin (good path)", async () => {
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -177,7 +181,7 @@ describe("Router Upgrade", function () {
     });
 
     it("should schedule upgrade with non-empty data (good path)", async () => {
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -195,7 +199,7 @@ describe("Router Upgrade", function () {
     });
 
     it("should revert if scheduled upgrade address is the same as a pending upgrade (bad path)", async () => {
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -213,7 +217,7 @@ describe("Router Upgrade", function () {
       ).to.be.revertedWithCustomError(router, "SameVersionUpgradeNotAllowed");
     });
 
-    it("should upgrade to MockRouterV2 with new swap request nonce functionality without affecting existing requests and storage (good path)", async () => {
+    it("should upgrade to MockRouterV2 with swap request nonce functionality without affecting existing requests and storage layout (good path)", async () => {
       // Create an existing swap request in Router v1 to ensure it's preserved
       const swapAmount = ethers.parseEther("100");
       const solverFee = ethers.parseEther("1");
@@ -236,7 +240,7 @@ describe("Router Upgrade", function () {
       const swapRequestReceipt = await swapRequestTx.wait();
 
       // Extract the swap request ID from the event
-      const routerInterface = Router__factory.createInterface();
+      const routerInterface = MockRouterV1__factory.createInterface();
       const [swapRequestId] = extractSingleLog(
         routerInterface,
         swapRequestReceipt!,
@@ -327,6 +331,7 @@ describe("Router Upgrade", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           swapAmount,
+          swapAmount,
           solverFee,
           DST_CHAIN_ID,
           await recipient.getAddress(),
@@ -346,6 +351,7 @@ describe("Router Upgrade", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           swapAmount,
+          swapAmount,
           solverFee,
           DST_CHAIN_ID,
           await recipient.getAddress(),
@@ -362,7 +368,7 @@ describe("Router Upgrade", function () {
 
   describe("cancelUpgrade", () => {
     it("should cancel a scheduled upgrade with valid signature signed over message from router.contractUpgradeParamsToBytes() (good path)", async () => {
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -382,7 +388,7 @@ describe("Router Upgrade", function () {
     });
 
     it("should revert if BLS signature verification fails (bad path)", async () => {
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -406,7 +412,7 @@ describe("Router Upgrade", function () {
     });
 
     it("should revert if it is too late to cancel (bad path)", async () => {
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -431,7 +437,7 @@ describe("Router Upgrade", function () {
     it("should execute a scheduled upgrade after scheduled time (good path)", async () => {
       let version = await router.getVersion();
       expect(version).to.equal("1.1.0");
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -451,7 +457,7 @@ describe("Router Upgrade", function () {
     });
 
     it("should revert if upgradeToAndCall is called extrenally (bad path)", async () => {
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -472,7 +478,7 @@ describe("Router Upgrade", function () {
     });
 
     it("should revert if upgrade is called too early (bad path)", async () => {
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -485,7 +491,7 @@ describe("Router Upgrade", function () {
         .withArgs(upgradeTime);
     });
 
-    it("should not affect contract storage and token configurations after upgrade (good path)", async () => {
+    it("should not affect contract storage layout and token configurations after upgrade (good path)", async () => {
       // Check ADMIN_ROLE before upgrade
       const ADMIN_ROLE = keccak256(toUtf8Bytes("ADMIN_ROLE"));
       const hasAdminRoleBefore = await router.hasRole(ADMIN_ROLE, ownerAddr);
@@ -494,14 +500,19 @@ describe("Router Upgrade", function () {
       const dstTokenAddressBefore = await router.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
       expect(dstTokenAddressBefore[0]).to.equal(await dstToken.getAddress());
 
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
 
+      const latestUpgradeNonce = Number(await router.currentNonce());
+      const latestSwapRequestNonce = Number(await router.currentSwapRequestNonce());
+
       const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
       const currentNonce = Number(await router.currentNonce()) + 1;
+
       let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
+
       await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
       await ethers.provider.send("evm_increaseTime", [upgradeTime]);
       await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change
@@ -513,6 +524,12 @@ describe("Router Upgrade", function () {
       // Check token mapping after upgrade
       const dstTokenAddressAfter = await router.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
       expect(dstTokenAddressAfter[0]).to.equal(await dstToken.getAddress());
+      // Check nonces after upgrade
+      const latestUpgradeNonceAfter = Number(await router.currentNonce());
+      const latestSwapRequestNonceAfter = Number(await router.currentSwapRequestNonce());
+
+      expect(latestUpgradeNonceAfter).to.equal(latestUpgradeNonce + 1); // Incremented by 1 due to upgrade
+      expect(latestSwapRequestNonceAfter).to.equal(latestSwapRequestNonce); // Should remain unchanged
     });
 
     it("should have new functionality after upgrade (good path)", async () => {
@@ -536,8 +553,174 @@ describe("Router Upgrade", function () {
       expect(await upgradedRouter.testNewFunctionality()).to.be.true; // Should return true after upgrade
     });
 
+    it("should make a swap request with a valid Permit2 signature after upgrade and emit swap requested event without affecting storage layout", async () => {
+      const amount = parseEther("10");
+      const solverFee = parseEther("1");
+      const amountToMint = amount + solverFee;
+      const userAddr = await user.getAddress();
+      const recipientAddr = await recipient.getAddress();
+
+      await srcToken.mint(await user.getAddress(), amountToMint);
+      await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+      await expect(
+        router
+          .connect(user)
+          .requestCrossChainSwap(
+            await srcToken.getAddress(),
+            await dstToken.getAddress(),
+            amount,
+            solverFee,
+            DST_CHAIN_ID,
+            await recipient.getAddress(),
+          ),
+      ).to.emit(router, "SwapRequested");
+
+      // Now upgrade to MockRouterV2
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
+      await newImplementation.waitForDeployment();
+      const newImplAddress = await newImplementation.getAddress();
+      const latestBlock = await ethers.provider.getBlock("latest");
+      const upgradeTime = latestBlock ? latestBlock.timestamp + 172800 + 1 : 0; // 2 days in the future
+      const currentNonce = Number(await router.currentNonce()) + 1;
+      let sigBytes = await generateSignature("schedule", newImplAddress, "0x", upgradeTime, currentNonce);
+      await router.connect(owner).scheduleUpgrade(newImplAddress, "0x", upgradeTime, sigBytes);
+      await ethers.provider.send("evm_increaseTime", [upgradeTime]);
+      await ethers.provider.send("evm_mine", []); // Mine a new block to reflect the time change
+      await router.connect(user).executeUpgrade();
+
+      // Verify upgrade was successful
+      const version = await router.getVersion();
+      expect(version).to.equal("1.2.0");
+
+      // Verify storage layout is preserved
+      const ADMIN_ROLE = keccak256(toUtf8Bytes("ADMIN_ROLE"));
+      const hasAdminRole = await router.hasRole(ADMIN_ROLE, ownerAddr);
+      expect(hasAdminRole).to.be.true;
+      const dstTokenAddress = await router.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
+      expect(dstTokenAddress[0]).to.equal(await dstToken.getAddress());
+      const latestUpgradeNonce = Number(await router.currentNonce());
+      const latestSwapRequestNonce = Number(await router.currentSwapRequestNonce());
+
+      expect(latestSwapRequestNonce).to.equal(1); // Should remain unchanged after upgrade
+      expect(latestUpgradeNonce).to.equal(1); // Should be incremented by 1 due to upgrade
+
+      // Connect to the upgraded contract with MockRouterV2 interface
+      const upgradedRouter = MockRouterV2__factory.connect(await router.getAddress(), user);
+
+      // Set Permit2Relayer as approved relayer in Permit2
+      await upgradedRouter.connect(owner).setPermit2Relayer(await permit2Relayer.getAddress());
+
+      // Now create a swap request using Permit2 signature
+
+      const permitNonce = 0;
+      const permitDeadline = MaxUint256;
+
+      const srcChainId = await router.getChainId();
+
+      await srcToken.mint(userAddr, amountToMint);
+      await srcToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
+
+      // Generate Permit2 signature with witness data
+      const permit2Domain = {
+        name: "Permit2",
+        chainId: srcChainId,
+        verifyingContract: await permit2.getAddress(),
+      };
+
+      const permit2Types = {
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "SwapRequestWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        SwapRequestWitness: [
+          { name: "router", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOut", type: "uint256" },
+          { name: "solverFee", type: "uint256" },
+          { name: "dstChainId", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
+      };
+
+      const permit2Message = {
+        permitted: {
+          token: await srcToken.getAddress(),
+          amount: amountToMint.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          router: await router.getAddress(),
+          tokenIn: await srcToken.getAddress(),
+          tokenOut: await dstToken.getAddress(),
+          amountIn: amount.toString(),
+          amountOut: amount.toString(),
+          solverFee: solverFee.toString(),
+          dstChainId: DST_CHAIN_ID,
+          recipient: recipientAddr,
+          additionalData: "0x",
+        },
+      };
+
+      const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
+
+      // local verification
+      const recovered = ethers.verifyTypedData(permit2Domain, permit2Types, permit2Message, signature);
+      const digest = TypedDataEncoder.hash(permit2Domain, permit2Types, permit2Message);
+      const recovered2 = ethers.recoverAddress(digest, signature);
+
+      expect(
+        recovered &&
+          recovered.toLowerCase() === userAddr.toLowerCase() &&
+          recovered2.toLowerCase() === userAddr.toLowerCase(),
+      ).to.be.true;
+
+      // on-chain verification and swap request
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amountIn: amount,
+        amountOut: amount,
+        solverFee: solverFee,
+        dstChainId: DST_CHAIN_ID,
+        recipient: recipientAddr,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+      };
+
+      await expect(upgradedRouter.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params)).to.emit(
+        upgradedRouter,
+        "SwapRequested",
+      );
+
+      // Verify storage layout is preserved
+      const hasAdminRoleAfter = await upgradedRouter.hasRole(ADMIN_ROLE, ownerAddr);
+      expect(hasAdminRoleAfter).to.be.true;
+      const dstTokenAddressAfter = await upgradedRouter.getTokenMapping(await srcToken.getAddress(), DST_CHAIN_ID);
+      expect(dstTokenAddressAfter[0]).to.equal(await dstToken.getAddress());
+      const latestUpgradeNonceAfter = Number(await upgradedRouter.currentNonce());
+      const latestSwapRequestNonceAfter = Number(await upgradedRouter.currentSwapRequestNonce());
+
+      expect(latestUpgradeNonceAfter).to.equal(latestUpgradeNonce); // Should remain unchanged after swap request
+      expect(latestSwapRequestNonceAfter).to.equal(latestSwapRequestNonce + 1); // Incremented by 1 due to new swap request
+    });
+
     it("should revert if initialize is called again after upgrade (bad path)", async () => {
-      const newImplementation: Router = await new MockRouterV2__factory(owner).deploy();
+      const newImplementation: MockRouterV2 = await new MockRouterV2__factory(owner).deploy();
       await newImplementation.waitForDeployment();
       const newImplAddress = await newImplementation.getAddress();
       const latestBlock = await ethers.provider.getBlock("latest");
@@ -555,7 +738,6 @@ describe("Router Upgrade", function () {
             ownerAddr,
             await swapBn254SigScheme.getAddress(),
             await upgradeBn254SigScheme.getAddress(),
-            await permit2Relayer.getAddress(),
             VERIFICATION_FEE_BPS,
           ),
       ).to.be.revertedWithCustomError(router, "InvalidInitialization()");
