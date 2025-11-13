@@ -1,4 +1,5 @@
 import { Interface, EventFragment, TransactionReceipt, Result } from "ethers";
+import { HookExecutor__factory } from "../../../typechain-types";
 
 // Returns the first instance of an event log from a transaction receipt that matches the address provided
 export function extractSingleLog<T extends Interface, E extends EventFragment>(
@@ -27,8 +28,11 @@ export function extractLogs<T extends Interface, E extends EventFragment>(
 }
 
 export const EMPTY_HOOKS = {
-  preSwapHooks: [],
-  postSwapHooks: [],
-  preRelayHooks: [],
-  postRelayHooks: [],
+  preHooks: [],
+  postHooks: []
 };
+
+// preSwapHooks: [{ target: "0x0000000000000000000000000000000000000000", callData: "0x", gasLimit: 0 }],
+//   postSwapHooks: [{ target: "0x0000000000000000000000000000000000000000", callData: "0x", gasLimit: 0 }],
+//   preRelayHooks: [{ target: "0x0000000000000000000000000000000000000000", callData: "0x", gasLimit: 0 }],
+//   postRelayHooks: [{ target: "0x0000000000000000000000000000000000000000", callData: "0x", gasLimit: 0 }],

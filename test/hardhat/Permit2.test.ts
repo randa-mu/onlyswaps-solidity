@@ -242,6 +242,7 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+
       };
 
       await expect(router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params)).to.emit(
@@ -329,9 +330,7 @@ describe("Router", function () {
         recipient: recipientAddr,
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
-        signature: signature,
-        preHooks: EMPTY_HOOKS.preSwapHooks,
-        postHooks: EMPTY_HOOKS.postSwapHooks,
+        signature: signature
       };
 
       const tx = await router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params);
@@ -365,8 +364,7 @@ describe("Router", function () {
         nonce: await router.currentSwapRequestNonce(),
         executed: false,
         requestedAt: requestedAt,
-        preHooks: EMPTY_HOOKS.preSwapHooks,
-        postHooks: EMPTY_HOOKS.postSwapHooks,
+
       };
 
       const expectedRequestId = await router.getSwapRequestId(swapParameters);
@@ -456,8 +454,7 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
-        preHooks: EMPTY_HOOKS.preSwapHooks,
-        postHooks: EMPTY_HOOKS.postSwapHooks,
+
       };
       const tx = await router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params);
 
@@ -558,8 +555,7 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: invalidSignature,
-        preHooks: EMPTY_HOOKS.preSwapHooks,
-        postHooks: EMPTY_HOOKS.postSwapHooks,
+
       };
 
       await expect(
@@ -812,8 +808,7 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
-        preHooks: EMPTY_HOOKS.preSwapHooks,
-        postHooks: EMPTY_HOOKS.postSwapHooks,
+
       };
 
       await expect(
@@ -897,8 +892,7 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
-        preHooks: EMPTY_HOOKS.preSwapHooks,
-        postHooks: EMPTY_HOOKS.postSwapHooks,
+
       };
 
       await expect(
@@ -983,8 +977,7 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
-        preHooks: EMPTY_HOOKS.preSwapHooks,
-        postHooks: EMPTY_HOOKS.postSwapHooks,
+
       };
 
       await expect(
@@ -1072,8 +1065,7 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
-        preHooks: EMPTY_HOOKS.preSwapHooks,
-        postHooks: EMPTY_HOOKS.postSwapHooks,
+
       };
 
       await expect(
@@ -1095,6 +1087,19 @@ describe("Router", function () {
 
       const srcChainId = 1; // Example: source chain
       const dstChainId = await router.getChainId(); // current chain as destination
+
+      const preHooks = EMPTY_HOOKS.preHooks;
+      const postHooks = EMPTY_HOOKS.postHooks;
+
+      // Replicate keccak256(abi.encode(preHooks)) and keccak256(abi.encode(postHooks))
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(
+        ["tuple(address,bytes,uint256)[]"], 
+        [preHooks]
+      ));
+      const postHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(
+        ["tuple(address,bytes,uint256)[]"], 
+        [postHooks]
+      ));
 
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
@@ -1177,6 +1182,7 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        
       };
 
       // Relay tokens using Permit2 and fulfill the swap request

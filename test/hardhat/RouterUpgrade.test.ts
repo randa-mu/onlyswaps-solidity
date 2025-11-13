@@ -335,8 +335,7 @@ describe("Router Upgrade", function () {
           solverFee,
           DST_CHAIN_ID,
           await recipient.getAddress(),
-          EMPTY_HOOKS.preSwapHooks,
-          EMPTY_HOOKS.postSwapHooks,
+          
         );
 
       // Verify the swap request nonce incremented
@@ -357,8 +356,7 @@ describe("Router Upgrade", function () {
           solverFee,
           DST_CHAIN_ID,
           await recipient.getAddress(),
-          EMPTY_HOOKS.preSwapHooks,
-          EMPTY_HOOKS.postSwapHooks,
+          
         );
 
       const finalcurrentSwapRequestNonce = await upgradedRouter.currentSwapRequestNonce();
@@ -557,7 +555,7 @@ describe("Router Upgrade", function () {
       expect(await upgradedRouter.testNewFunctionality()).to.be.true; // Should return true after upgrade
     });
 
-    it.only("should make a swap request with a valid Permit2 signature after upgrade and emit swap requested event without affecting storage layout", async () => {
+    it("should make a swap request with a valid Permit2 signature after upgrade and emit swap requested event without affecting storage layout", async () => {
       const amount = parseEther("10");
       const solverFee = parseEther("1");
       const amountToMint = amount + solverFee;
@@ -678,40 +676,39 @@ describe("Router Upgrade", function () {
         },
       };
 
-      // const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
+      const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
 
-      // // local verification
-      // const recovered = ethers.verifyTypedData(permit2Domain, permit2Types, permit2Message, signature);
-      // const digest = TypedDataEncoder.hash(permit2Domain, permit2Types, permit2Message);
-      // const recovered2 = ethers.recoverAddress(digest, signature);
+      // local verification
+      const recovered = ethers.verifyTypedData(permit2Domain, permit2Types, permit2Message, signature);
+      const digest = TypedDataEncoder.hash(permit2Domain, permit2Types, permit2Message);
+      const recovered2 = ethers.recoverAddress(digest, signature);
 
-      // expect(
-      //   recovered &&
-      //     recovered.toLowerCase() === userAddr.toLowerCase() &&
-      //     recovered2.toLowerCase() === userAddr.toLowerCase(),
-      // ).to.be.true;
+      expect(
+        recovered &&
+          recovered.toLowerCase() === userAddr.toLowerCase() &&
+          recovered2.toLowerCase() === userAddr.toLowerCase(),
+      ).to.be.true;
 
-      // // on-chain verification and swap request
-      // const requestCrossChainSwapPermit2Params = {
-      //   requester: userAddr,
-      //   tokenIn: await srcToken.getAddress(),
-      //   tokenOut: await dstToken.getAddress(),
-      //   amountIn: amount,
-      //   amountOut: amount,
-      //   solverFee: solverFee,
-      //   dstChainId: DST_CHAIN_ID,
-      //   recipient: recipientAddr,
-      //   permitNonce: permitNonce,
-      //   permitDeadline: permitDeadline,
-      //   signature: signature,
-      //   preHooks: EMPTY_HOOKS.preSwapHooks,
-      //   postHooks: EMPTY_HOOKS.postSwapHooks,
-      // };
+      // on-chain verification and swap request
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amountIn: amount,
+        amountOut: amount,
+        solverFee: solverFee,
+        dstChainId: DST_CHAIN_ID,
+        recipient: recipientAddr,
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+        
+      };
 
-      // await expect(upgradedRouter.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params)).to.emit(
-      //   upgradedRouter,
-      //   "SwapRequested",
-      // );
+      await expect(upgradedRouter.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params)).to.emit(
+        upgradedRouter,
+        "SwapRequested",
+      );
 
       // // Verify storage layout is preserved
       // const hasAdminRoleAfter = await upgradedRouter.hasRole(ADMIN_ROLE, ownerAddr);
