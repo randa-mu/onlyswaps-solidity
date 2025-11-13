@@ -532,7 +532,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @notice Retrieves the current version of the contract
     /// @return The current version of the contract
     function getVersion() public pure returns (string memory) {
-        return "1.1.0";
+        return "1.1.2";
     }
 
     /// @notice Retrieves the current verification fee in basis points

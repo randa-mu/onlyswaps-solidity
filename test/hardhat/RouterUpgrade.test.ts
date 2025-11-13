@@ -288,7 +288,7 @@ describe("Router Upgrade", function () {
 
       // Verify the upgrade was successful
       const versionAfter = await upgradedRouter.getVersion();
-      expect(versionAfter).to.equal("1.2.0");
+      expect(versionAfter).to.equal("1.1.2");
 
       // Verify all existing storage is preserved
       const hasAdminRoleAfter = await upgradedRouter.hasRole(ADMIN_ROLE, ownerAddr);
@@ -306,6 +306,9 @@ describe("Router Upgrade", function () {
       expect(swapRequestParamsAfter.amountOut).to.equal(swapRequestParams.amountOut);
       expect(swapRequestParamsAfter.solverFee).to.equal(swapRequestParams.solverFee);
       expect(swapRequestParamsAfter.nonce).to.equal(1);
+      // expect empty hooks to be retrievable after upgrade and addition of hooks to struct returned by getSwapRequestParameters
+      expect(swapRequestParamsAfter.preHooks.length).to.equal(0);
+      expect(swapRequestParamsAfter.postHooks.length).to.equal(0);
 
       // Verify contract balance from existing swap request is still intact
       const routerBalance = await srcToken.balanceOf(await upgradedRouter.getAddress());
@@ -335,7 +338,8 @@ describe("Router Upgrade", function () {
           solverFee,
           DST_CHAIN_ID,
           await recipient.getAddress(),
-          
+          EMPTY_HOOKS.preHooks,
+          EMPTY_HOOKS.postHooks
         );
 
       // Verify the swap request nonce incremented
@@ -356,7 +360,8 @@ describe("Router Upgrade", function () {
           solverFee,
           DST_CHAIN_ID,
           await recipient.getAddress(),
-          
+          EMPTY_HOOKS.preHooks,
+          EMPTY_HOOKS.postHooks
         );
 
       const finalcurrentSwapRequestNonce = await upgradedRouter.currentSwapRequestNonce();
@@ -455,7 +460,7 @@ describe("Router Upgrade", function () {
       await expect(router.connect(user).executeUpgrade()).to.emit(router, "UpgradeExecuted").withArgs(newImplAddress);
       // Check version after upgrade
       version = await router.getVersion();
-      expect(version).to.equal("1.2.0");
+      expect(version).to.equal("1.1.2");
     });
 
     it("should revert if upgradeToAndCall is called extrenally (bad path)", async () => {
@@ -593,7 +598,7 @@ describe("Router Upgrade", function () {
 
       // Verify upgrade was successful
       const version = await router.getVersion();
-      expect(version).to.equal("1.2.0");
+      expect(version).to.equal("1.1.2");
 
       // Verify storage layout is preserved
       const ADMIN_ROLE = keccak256(toUtf8Bytes("ADMIN_ROLE"));
@@ -702,7 +707,8 @@ describe("Router Upgrade", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
-        
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks
       };
 
       await expect(upgradedRouter.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params)).to.emit(
