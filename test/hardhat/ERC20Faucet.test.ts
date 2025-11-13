@@ -27,9 +27,9 @@ describe("ERC20FaucetToken - setFaucetAmount", function () {
   it("should set a new faucet amount when called by owner", async function () {
     await expect(token.connect(owner).setFaucetAmount(newFaucetAmount))
       .to.emit(token, "FaucetAmountSet")
-      .withArgs(parseEther(newFaucetAmount.toString()));
+      .withArgs(newFaucetAmount);
 
-    expect(await token.faucetAmount()).to.equal(parseEther(newFaucetAmount.toString()));
+    expect(await token.faucetAmount()).to.equal(newFaucetAmount);
   });
 
   it("should revert if non-owner tries to set faucet amount", async function () {
@@ -42,7 +42,7 @@ describe("ERC20FaucetToken - setFaucetAmount", function () {
     // Mint initial amount
     await token.connect(addr1).mint();
     const firstMintBalance = await token.balanceOf(addr1.address);
-    expect(firstMintBalance).to.equal(parseEther(initialFaucetAmount.toString()));
+    expect(firstMintBalance).to.equal(initialFaucetAmount);
 
     // Set new faucet amount
     await token.connect(owner).setFaucetAmount(newFaucetAmount.toString());
@@ -56,6 +56,6 @@ describe("ERC20FaucetToken - setFaucetAmount", function () {
     const totalBalance = await token.balanceOf(addr1.address);
 
     // Confirm second mint is new faucet amount
-    expect(totalBalance).to.equal(parseEther(initialFaucetAmount.toString()) + parseEther(newFaucetAmount.toString()));
+    expect(totalBalance).to.equal(initialFaucetAmount + newFaucetAmount);
   });
 });

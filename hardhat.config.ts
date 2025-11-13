@@ -11,7 +11,7 @@ const config: HardhatUserConfig = {
       viaIR: true,
       optimizer: {
         enabled: true,
-        runs: 2000,
+        runs: 200,
       }
     }
   },
