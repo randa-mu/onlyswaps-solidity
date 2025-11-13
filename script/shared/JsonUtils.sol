@@ -58,9 +58,7 @@ contract JsonUtils is Script {
         vm.writeJson(json, _constructJsonFilePath(filePath));
     }
 
-    function _writeAddressToJsonInput(string memory filePath, string memory jsonKey, address contractAddress)
-        internal
-    {
+    function _writeAddressToJsonInput(string memory filePath, string memory jsonKey, address contractAddress) internal {
         string memory obj = "deployment addresses input";
         string memory output = vm.serializeAddress(obj, jsonKey, contractAddress);
         vm.writeJson(output, _constructJsonFilePath(filePath));
@@ -81,9 +79,12 @@ contract JsonUtils is Script {
 
         // Attempt to read the file using vm.readFile(filePath)
         // This will throw an error if the file doesn't exist, which we catch below
-        try vm.readFile(_constructJsonFilePath((filePath))) returns (string memory /* content */ ) {
-            // We can store the file contents here in case we need it later.
-        } catch {
+        try vm.readFile(_constructJsonFilePath((filePath))) returns (
+            string memory /* content */
+        ) {
+        // We can store the file contents here in case we need it later.
+        }
+        catch {
             fileExists = false;
         }
     }

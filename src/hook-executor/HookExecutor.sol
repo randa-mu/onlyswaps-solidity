@@ -51,9 +51,8 @@ contract HookExecutor is IHookExecutor {
             for (uint256 i = 0; i < hooks.length; ++i) {
                 Hook calldata hook = hooks[i];
 
-                (bool success,) = hook.callData._callWithExactGasEvenIfTargetIsNoContract(
-                    hook.target, hook.gasLimit, gasForCallExactCheck
-                );
+                (bool success,) = hook.callData
+                    ._callWithExactGasEvenIfTargetIsNoContract(hook.target, hook.gasLimit, gasForCallExactCheck);
 
                 if (!success) {
                     // Revert if the call fails
