@@ -836,6 +836,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @notice Sets the hook executor contract address.
     /// @param _hookExecutor The address of the new hook executor contract.
     function setHookExecutor(address _hookExecutor) external onlyAdmin {
+        require(_hookExecutor != address(0), ErrorsLib.ZeroAddress());
         hookExecutor = _hookExecutor;
         emit HookExecutorUpdated(_hookExecutor);
     }
@@ -881,7 +882,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @param hooks Array of hooks to execute.
     function _executeHooks(Hook[] memory hooks) internal {
         if (hooks.length > 0) {
-            require(hookExecutor != address(0), ErrorsLib.ZeroAddress());
+            require(hookExecutor != address(0), ErrorsLib.HookExecutorNotSet());
             IHookExecutor(hookExecutor).execute(hooks);
         }
     }
