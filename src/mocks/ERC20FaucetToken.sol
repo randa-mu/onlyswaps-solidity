@@ -30,7 +30,7 @@ contract ERC20FaucetToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
         Ownable(_owner)
     {
         _decimals = decimals_;
-        faucetAmount = faucetAmount_ * 10 ** decimals_;
+        faucetAmount = faucetAmount_;
     }
 
     /// @notice Allows users to mint tokens once every 24 hours.
@@ -42,7 +42,7 @@ contract ERC20FaucetToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
     }
 
     function setFaucetAmount(uint256 faucetAmount_) external onlyOwner {
-        faucetAmount = faucetAmount_ * 10 ** decimals();
+        faucetAmount = faucetAmount_;
         emit FaucetAmountSet(faucetAmount);
     }
 
