@@ -22,11 +22,12 @@ library DeploymentParamsCore {
     /// @dev The symbol of the testnet RUSD token.
     string constant TOKEN_SYMBOL = "RUSD";
 
-    /// @dev The number of decimals the token uses - e.g. 8, means to divide the token amount by 100,000,000 to get its user representation.
+    /// @dev The number of decimals the token uses.
     uint8 constant TOKEN_DECIMALS = 6;
 
     /// @dev The amount of tokens to be minted to each address that requests tokens from the faucet.
-    uint256 constant FAUCET_AMOUNT = 1000;
+    /// This is expressed as an integer without decimals (e.g., 1000 represents 1000 * 10^decimals tokens).
+    uint256 constant FAUCET_AMOUNT = 1000 * 10 ** TOKEN_DECIMALS;
 
     /// @dev The maximum basis points (BPS) for verification fees (i.e., 100% = 10,000 BPS).
     uint256 constant VERIFICATION_FEE_BPS = 500;
@@ -41,12 +42,12 @@ library DeploymentParamsCore {
     function getBLSSwapRequestPublicKey() internal pure returns (BLS.PointG2 memory) {
         return BLS.PointG2({
             x: [
-                2176796643753397620441316745218518912545006392116065109049569777761719504846,
-                11826752525796063365207986176900548130962155263064975564729451987293391235926
+                19466273993852079063924474392378816199685375459664529508122564849204533666468,
+                21131687462638968537850845255670528066014536613738342153553860006061609469324
             ],
             y: [
-                4088285704870652908508651418058883297721940562151468876424451568008574952123,
-                13806924853784398577308284169858791779347149575719224952723562606884524205227
+                7578617840607454142936008614752231508238355116367494353476740252708767858492,
+                5343514427465363660208643216752839104127697387077797304816316938005257664244
             ]
         });
     }
