@@ -7,6 +7,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IPermit2} from "uniswap-permit2/interfaces/IPermit2.sol";
 import {ISignatureTransfer} from "uniswap-permit2/interfaces/ISignatureTransfer.sol";
 
+import {Hook} from "./interfaces/IHookExecutor.sol";
+
 /// @title A simple contract that takes care of withdrawing and forwarding tokens, at most once
 /// @author Randamu
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
@@ -46,7 +48,7 @@ contract Permit2Relayer {
     string constant SWAP_REQUEST_WITNESS_TYPE_STRING = string(
         abi.encodePacked(
             SWAP_REQUEST_WITNESS_TYPE_NAME,
-            "(address router,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut,uint256 solverFee,uint256 dstChainId,address recipient,bytes additionalData)"
+            "(address router,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut,uint256 solverFee,uint256 dstChainId,address recipient,bytes32 additionalData)"
         )
     );
 

@@ -11,7 +11,7 @@ import {
   Permit2,
   Permit2__factory,
 } from "../../typechain-types";
-import { extractSingleLog } from "./utils/utils";
+import { extractSingleLog, EMPTY_HOOKS } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
@@ -330,6 +330,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preSwapHooks,
+        postHooks: EMPTY_HOOKS.postSwapHooks,
       };
 
       const tx = await router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params);
@@ -363,6 +365,8 @@ describe("Router", function () {
         nonce: await router.currentSwapRequestNonce(),
         executed: false,
         requestedAt: requestedAt,
+        preHooks: EMPTY_HOOKS.preSwapHooks,
+        postHooks: EMPTY_HOOKS.postSwapHooks,
       };
 
       const expectedRequestId = await router.getSwapRequestId(swapParameters);
@@ -452,6 +456,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preSwapHooks,
+        postHooks: EMPTY_HOOKS.postSwapHooks,
       };
       const tx = await router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params);
 
@@ -552,6 +558,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: invalidSignature,
+        preHooks: EMPTY_HOOKS.preSwapHooks,
+        postHooks: EMPTY_HOOKS.postSwapHooks,
       };
 
       await expect(
@@ -804,6 +812,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preSwapHooks,
+        postHooks: EMPTY_HOOKS.postSwapHooks,
       };
 
       await expect(
@@ -887,6 +897,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preSwapHooks,
+        postHooks: EMPTY_HOOKS.postSwapHooks,
       };
 
       await expect(
@@ -971,6 +983,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preSwapHooks,
+        postHooks: EMPTY_HOOKS.postSwapHooks,
       };
 
       await expect(
@@ -1058,6 +1072,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preSwapHooks,
+        postHooks: EMPTY_HOOKS.postSwapHooks,
       };
 
       await expect(

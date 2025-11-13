@@ -58,6 +58,8 @@ interface IRouter {
         uint256 permitNonce;
         uint256 permitDeadline;
         bytes signature;
+        Hook[] prehooks;
+        Hook[] posthooks;
     }
 
     /// @notice Struct to hold parameters for relaying tokens using Permit2
@@ -75,6 +77,8 @@ interface IRouter {
         uint256 permitNonce;
         uint256 permitDeadline;
         bytes signature;
+        Hook[] prehooks;
+        Hook[] posthooks;
     }
 
     struct SwapRequestParametersWithHooks {
@@ -173,6 +177,14 @@ interface IRouter {
     /// @param newPermit2Relayer The new Permit2Relayer contract address
     event Permit2RelayerUpdated(address indexed newPermit2Relayer);
 
+    /// @notice Emitted when the hook executor contract address is updated.
+    /// @param newHookExecutor The address of the new hook executor contract.
+    event HookExecutorUpdated(address newHookExecutor);
+
+    /// @notice Emitted when the gas limit for callExactCheck is updated.
+    /// @param newGasForCallExactCheck The new gas limit for callExactCheck.
+    event GasForCallExactCheckSet(uint32 newGasForCallExactCheck);
+
     // -------- Core Transfer Logic --------
 
     /// @notice Initiates a swap request
@@ -183,6 +195,8 @@ interface IRouter {
     /// @param fee Total fee amount (in token units) to be paid by the user
     /// @param dstChainId Target chain ID
     /// @param recipient Address to receive swaped tokens on target chain
+    /// @param prehooks Pre-swap hooks to execute
+    /// @param posthooks Post-swap hooks to execute
     /// @return requestId The unique swap request id
     function requestCrossChainSwap(
         address tokenIn,
@@ -191,7 +205,9 @@ interface IRouter {
         uint256 amountOut,
         uint256 fee,
         uint256 dstChainId,
-        address recipient
+        address recipient,
+        Hook[] calldata prehooks,
+        Hook[] calldata posthooks
     ) external returns (bytes32 requestId);
 
     /// @notice Updates the solver fee for an unfulfilled swap request
@@ -217,6 +233,8 @@ interface IRouter {
     /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
     /// @param nonce The nonce used for the swap request on the source chain for replay protection
+    /// @param prehooks Pre-swap hooks to execute
+    /// @param posthooks Post-swap hooks to execute
     function relayTokens(
         address solverRefundAddress,
         bytes32 requestId,
@@ -226,7 +244,9 @@ interface IRouter {
         address tokenOut,
         uint256 amountOut,
         uint256 srcChainId,
-        uint256 nonce
+        uint256 nonce,
+        Hook[] calldata prehooks,
+        Hook[] calldata posthooks
     ) external;
 
     /// @notice Stages a swap request for cancellation after the cancellation window
@@ -259,7 +279,7 @@ interface IRouter {
     /// @notice Generates a unique request ID based on the provided swap request parameters
     /// @param p The swap request parameters
     /// @return The generated request ID
-    function getSwapRequestId(SwapRequestParameters memory p) external view returns (bytes32);
+    function getSwapRequestId(SwapRequestParametersWithHooks memory p) external view returns (bytes32);
 
     /// @notice Retrieves the address of the swap request BLS validator
     /// @return The address of the swap request BLS validator
@@ -287,11 +307,11 @@ interface IRouter {
 
     /// @notice Retrieves the swap request parameters for a given request ID
     /// @param requestId The unique ID of the swap request
-    /// @return swapRequestParams The swap request parameters associated with the request ID
+    /// @return swapRequestParamsWithHooks The swap request parameters with hooks associated with the request ID
     function getSwapRequestParameters(bytes32 requestId)
         external
         view
-        returns (SwapRequestParameters memory swapRequestParams);
+        returns (SwapRequestParametersWithHooks memory swapRequestParamsWithHooks);
 
     /// @notice Returns an array of swap request IDs where the tokens have been
     ///         transferred to the recipient address on the destination chain

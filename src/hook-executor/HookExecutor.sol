@@ -1,8 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8;
 
 import {IHookExecutor, Hook} from "../interfaces/IHookExecutor.sol";
-
 import {CallWithExactGas} from "../libraries/CallWithExactGas.sol";
 
 /// @dev A contract for executing user-specified hooks. It ensures that

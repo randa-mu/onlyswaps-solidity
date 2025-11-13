@@ -6,6 +6,8 @@ interface IERC20 {
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
+/// @title MockAaveV3
+/// @notice A mock contract simulating Aave V3's supply functionality for testing purposes.
 contract MockAaveV3 {
     event Supplied(address asset, uint256 amount, address onBehalfOf, uint16 referralCode);
 

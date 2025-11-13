@@ -11,7 +11,7 @@ import {
   Permit2Relayer__factory,
   Permit2__factory,
 } from "../../typechain-types";
-import { extractSingleLog } from "./utils/utils";
+import { extractSingleLog, EMPTY_HOOKS } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
@@ -127,7 +127,7 @@ describe("Router", function () {
   describe("Router Initialization", function () {
     it("should return correct contract version", async () => {
       const version = await router.getVersion();
-      expect(version).to.equal("1.1.0");
+      expect(version).to.equal("1.2.0");
     });
 
     it("should get minimum contract upgrade delay correctly", async () => {
@@ -364,6 +364,8 @@ describe("Router", function () {
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
+            EMPTY_HOOKS.preSwapHooks,
+            EMPTY_HOOKS.postSwapHooks,
           ),
       ).to.emit(router, "SwapRequested");
     });
@@ -392,6 +394,8 @@ describe("Router", function () {
           solverFee,
           DST_CHAIN_ID,
           recipientAddr,
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
 
       let receipt = await tx.wait();
@@ -438,6 +442,8 @@ describe("Router", function () {
           solverFee,
           DST_CHAIN_ID,
           recipientAddr,
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
       let receipt = await tx.wait();
       if (!receipt) {
@@ -474,6 +480,8 @@ describe("Router", function () {
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
+            EMPTY_HOOKS.preSwapHooks,
+            EMPTY_HOOKS.postSwapHooks,
           ),
       ).to.be.revertedWithCustomError(router, "FeeTooLow");
     });
@@ -496,6 +504,8 @@ describe("Router", function () {
           solverFee,
           DST_CHAIN_ID,
           recipient.address,
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
 
       let receipt = await tx.wait();
@@ -563,6 +573,8 @@ describe("Router", function () {
           solverFee,
           DST_CHAIN_ID,
           recipient.address,
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
 
       let receipt = await tx.wait();
@@ -615,6 +627,8 @@ describe("Router", function () {
           solverFee,
           DST_CHAIN_ID,
           recipient.address,
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
 
       let receipt = await tx.wait();
@@ -707,6 +721,8 @@ describe("Router", function () {
           solverFee,
           DST_CHAIN_ID,
           recipient.address,
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
       let receipt = await tx.wait();
       if (!receipt) {
@@ -788,6 +804,8 @@ describe("Router", function () {
           solverFee,
           DST_CHAIN_ID,
           recipient.address,
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
       let receipt = await tx.wait();
       if (!receipt) {
@@ -1512,6 +1530,8 @@ describe("Router", function () {
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
+            EMPTY_HOOKS.preSwapHooks,
+            EMPTY_HOOKS.postSwapHooks,
           ),
       ).to.be.revertedWithCustomError(router, "ZeroAmount()");
     });
@@ -1536,6 +1556,8 @@ describe("Router", function () {
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
+            EMPTY_HOOKS.preSwapHooks,
+            EMPTY_HOOKS.postSwapHooks,
           ),
       ).to.be.revertedWithCustomError(router, "ZeroAddress()");
     });
@@ -1557,6 +1579,8 @@ describe("Router", function () {
             solverFee,
             newChainId,
             recipientAddr,
+            EMPTY_HOOKS.preSwapHooks,
+            EMPTY_HOOKS.postSwapHooks,
           ),
       )
         .to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported")
@@ -1585,6 +1609,8 @@ describe("Router", function () {
             solverFee,
             newChainId,
             recipientAddr,
+            EMPTY_HOOKS.preSwapHooks,
+            EMPTY_HOOKS.postSwapHooks,
           ),
       ).to.be.revertedWithCustomError(router, "TokenNotSupported()");
     });
@@ -1607,6 +1633,8 @@ describe("Router", function () {
           solverFee,
           DST_CHAIN_ID,
           recipient.address,
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
 
       let receipt = await tx.wait();
@@ -1786,6 +1814,8 @@ describe("Router", function () {
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
+            EMPTY_HOOKS.preSwapHooks,
+            EMPTY_HOOKS.postSwapHooks,
           ),
       ).to.be.reverted;
     });
@@ -1808,6 +1838,8 @@ describe("Router", function () {
           solverFee,
           DST_CHAIN_ID,
           recipient.address,
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
 
       let receipt = await tx.wait();
@@ -2227,6 +2259,8 @@ describe("Router", function () {
           fee,
           DST_CHAIN_ID,
           recipientAddr,
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
       const receipt = await tx.wait();
       const routerInterface = Router__factory.createInterface();
@@ -2338,6 +2372,8 @@ describe("Router", function () {
           fee,
           DST_CHAIN_ID,
           recipientAddr,
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
 
       await router.connect(user).stageSwapRequestCancellation(requestId);

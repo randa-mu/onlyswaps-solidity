@@ -25,3 +25,10 @@ export function extractLogs<T extends Interface, E extends EventFragment>(
     .filter((log) => log.address.toLowerCase() === contractAddress.toLowerCase())
     .map((log) => iface.decodeEventLog(event, log.data, log.topics));
 }
+
+export const EMPTY_HOOKS = {
+  preSwapHooks: [],
+  postSwapHooks: [],
+  preRelayHooks: [],
+  postRelayHooks: [],
+};

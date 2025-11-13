@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8;
 
 /// @dev A user-specified hook to be executed before or after an intent.

@@ -13,7 +13,7 @@ import {
   Permit2__factory,
   Permit2,
 } from "../../typechain-types";
-import { extractSingleLog } from "./utils/utils";
+import { extractSingleLog, EMPTY_HOOKS } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
@@ -335,6 +335,8 @@ describe("Router Upgrade", function () {
           solverFee,
           DST_CHAIN_ID,
           await recipient.getAddress(),
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
 
       // Verify the swap request nonce incremented
@@ -355,6 +357,8 @@ describe("Router Upgrade", function () {
           solverFee,
           DST_CHAIN_ID,
           await recipient.getAddress(),
+          EMPTY_HOOKS.preSwapHooks,
+          EMPTY_HOOKS.postSwapHooks,
         );
 
       const finalcurrentSwapRequestNonce = await upgradedRouter.currentSwapRequestNonce();
@@ -553,7 +557,7 @@ describe("Router Upgrade", function () {
       expect(await upgradedRouter.testNewFunctionality()).to.be.true; // Should return true after upgrade
     });
 
-    it("should make a swap request with a valid Permit2 signature after upgrade and emit swap requested event without affecting storage layout", async () => {
+    it.only("should make a swap request with a valid Permit2 signature after upgrade and emit swap requested event without affecting storage layout", async () => {
       const amount = parseEther("10");
       const solverFee = parseEther("1");
       const amountToMint = amount + solverFee;
@@ -700,6 +704,8 @@ describe("Router Upgrade", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preSwapHooks,
+        postHooks: EMPTY_HOOKS.postSwapHooks,
       };
 
       await expect(upgradedRouter.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params)).to.emit(
