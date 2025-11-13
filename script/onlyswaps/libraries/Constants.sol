@@ -15,4 +15,5 @@ library Constants {
     string constant KEY_PERMIT2 = "permit2Address";
     string constant KEY_ROUTER_PROXY = "routerProxyAddress";
     string constant KEY_ROUTER_IMPLEMENTATION = "routerImplementationAddress";
+    string constant KEY_HOOK_EXECUTOR = "hookExecutorAddress";
 }

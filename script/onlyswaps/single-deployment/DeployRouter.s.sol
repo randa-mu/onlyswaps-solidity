@@ -106,6 +106,26 @@ contract DeployRouter is JsonUtils, EnvReader {
         );
 
         console.log("Router (UUPSProxy) deployed at: ", contractAddress);
+
+        // set permit2 relayer address in router
+        address permit2RelayerAddress = _readAddressFromJsonInput(
+            string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),
+            Constants.KEY_PERMIT2_RELAYER
+        );
+        _requireNonZero(permit2RelayerAddress, "PERMIT2_RELAYER_ADDRESS");
+
+        vm.broadcast();
+        router.setPermit2Relayer(permit2RelayerAddress);
+
+        // set hook executor address in router
+        address hookExecutorAddress = _readAddressFromJsonInput(
+            string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),
+            Constants.KEY_HOOK_EXECUTOR
+        );
+        _requireNonZero(hookExecutorAddress, "HOOK_EXECUTOR_ADDRESS");
+
+        vm.broadcast();
+        router.setHookExecutor(hookExecutorAddress);
     }
 
     function executeContractUpgrade(address implementation) internal returns (Router router) {

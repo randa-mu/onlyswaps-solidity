@@ -11,6 +11,7 @@ import {
 import {Router, DeployRouter} from "./single-deployment/DeployRouter.s.sol";
 import {Permit2Relayer, DeployPermit2Relayer} from "./single-deployment/DeployPermit2Relayer.s.sol";
 import {ERC20FaucetToken, DeployRUSD} from "./single-deployment/DeployRUSD.s.sol";
+import {HookExecutor, DeployHookExecutor} from "./single-deployment/DeployHookExecutor.s.sol";
 
 /// @title DeployAllContracts
 /// @author Randamu
@@ -21,6 +22,7 @@ contract DeployAllContracts is
     DeployBN254SwapRequestSignatureScheme,
     DeployPermit2Relayer,
     DeployRouter,
+    DeployHookExecutor,
     DeployRUSD
 {
     function run()
@@ -30,6 +32,7 @@ contract DeployAllContracts is
             DeployBN254SwapRequestSignatureScheme,
             DeployPermit2Relayer,
             DeployRouter,
+            DeployHookExecutor,
             DeployRUSD
         )
     {
@@ -42,6 +45,7 @@ contract DeployAllContracts is
     /// @return bn254ContractUpgradeSignatureScheme The deployed instance of BN254ContractUpgradeSignatureScheme.
     /// @return permit2Relayer The deployed instance of Permit2Relayer.
     /// @return router The deployed instance of Router.
+    /// @return hookExecutor The deployed instance of HookExecutor.
     /// @return rusd The deployed instance of RUSD.
     function deployAll()
         public
@@ -50,6 +54,7 @@ contract DeployAllContracts is
             BLSBN254SignatureScheme bn254ContractUpgradeSignatureScheme,
             Permit2Relayer permit2Relayer,
             Router router,
+            HookExecutor hookExecutor,
             ERC20FaucetToken rusd
         )
     {
@@ -65,6 +70,8 @@ contract DeployAllContracts is
         router = deployRouterProxy(
             isUpgrade, address(bn254SwapRequestSignatureScheme), address(bn254ContractUpgradeSignatureScheme)
         );
+        // HookExecutor
+        hookExecutor = deployHookExecutor(address(router));
         // RUSD
         rusd = deployRUSD();
     }
