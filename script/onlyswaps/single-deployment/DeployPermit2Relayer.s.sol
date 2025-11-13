@@ -35,8 +35,9 @@ contract DeployPermit2Relayer is JsonUtils, EnvReader {
                 bytes memory permit2Code = abi.encodePacked(type(Permit2).creationCode);
 
                 vm.broadcast();
-                permit2Address = Factory(deploymentParameters.customCREATE2FactoryContractAddress)
-                    .deploy(Constants.SALT, permit2Code);
+                permit2Address = Factory(deploymentParameters.customCREATE2FactoryContractAddress).deploy(
+                    Constants.SALT, permit2Code
+                );
                 console.log("Deployed new Permit2 at: ", permit2Address);
             } else {
                 // Deploy new Permit2 contract directly

@@ -40,9 +40,7 @@ contract DeployRUSD is JsonUtils, EnvReader {
                 Factory(deploymentParameters.customCREATE2FactoryContractAddress).deploy(Constants.SALT, code);
             rusd = ERC20FaucetToken(contractAddress);
         } else {
-            rusd = new ERC20FaucetToken{
-                salt: Constants.SALT
-            }(
+            rusd = new ERC20FaucetToken{salt: Constants.SALT}(
                 deploymentParameters.tokenName,
                 deploymentParameters.tokenSymbol,
                 deploymentParameters.tokenDecimals,

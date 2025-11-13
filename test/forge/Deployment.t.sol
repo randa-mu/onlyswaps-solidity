@@ -9,6 +9,7 @@ import {Permit2Relayer} from "../../src/Router.sol";
 import {UUPSProxy} from "../../src/proxy/UUPSProxy.sol";
 import {BLSBN254SignatureScheme} from "src/signature-schemes/BLSBN254SignatureScheme.sol";
 import {ERC20Token} from "../../src/mocks/ERC20Token.sol";
+import {HookExecutor} from "src/hook-executor/HookExecutor.sol";
 
 /// @title DeploymentTest
 /// @notice Test contract for deploying and initializing Router, ERC20Token, and BN254SignatureScheme contracts for source and destination chains.
@@ -21,6 +22,10 @@ contract DeploymentTest is Test {
     Permit2Relayer public srcPermit2Relayer;
     /// @notice Destination Permit2 relayer contract
     Permit2Relayer public dstPermit2Relayer;
+    /// @notice Source HookExecutor contract
+    HookExecutor public srcHookExecutor;
+    /// @notice Destination HookExecutor contract
+    HookExecutor public dstHookExecutor;
     /// @notice Source chain ERC20 token
     ERC20Token public srcToken;
     /// @notice Destination chain ERC20 token
@@ -65,7 +70,7 @@ contract DeploymentTest is Test {
         srcContractUpgradeBLSSigVerifier =
             new BLSBN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]], "upgrade-v1");
         srcToken = new ERC20Token("Source Token", "ST", tokenDecimals);
-        srcPermit2Relayer = new Permit2Relayer(0x000000000022D473030F116dDEE9F6B43aC78BA3); // Permit2 address
+        srcPermit2Relayer = new Permit2Relayer(0x000000000022D473030F116dDEE9F6B43aC78BA3); // default Permit2 address
         // Deploy upgradable router on src chain
         Router srcRouterImplementation = new Router();
         UUPSProxy srcRouterProxy = new UUPSProxy(address(srcRouterImplementation), "");
@@ -95,25 +100,31 @@ contract DeploymentTest is Test {
             VERIFICATION_FEE_BPS
         );
 
-        /// @dev configurations
+        srcHookExecutor = new HookExecutor(address(srcRouter));
+        dstHookExecutor = new HookExecutor(address(dstRouter));
+
+        /// @dev Router configurations on both chains
+        /// @dev Set HookExecutor addresses in routers
+        vm.prank(owner);
+        srcRouter.setHookExecutor(address(srcHookExecutor));
+        vm.prank(owner);
+        dstRouter.setHookExecutor(address(dstHookExecutor));
+
         /// @dev Set Permit2 relayer addresses in routers
         vm.prank(owner);
         srcRouter.setPermit2Relayer(address(srcPermit2Relayer));
-
         vm.prank(owner);
         dstRouter.setPermit2Relayer(address(dstPermit2Relayer));
 
-        /// @devWhitelist requests to specific destination chain ids
+        /// @dev Whitelist requests to specific destination chain ids
         vm.prank(owner);
         srcRouter.permitDestinationChainId(dstChainId);
-
         vm.prank(owner);
         dstRouter.permitDestinationChainId(srcChainId);
 
         /// @dev Map token on each src chain to a token on the dst chain
         vm.prank(owner);
         srcRouter.setTokenMapping(dstChainId, address(dstToken), address(srcToken));
-
         vm.prank(owner);
         dstRouter.setTokenMapping(srcChainId, address(srcToken), address(dstToken));
     }
