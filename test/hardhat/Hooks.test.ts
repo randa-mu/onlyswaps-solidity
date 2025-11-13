@@ -909,4 +909,109 @@ describe("Hooks", function () {
       await router.connect(owner).setHookExecutor(await hookExecutor.getAddress());
     });
   });
+
+  describe("Rebalance solver", function () {
+    it("should rebalance solver and verify hooks are deleted after request fulfilled", async () => {
+      // Create token swap request on source chain with hooks
+      const amount = parseEther("10");
+      const solverFee = parseEther("1");
+      const amountToMint = amount + solverFee;
+
+      await srcToken.mint(userAddr, amountToMint);
+      await srcToken.connect(user).approve(router.getAddress(), amountToMint);
+
+      // Check initial allowance from hook executor to router is zero
+      expect(await srcToken.allowance(await hookExecutor.getAddress(), await router.getAddress())).to.equal(0);
+      // Check initial allowance from hook executor to user address is zero
+      expect(await srcToken.allowance(await hookExecutor.getAddress(), userAddr)).to.equal(0);
+
+      // Create pre and post hooks
+      const preHooks = [
+        {
+          target: await srcToken.getAddress(),
+          callData: srcToken.interface.encodeFunctionData("approve", [await router.getAddress(), amount]),
+          gasLimit: 100000,
+        },
+      ];
+
+      const postHooks = [
+        {
+          target: await dstToken.getAddress(),
+          callData: dstToken.interface.encodeFunctionData("approve", [recipientAddr, amount]),
+          gasLimit: 100000,
+        },
+      ];
+
+      const tx = await router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          amount,
+          solverFee,
+          DST_CHAIN_ID,
+          recipient.address,
+          preHooks,
+          postHooks,
+        );
+
+      let receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error("transaction has not been mined");
+      }
+
+      const routerInterface = Router__factory.createInterface();
+      const [requestId] = extractSingleLog(
+        routerInterface,
+        receipt,
+        await router.getAddress(),
+        routerInterface.getEvent("SwapRequested"),
+      );
+
+      // Verify that pre-hook was executed (approval)
+      expect(await srcToken.allowance(await hookExecutor.getAddress(), await router.getAddress())).to.equal(amount);
+
+      // Verify that post-hook was not executed yet / outside of relayTokens function
+      expect(await srcToken.allowance(await hookExecutor.getAddress(), userAddr)).to.equal(0);
+
+      // Verify hooks are stored before fulfillment
+      const swapRequestParamsBefore = await router.getSwapRequestParameters(requestId);
+      expect(swapRequestParamsBefore.preHooks.length).to.equal(1);
+      expect(swapRequestParamsBefore.postHooks.length).to.equal(1);
+      expect(swapRequestParamsBefore.preHooks[0].target).to.equal(await srcToken.getAddress());
+      expect(swapRequestParamsBefore.postHooks[0].target).to.equal(await dstToken.getAddress());
+
+      // Message signing
+      const [, messageAsG1Bytes] = await router.swapRequestParametersToBytes(requestId, solver.address);
+      const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+      const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+      const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+      const sigPointToAffine = sigPoint.toAffine();
+      const sigBytes = AbiCoder.defaultAbiCoder().encode(
+        ["uint256", "uint256"],
+        [sigPointToAffine.x, sigPointToAffine.y],
+      );
+
+      const before = await srcToken.balanceOf(solverAddr);
+
+      expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(0);
+      expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(1);
+
+      // Rebalance with valid request ID
+      await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
+
+      const after = await srcToken.balanceOf(solverAddr);
+      const swapRequestParams = await router.getSwapRequestParameters(requestId);
+      expect(after - before).to.equal(amount + swapRequestParams.solverFee - swapRequestParams.verificationFee);
+
+      expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(1);
+      expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(0);
+
+      // Verify hooks are deleted after fulfillment
+      const swapRequestParamsAfter = await router.getSwapRequestParameters(requestId);
+      expect(swapRequestParamsAfter.preHooks.length).to.equal(0);
+      expect(swapRequestParamsAfter.postHooks.length).to.equal(0);
+    });
+  });
 });
