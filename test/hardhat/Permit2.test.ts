@@ -212,7 +212,13 @@ describe("Permit2", function () {
           solverFee: solverFee.toString(),
           dstChainId: DST_CHAIN_ID,
           recipient: recipientAddr,
-          additionalData: "0x",
+          additionalData: AbiCoder.defaultAbiCoder().encode(
+            ["bytes32", "bytes32"],
+            [
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.preHooks])),
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.postHooks])),
+            ],
+          ),
         },
       };
 
@@ -314,7 +320,13 @@ describe("Permit2", function () {
           solverFee: solverFee.toString(),
           dstChainId: DST_CHAIN_ID,
           recipient: recipientAddr,
-          additionalData: "0x",
+          additionalData: AbiCoder.defaultAbiCoder().encode(
+            ["bytes32", "bytes32"],
+            [
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.preHooks])),
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.postHooks])),
+            ],
+          ),
         },
       };
 
@@ -442,7 +454,13 @@ describe("Permit2", function () {
           solverFee: solverFee.toString(),
           dstChainId: DST_CHAIN_ID,
           recipient: recipientAddr,
-          additionalData: "0x",
+          additionalData: AbiCoder.defaultAbiCoder().encode(
+            ["bytes32", "bytes32"],
+            [
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.preHooks])),
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.postHooks])),
+            ],
+          ),
         },
       };
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);

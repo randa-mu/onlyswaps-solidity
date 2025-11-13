@@ -29,6 +29,7 @@ contract HookExecutor is IHookExecutor {
     /// @dev Error indicating that the contract was not called from the Router contract.
     error NotRouter();
     error HookExecutionFailedError(address target);
+    error ZeroGasForCallExactCheck();
 
     /// @param router_ The address of the Router contract.
     constructor(address router_) {
@@ -70,6 +71,7 @@ contract HookExecutor is IHookExecutor {
     ///        Should be calibrated according to current gas costs of the EXTCODESIZE opcode
     ///        and overhead from the CallWithExactGas library.
     function setGasForCallExactCheck(uint32 gasForCallExactCheck_) external onlyRouter {
+        require(gasForCallExactCheck_ > 0, ZeroGasForCallExactCheck());
         gasForCallExactCheck = gasForCallExactCheck_;
         emit GasForCallExactCheckSet(gasForCallExactCheck);
     }

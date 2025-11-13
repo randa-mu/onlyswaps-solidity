@@ -14,13 +14,14 @@ import {
   HookExecutor__factory,
   MockAaveV3,
   MockAaveV3__factory,
+  Permit2,
 } from "../../typechain-types";
-import { extractSingleLog, EMPTY_HOOKS } from "./utils/utils";
+import { EMPTY_HOOKS, extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { AbiCoder, parseEther, keccak256, toUtf8Bytes, ZeroAddress } from "ethers";
+import { AbiCoder, parseEther, keccak256, toUtf8Bytes, ZeroAddress, MaxUint256 } from "ethers";
 import { ethers } from "hardhat";
 
 const DST_CHAIN_ID = 137;
@@ -39,6 +40,7 @@ describe("Hooks", function () {
   let dstToken: ERC20Token;
   let swapBn254SigScheme: BLSBN254SignatureScheme;
   let upgradeBn254SigScheme: BLSBN254SignatureScheme;
+  let permit2: Permit2;
   let permit2Relayer: Permit2Relayer;
   let hookExecutor: HookExecutor;
   let mockAaveV3: MockAaveV3;
@@ -96,7 +98,7 @@ describe("Hooks", function () {
       upgradeType,
     );
     // Deploy Permit2
-    const permit2 = await new Permit2__factory(owner).deploy();
+    permit2 = await new Permit2__factory(owner).deploy();
     await permit2.waitForDeployment();
     // Deploy Permit2Relayer
     permit2Relayer = await new Permit2Relayer__factory(owner).deploy(await permit2.getAddress());
@@ -140,9 +142,192 @@ describe("Hooks", function () {
     await mockAaveV3.waitForDeployment();
   });
 
-  // ...existing code...
+  describe("Create cross-chain swap request on source chain with permit and hooks embedded in (additional) witness data", function () {
+    it("should make a swap request with valid Aave V3 post hooks and permit additional data", async () => {
+      const amountIn = parseEther("10");
+      const amountOut = parseEther("10");
+      const solverFee = parseEther("1");
+      const amountToMint = amountIn + solverFee;
+      const permitNonce = 0;
+      const permitDeadline = MaxUint256;
 
-  describe.only("Hook execution in cross-chain swaps", function () {
+      const srcChainId = await router.getChainId();
+
+      await srcToken.mint(userAddr, amountToMint);
+      await srcToken.connect(user).approve(await permit2.getAddress(), MaxUint256);
+
+      // Create post hooks: approve + supply to Aave V3
+      const postHooks = [
+        {
+          target: await dstToken.getAddress(),
+          callData: dstToken.interface.encodeFunctionData("approve", [await mockAaveV3.getAddress(), amountOut]),
+          gasLimit: 100000,
+        },
+        {
+          target: await mockAaveV3.getAddress(),
+          callData: mockAaveV3.interface.encodeFunctionData("supply", [
+            await dstToken.getAddress(),
+            amountOut,
+            recipientAddr, // onBehalfOf recipient
+            0,
+          ]),
+          gasLimit: 200000,
+        },
+      ];
+
+      // Convert hooks to arrays for encoding
+      const postHooksForEncoding = postHooks.map((hook) => [hook.target, hook.callData, hook.gasLimit]);
+      const preHooksForEncoding = EMPTY_HOOKS.preHooks;
+
+      // Generate Permit2 signature with witness data including hooks
+      const permit2Domain = {
+        name: "Permit2",
+        chainId: srcChainId,
+        verifyingContract: await permit2.getAddress(),
+      };
+
+      const permit2Types = {
+        PermitWitnessTransferFrom: [
+          { name: "permitted", type: "TokenPermissions" },
+          { name: "spender", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "witness", type: "SwapRequestWitness" },
+        ],
+        TokenPermissions: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        SwapRequestWitness: [
+          { name: "router", type: "address" },
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOut", type: "uint256" },
+          { name: "solverFee", type: "uint256" },
+          { name: "dstChainId", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "additionalData", type: "bytes" },
+        ],
+      };
+
+      const permit2Message = {
+        permitted: {
+          token: await srcToken.getAddress(),
+          amount: amountToMint.toString(),
+        },
+        spender: await permit2Relayer.getAddress(),
+        nonce: permitNonce,
+        deadline: permitDeadline,
+        witness: {
+          router: await router.getAddress(),
+          tokenIn: await srcToken.getAddress(),
+          tokenOut: await dstToken.getAddress(),
+          amountIn: amountIn.toString(),
+          amountOut: amountOut.toString(),
+          solverFee: solverFee.toString(),
+          dstChainId: DST_CHAIN_ID,
+          recipient: await hookExecutor.getAddress(), // recipient is hook executor for hooks execution
+          additionalData: AbiCoder.defaultAbiCoder().encode(
+            ["bytes32", "bytes32"],
+            [
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooksForEncoding])),
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooksForEncoding])),
+            ],
+          ),
+        },
+      };
+
+      const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
+
+      // Local verification
+      const recovered = ethers.verifyTypedData(permit2Domain, permit2Types, permit2Message, signature);
+      expect(recovered.toLowerCase()).to.equal(userAddr.toLowerCase());
+
+      // On-chain verification and swap request with hooks
+      const requestCrossChainSwapPermit2Params = {
+        requester: userAddr,
+        tokenIn: await srcToken.getAddress(),
+        tokenOut: await dstToken.getAddress(),
+        amountIn: amountIn.toString(),
+        amountOut: amountOut.toString(),
+        solverFee: solverFee.toString(),
+        dstChainId: DST_CHAIN_ID,
+        recipient: await hookExecutor.getAddress(), // recipient is hook executor
+        permitNonce: permitNonce,
+        permitDeadline: permitDeadline,
+        signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: postHooks,
+      };
+
+      // Make swap request with hooks and permit
+      const swapRequestTx = await router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params);
+      await expect(swapRequestTx).to.emit(router, "SwapRequested");
+
+      // Check that source tokens were transferred to router
+      expect(await srcToken.balanceOf(await router.getAddress())).to.equal(amountToMint);
+      expect(await srcToken.balanceOf(userAddr)).to.equal(0);
+
+      // Extract request ID from the SwapRequested event
+      const receipt = await swapRequestTx.wait();
+      const [requestId] = extractSingleLog(
+        router.interface,
+        receipt!,
+        await router.getAddress(),
+        router.interface.getEvent("SwapRequested"),
+      );
+
+      // Verify that the request includes the hooks in additional data
+      const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
+      const [, , , , , fulfilled] = swapRequestReceipt;
+      expect(fulfilled).to.be.false; // Not fulfilled yet
+
+      /// get swap request data and check hooks
+      const [
+        senderFromParams,
+        recipientFromParams,
+        tokenInFromParams,
+        tokenOutFromParams,
+        amountOutFromParams,
+        srcChainIdFromParams,
+        dstChainIdFromParams,
+        verificationFeeFromParams,
+        solverFeeFromParams,
+        nonceFromParams,
+        executedFromParams,
+        requestedAtFromParams,
+        preHooksFromParams,
+        postHooksFromParams,
+      ] = await router.getSwapRequestParameters(requestId);
+
+      // Validate all parameters
+      expect(senderFromParams).to.equal(userAddr);
+      expect(recipientFromParams).to.equal(await hookExecutor.getAddress());
+      expect(tokenInFromParams).to.equal(await srcToken.getAddress());
+      expect(tokenOutFromParams).to.equal(await dstToken.getAddress());
+      expect(amountOutFromParams).to.equal(amountOut);
+      expect(srcChainIdFromParams).to.equal(srcChainId);
+      expect(dstChainIdFromParams).to.equal(DST_CHAIN_ID);
+      expect(executedFromParams).to.be.false;
+      expect(solverFeeFromParams).to.equal(solverFee);
+      expect(nonceFromParams).to.equal(1); // First swap request gets nonce 1
+      expect(requestedAtFromParams).to.be.greaterThan(0);
+      expect(verificationFeeFromParams).to.be.greaterThan(0);
+      expect(verificationFeeFromParams).to.be.lessThan(amountOutFromParams);
+
+      // Validate hooks
+      expect(preHooksFromParams).to.deep.equal(EMPTY_HOOKS.preHooks);
+      expect(postHooksFromParams.length).to.equal(postHooks.length);
+      for (let i = 0; i < postHooks.length; i++) {
+        expect(postHooksFromParams[i][0]).to.equal(postHooks[i].target);
+        expect(postHooksFromParams[i][1]).to.equal(postHooks[i].callData);
+        expect(postHooksFromParams[i][2]).to.equal(postHooks[i].gasLimit);
+      }
+    });
+  });
+
+  describe("Post-Hook execution in relayTokens", function () {
     it("should relay tokens with Aave V3 post hooks and store a receipt", async () => {
       const amount = parseEther("10");
       const srcChainId = 1;
@@ -569,7 +754,7 @@ describe("Hooks", function () {
 
       // Verify that the request was not fulfilled
       expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(false);
-      expect((await router.getFulfilledTransfers()).length).to.be.equal(0); 
+      expect((await router.getFulfilledTransfers()).length).to.be.equal(0);
 
       // Verify that tokens were not transferred to hook executor
       expect(await dstToken.balanceOf(await hookExecutor.getAddress())).to.equal(0);
@@ -599,29 +784,31 @@ describe("Hooks", function () {
       const nonce = 6; // Different nonce for unique request ID
 
       // deploy fresh router and do not set hook executor
-        const mockRouterV2Implementation = await new MockRouterV2__factory(owner).deploy();
-        await mockRouterV2Implementation.waitForDeployment();
+      const mockRouterV2Implementation = await new MockRouterV2__factory(owner).deploy();
+      await mockRouterV2Implementation.waitForDeployment();
 
-        const UUPSProxy = new ethers.ContractFactory(UUPSProxy__factory.abi, UUPSProxy__factory.bytecode, owner);
-        const mockRouterV2Proxy = await UUPSProxy.deploy(
-          await mockRouterV2Implementation.getAddress(),
-          MockRouterV2__factory.createInterface().encodeFunctionData("initialize", [
-            ownerAddr,
-            await swapBn254SigScheme.getAddress(),
-            await upgradeBn254SigScheme.getAddress(),
-            VERIFICATION_FEE_BPS,
-          ]),
-        );
-        await mockRouterV2Proxy.waitForDeployment();
+      const UUPSProxy = new ethers.ContractFactory(UUPSProxy__factory.abi, UUPSProxy__factory.bytecode, owner);
+      const mockRouterV2Proxy = await UUPSProxy.deploy(
+        await mockRouterV2Implementation.getAddress(),
+        MockRouterV2__factory.createInterface().encodeFunctionData("initialize", [
+          ownerAddr,
+          await swapBn254SigScheme.getAddress(),
+          await upgradeBn254SigScheme.getAddress(),
+          VERIFICATION_FEE_BPS,
+        ]),
+      );
+      await mockRouterV2Proxy.waitForDeployment();
 
-        // Attach Router interface to proxy address
-        const routerAttached = Router__factory.connect(await mockRouterV2Proxy.getAddress(), owner);
-        router = routerAttached;
+      // Attach Router interface to proxy address
+      const routerAttached = Router__factory.connect(await mockRouterV2Proxy.getAddress(), owner);
+      router = routerAttached;
 
-        // Router contract configuration
-        await router.connect(owner).setPermit2Relayer(await permit2Relayer.getAddress());
-        await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
-        await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
+      // Router contract configuration
+      await router.connect(owner).setPermit2Relayer(await permit2Relayer.getAddress());
+      await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
+      await router
+        .connect(owner)
+        .setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
 
       // Mint tokens for solver
       await dstToken.mint(solverAddr, amount);
@@ -689,24 +876,22 @@ describe("Hooks", function () {
 
       // Should revert because hook executor is not set (zero address)
       await expect(
-        router
-          .connect(solver)
-          .relayTokens(
-            solverRefundAddr,
-            requestId,
-            userAddr,
-            ZeroAddress, // recipient is zero address
-            await srcToken.getAddress(),
-            await dstToken.getAddress(),
-            amount,
-            srcChainId,
-            nonce,
-            EMPTY_HOOKS.preHooks,
-            postHooks, // Has post hooks but no hook executor to execute them
-          ),
-          // setting recipient to zero address reverts before reaching HookExecutor check in _executeHooks
-          // so we expect InvalidTokenOrRecipient error
-      ).to.be.revertedWithCustomError(router, "InvalidTokenOrRecipient"); 
+        router.connect(solver).relayTokens(
+          solverRefundAddr,
+          requestId,
+          userAddr,
+          ZeroAddress, // recipient is zero address
+          await srcToken.getAddress(),
+          await dstToken.getAddress(),
+          amount,
+          srcChainId,
+          nonce,
+          EMPTY_HOOKS.preHooks,
+          postHooks, // Has post hooks but no hook executor to execute them
+        ),
+        // setting recipient to zero address reverts before reaching HookExecutor check in _executeHooks
+        // so we expect InvalidTokenOrRecipient error
+      ).to.be.revertedWithCustomError(router, "InvalidTokenOrRecipient");
 
       // Verify that the request was not fulfilled
       expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(false);
@@ -724,5 +909,4 @@ describe("Hooks", function () {
       await router.connect(owner).setHookExecutor(await hookExecutor.getAddress());
     });
   });
-  describe("Hook execution in cross-chain swaps with permit", function () {});
 });

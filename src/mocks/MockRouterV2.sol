@@ -365,9 +365,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         params.executed = true;
 
         uint256 solverRefund = solverFeeRefunds[requestId];
-        delete solverFeeRefunds[requestId];
-        delete preSwapHooks[requestId];
-        delete postSwapHooks[requestId];
+        _cleanupRequestData(requestId);
 
         IERC20(params.tokenIn).safeTransfer(solver, solverRefund);
 
@@ -414,9 +412,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
         uint256 totalRefund = solverFeeRefunds[requestId] + params.verificationFee;
 
-        delete solverFeeRefunds[requestId];
-        delete preSwapHooks[requestId];
-        delete postSwapHooks[requestId];
+        _cleanupRequestData(requestId);
 
         IERC20(params.tokenIn).safeTransfer(refundRecipient, totalRefund);
 
@@ -844,16 +840,8 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     /// @notice Updates the gas limit for the callExactCheck hook executor.
     /// @param gasForCallExactCheck_ The new gas limit to set for callExactCheck.
     function setGasForCallExactCheck(uint32 gasForCallExactCheck_) external onlyAdmin {
-        // Cache the interface to avoid repeated casting
-        IHookExecutor executor = IHookExecutor(hookExecutor);
-
-        // Revert if the new gas value is the same as the current one.
-        if (gasForCallExactCheck_ == executor.gasForCallExactCheck()) {
-            revert ErrorsLib.GasForCallExactCheckAlreadySet();
-        }
-
         // Update the gas limit in the hook executor contract.
-        executor.setGasForCallExactCheck(gasForCallExactCheck_);
+        IHookExecutor(hookExecutor).setGasForCallExactCheck(gasForCallExactCheck_);
 
         // Emit an event to signal the update.
         emit GasForCallExactCheckSet(gasForCallExactCheck_);
@@ -964,8 +952,8 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
                 getChainId(),
                 swapParams.dstChainId,
                 swapParams.nonce,
-                params.preHooks,
-                params.postHooks
+                keccak256(abi.encode(params.preHooks)),
+                keccak256(abi.encode(params.postHooks))
             )
         );
 
@@ -1005,7 +993,9 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
             params.recipient,
             permit,
             params.signature,
-            hex""
+            // Encode hooks hash to pass as extra data to
+            // avoid modifying hooks after signing
+            abi.encode(keccak256(abi.encode(params.preHooks)), keccak256(abi.encode(params.postHooks)))
         );
     }
 
@@ -1128,6 +1118,15 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
             amountOut: amountOut,
             fulfilledAt: block.timestamp
         });
+    }
+
+    /// @notice Removes hooks and refund data associated with a swap request
+    ///         after processing is complete.
+    /// @param requestId The unique identifier for the swap request.
+    function _cleanupRequestData(bytes32 requestId) internal {
+        delete preSwapHooks[requestId];
+        delete postSwapHooks[requestId];
+        delete solverFeeRefunds[requestId];
     }
 
     // ---------------------- Mock Upgrade Test Functions ----------------------
