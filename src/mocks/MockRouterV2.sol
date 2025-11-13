@@ -1065,7 +1065,16 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
     ) internal view {
         bytes32 expectedRequestId = keccak256(
             abi.encode(
-                sender, recipient, tokenIn, tokenOut, amountOut, srcChainId, getChainId(), nonce, keccak256(abi.encode(preHooks)), keccak256(abi.encode(postHooks))
+                sender,
+                recipient,
+                tokenIn,
+                tokenOut,
+                amountOut,
+                srcChainId,
+                getChainId(),
+                nonce,
+                keccak256(abi.encode(preHooks)),
+                keccak256(abi.encode(postHooks))
             )
         );
         require(requestId == expectedRequestId, ErrorsLib.SwapRequestParametersMismatch());

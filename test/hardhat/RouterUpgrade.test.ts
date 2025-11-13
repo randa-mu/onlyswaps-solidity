@@ -339,7 +339,7 @@ describe("Router Upgrade", function () {
           DST_CHAIN_ID,
           await recipient.getAddress(),
           EMPTY_HOOKS.preHooks,
-          EMPTY_HOOKS.postHooks
+          EMPTY_HOOKS.postHooks,
         );
 
       // Verify the swap request nonce incremented
@@ -361,7 +361,7 @@ describe("Router Upgrade", function () {
           DST_CHAIN_ID,
           await recipient.getAddress(),
           EMPTY_HOOKS.preHooks,
-          EMPTY_HOOKS.postHooks
+          EMPTY_HOOKS.postHooks,
         );
 
       const finalcurrentSwapRequestNonce = await upgradedRouter.currentSwapRequestNonce();
@@ -708,7 +708,7 @@ describe("Router Upgrade", function () {
         permitDeadline: permitDeadline,
         signature: signature,
         preHooks: EMPTY_HOOKS.preHooks,
-        postHooks: EMPTY_HOOKS.postHooks
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       await expect(upgradedRouter.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params)).to.emit(

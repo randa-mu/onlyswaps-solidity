@@ -23,7 +23,7 @@ const DST_CHAIN_ID = 137;
 
 const VERIFICATION_FEE_BPS = 500;
 
-describe("Router", function () {
+describe("Permit2", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
   let solver: SignerWithAddress;
@@ -560,7 +560,7 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: invalidSignature,
-preHooks: EMPTY_HOOKS.preHooks,
+        preHooks: EMPTY_HOOKS.preHooks,
         postHooks: EMPTY_HOOKS.postHooks,
       };
 
@@ -1078,7 +1078,7 @@ preHooks: EMPTY_HOOKS.preHooks,
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
-preHooks: EMPTY_HOOKS.preHooks,
+        preHooks: EMPTY_HOOKS.preHooks,
         postHooks: EMPTY_HOOKS.postHooks,
       };
 
@@ -1105,19 +1105,26 @@ preHooks: EMPTY_HOOKS.preHooks,
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
       const preHooks = EMPTY_HOOKS.preHooks;
-      const postHooks = EMPTY_HOOKS.postHooks;  
-      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(
-        ["tuple(address,bytes,uint256)[]"], 
-        [preHooks]
-      ));
-      const postHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(
-        ["tuple(address,bytes,uint256)[]"], 
-        [postHooks]
-      ));
+      const postHooks = EMPTY_HOOKS.postHooks;
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooks]));
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooks]),
+      );
 
       const requestId: string = keccak256(
         abiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256", "bytes32", "bytes32"],
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
           [
             userAddr,
             recipientAddr,
@@ -1226,19 +1233,26 @@ preHooks: EMPTY_HOOKS.preHooks,
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
       const preHooks = EMPTY_HOOKS.preHooks;
-      const postHooks = EMPTY_HOOKS.postHooks;  
-      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(
-        ["tuple(address,bytes,uint256)[]"], 
-        [preHooks]
-      ));
-      const postHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(
-        ["tuple(address,bytes,uint256)[]"], 
-        [postHooks]
-      ));
+      const postHooks = EMPTY_HOOKS.postHooks;
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooks]));
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooks]),
+      );
 
       const requestId: string = keccak256(
         abiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256", "bytes32", "bytes32"],
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
           [
             userAddr,
             recipientAddr,
