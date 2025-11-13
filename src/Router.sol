@@ -94,6 +94,10 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice The HookExecutor contract address
     address public hookExecutor;
 
+    /// @notice Pre and Post hooks mapped to request ids
+    mapping(bytes32 => Hook) private prehooks;
+    mapping(bytes32 => Hook) private posthooks;
+
     /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
     modifier onlyAdmin() {
         _checkRole(ADMIN_ROLE);
@@ -882,14 +886,6 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         emit HookExecutorUpdated(_hookExecutor);
     }
 
-    /// @notice Executes an array of hooks.
-    /// @param hooks Array of hooks to execute.
-    function _executeHooks(Hook[] memory hooks) internal {
-        if (hooks.length > 0) {
-            IHookExecutor(hookExecutor).execute(hooks);
-        }
-    }
-
     /// @notice Updates the gas limit for the callExactCheck hook executor.
     /// @param gasForCallExactCheck_ The new gas limit to set for callExactCheck.
     function setGasForCallExactCheck(uint32 gasForCallExactCheck_) external onlyAdmin {
@@ -914,5 +910,13 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     function storeSwapRequest(bytes32 requestId, SwapRequestParameters memory params) internal {
         swapRequestParameters[requestId] = params;
         unfulfilledSolverRefunds.add(requestId);
+    }
+
+    /// @notice Executes an array of hooks.
+    /// @param hooks Array of hooks to execute.
+    function _executeHooks(Hook[] memory hooks) internal {
+        if (hooks.length > 0) {
+            IHookExecutor(hookExecutor).execute(hooks);
+        }
     }
 }

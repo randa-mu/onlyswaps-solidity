@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
+import {Hook} from "./IHookExecutor.sol";
+
 /// @title IRouter
 /// @author Randamu
 /// @notice Interface for a cross-chain token swap router with BLS (BN254) signature verification.
@@ -73,6 +75,23 @@ interface IRouter {
         uint256 permitNonce;
         uint256 permitDeadline;
         bytes signature;
+    }
+
+    struct SwapRequestParametersWithHooks {
+        address sender; // Address initiating the swap on the source chain
+        address recipient; // Address to receive tokens on the destination chain
+        address tokenIn; // Token address on the source chain
+        address tokenOut; // Token address on the destination chain
+        uint256 amountOut; // Amount to be received by the recipient on the destination chain
+        uint256 srcChainId; // Source chain ID where the request originated
+        uint256 dstChainId; // Destination chain ID where tokens will be delivered
+        uint256 verificationFee; // Total swap fee deducted from the amount
+        uint256 solverFee; // Portion of verificationFee paid to the solver
+        uint256 nonce; // Unique nonce to prevent replay attacks
+        bool executed; // Whether the transfer has been executed
+        uint256 requestedAt; // Timestamp when the request was created
+        Hook[] prehooks; // Pre-swap hooks to be executed before the swap
+        Hook[] posthooks; // Post-swap hooks to be executed after the swap
     }
 
     // -------- Events --------
