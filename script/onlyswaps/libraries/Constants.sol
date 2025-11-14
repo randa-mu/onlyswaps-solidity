@@ -2,7 +2,7 @@
 pragma solidity ^0.8;
 
 library Constants {
-    bytes32 constant SALT = bytes32(uint256(16));
+    bytes32 constant SALT = bytes32(uint256(123));
 
     string constant SIGNATURE_SCHEME_ID = "BN254";
 

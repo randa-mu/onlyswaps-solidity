@@ -121,10 +121,12 @@ contract DeployRouter is JsonUtils, EnvReader {
             string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),
             Constants.KEY_HOOK_EXECUTOR
         );
-        _requireNonZero(hookExecutorAddress, "HOOK_EXECUTOR_ADDRESS");
+        if (hookExecutorAddress != address(0)) {
+            console.log("Setting Hook Executor address in Router:", hookExecutorAddress);
 
-        vm.broadcast();
-        router.setHookExecutor(hookExecutorAddress);
+            vm.broadcast();
+            router.setHookExecutor(hookExecutorAddress);
+        }
     }
 
     function executeContractUpgrade(address implementation) internal returns (Router router) {

@@ -17,10 +17,10 @@ struct DeploymentParameters {
 
 library DeploymentParamsCore {
     /// @dev The name of the testnet RUSD token.
-    string constant TOKEN_NAME = "RUSD";
+    string constant TOKEN_NAME = "FUSD";
 
     /// @dev The symbol of the testnet RUSD token.
-    string constant TOKEN_SYMBOL = "RUSD";
+    string constant TOKEN_SYMBOL = "FUSD";
 
     /// @dev The number of decimals the token uses.
     uint8 constant TOKEN_DECIMALS = 6;

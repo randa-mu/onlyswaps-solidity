@@ -12,6 +12,7 @@ import {DeploymentParamsCore, DeploymentParameters} from "../../shared/deploymen
 import {Constants} from "../libraries/Constants.sol";
 
 import {HookExecutor} from "src/hook-executor/HookExecutor.sol";
+import {Router} from "src/Router.sol";
 
 /// @title DeployHookExecutor
 /// @dev Script for deploying HookExecutor contract.
@@ -24,6 +25,8 @@ contract DeployHookExecutor is JsonUtils, EnvReader {
 
     function deployHookExecutor(address routerProxy) internal returns (HookExecutor hookExecutor) {
         DeploymentParameters memory deploymentParameters = DeploymentParamsSelector.getDeploymentParams(block.chainid);
+
+        _requireNonZero(routerProxy, "ROUTER_PROXY_ADDRESS");
 
         bytes memory code = abi.encodePacked(type(HookExecutor).creationCode, abi.encode(routerProxy));
 
@@ -40,5 +43,12 @@ contract DeployHookExecutor is JsonUtils, EnvReader {
 
         string memory path = string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json");
         _storeOnlySwapsAddressInJson(path, Constants.KEY_HOOK_EXECUTOR, address(hookExecutor));
+
+        // set hook executor address in router
+        Router router = Router(routerProxy);
+        console.log("Setting Hook Executor address in Router:", address(hookExecutor));
+
+        vm.broadcast();
+        router.setHookExecutor(address(hookExecutor));
     }
 }
