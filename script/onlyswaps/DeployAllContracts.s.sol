@@ -65,6 +65,7 @@ contract DeployAllContracts is
         bn254SwapRequestSignatureScheme = deployBN254SwapRequestSignatureScheme();
         // BLSBN254SignatureScheme for contract upgrades
         bn254ContractUpgradeSignatureScheme = deployBN254ContractUpgradeSignatureScheme();
+        // Permit2Relayer
         permit2Relayer = deployPermit2Relayer();
         // Router
         router = deployRouterProxy(
