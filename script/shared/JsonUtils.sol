@@ -37,6 +37,7 @@ contract JsonUtils is Script {
         result.rusdFaucet = _readAddressFromJsonInput(filePath, "rusdFaucet");
         result.permit2RelayerAddress = _readAddressFromJsonInput(filePath, "permit2RelayerAddress");
         result.permit2Address = _readAddressFromJsonInput(filePath, "permit2Address");
+        result.hookExecutorAddress = _readAddressFromJsonInput(filePath, "hookExecutorAddress");
     }
 
     function _writeOnlySwapsStructToJson(string memory filePath, OnlySwapsDeploymentAddresses memory data) internal {
@@ -52,6 +53,7 @@ contract JsonUtils is Script {
         json = vm.serializeAddress("root", "rusdFaucet", data.rusdFaucet);
         json = vm.serializeAddress("root", "permit2RelayerAddress", data.permit2RelayerAddress);
         json = vm.serializeAddress("root", "permit2Address", data.permit2Address);
+        json = vm.serializeAddress("root", "hookExecutorAddress", data.hookExecutorAddress);
 
         vm.writeJson(json, _constructJsonFilePath(filePath));
     }
@@ -111,6 +113,8 @@ contract JsonUtils is Script {
             data.permit2RelayerAddress = value;
         } else if (hashedKey == keccak256(bytes(Constants.KEY_PERMIT2))) {
             data.permit2Address = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_HOOK_EXECUTOR))) {
+            data.hookExecutorAddress = value;
         } else {
             revert("Unsupported key in _storeOnlySwapsAddressInJson");
         }

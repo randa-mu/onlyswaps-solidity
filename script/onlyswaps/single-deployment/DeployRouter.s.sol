@@ -30,11 +30,10 @@ contract DeployRouter is JsonUtils, EnvReader {
         deployRouterProxy(isUpgrade, swapRequestBLSSigVerifier, contractUpgradeBLSSigVerifier);
     }
 
-    function deployRouterProxy(
-        bool isUpgrade,
-        address swapRequestBLSSigVerifier,
-        address contractUpgradeBLSSigVerifier
-    ) internal returns (Router router) {
+    function deployRouterProxy(bool isUpgrade, address swapRequestBLSSigVerifier, address contractUpgradeBLSSigVerifier)
+        internal
+        returns (Router router)
+    {
         require(swapRequestBLSSigVerifier != address(0), "SwapRequest BLS verifier address must not be zero");
         require(contractUpgradeBLSSigVerifier != address(0), "ContractUpgrade BLS verifier address must not be zero");
 
@@ -106,6 +105,28 @@ contract DeployRouter is JsonUtils, EnvReader {
         );
 
         console.log("Router (UUPSProxy) deployed at: ", contractAddress);
+
+        // set permit2 relayer address in router
+        address permit2RelayerAddress = _readAddressFromJsonInput(
+            string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),
+            Constants.KEY_PERMIT2_RELAYER
+        );
+        _requireNonZero(permit2RelayerAddress, "PERMIT2_RELAYER_ADDRESS");
+
+        vm.broadcast();
+        router.setPermit2Relayer(permit2RelayerAddress);
+
+        // set hook executor address in router
+        address hookExecutorAddress = _readAddressFromJsonInput(
+            string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),
+            Constants.KEY_HOOK_EXECUTOR
+        );
+        if (hookExecutorAddress != address(0)) {
+            console.log("Setting Hook Executor address in Router:", hookExecutorAddress);
+
+            vm.broadcast();
+            router.setHookExecutor(hookExecutorAddress);
+        }
     }
 
     function executeContractUpgrade(address implementation) internal returns (Router router) {

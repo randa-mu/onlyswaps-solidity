@@ -4,7 +4,7 @@ import { expect } from "chai";
 import { parseEther } from "ethers";
 import { ethers } from "hardhat";
 
-describe("ERC20FaucetToken - setFaucetAmount", function () {
+describe("ERC20FaucetToken", function () {
   let token: ERC20FaucetToken;
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;

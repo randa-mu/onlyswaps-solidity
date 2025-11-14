@@ -11,10 +11,13 @@ const config: HardhatUserConfig = {
       viaIR: true,
       optimizer: {
         enabled: true,
-        runs: 200,
+        runs: 10,
       }
     }
   },
+  gasReporter: {
+    enabled: false,
+  },  
 };
 
 export default config;

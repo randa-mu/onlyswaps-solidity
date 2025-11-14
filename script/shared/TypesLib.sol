@@ -9,4 +9,5 @@ struct OnlySwapsDeploymentAddresses {
     address bn254ContractUpgradeSignatureSchemeAddress;
     address permit2RelayerAddress;
     address permit2Address;
+    address hookExecutorAddress;
 }

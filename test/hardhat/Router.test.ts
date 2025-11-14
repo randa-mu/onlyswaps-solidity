@@ -11,7 +11,7 @@ import {
   Permit2Relayer__factory,
   Permit2__factory,
 } from "../../typechain-types";
-import { extractSingleLog } from "./utils/utils";
+import { extractSingleLog, EMPTY_HOOKS } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
@@ -127,7 +127,7 @@ describe("Router", function () {
   describe("Router Initialization", function () {
     it("should return correct contract version", async () => {
       const version = await router.getVersion();
-      expect(version).to.equal("1.1.0");
+      expect(version).to.equal("1.2.0");
     });
 
     it("should get minimum contract upgrade delay correctly", async () => {
@@ -860,9 +860,26 @@ describe("Router", function () {
 
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
+      const preHooks = EMPTY_HOOKS.preHooks;
+      const postHooks = EMPTY_HOOKS.postHooks;
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooks]));
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooks]),
+      );
       const requestId: string = keccak256(
         abiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
           [
             userAddr,
             recipientAddr,
@@ -872,6 +889,8 @@ describe("Router", function () {
             srcChainId,
             dstChainId,
             nonce,
+            preHooksHash,
+            postHooksHash,
           ],
         ),
       );
@@ -890,6 +909,8 @@ describe("Router", function () {
             amount,
             srcChainId,
             nonce,
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.emit(router, "SwapRequestFulfilled");
 
@@ -922,6 +943,8 @@ describe("Router", function () {
             amount,
             srcChainId,
             nonce,
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
 
@@ -949,9 +972,26 @@ describe("Router", function () {
 
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
+      const preHooks = EMPTY_HOOKS.preHooks;
+      const postHooks = EMPTY_HOOKS.postHooks;
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooks]));
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooks]),
+      );
       const requestId: string = keccak256(
         abiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
           [
             userAddr,
             recipientAddr,
@@ -961,6 +1001,8 @@ describe("Router", function () {
             srcChainId,
             dstChainId,
             nonce,
+            preHooksHash,
+            postHooksHash,
           ],
         ),
       );
@@ -979,6 +1021,8 @@ describe("Router", function () {
             amountOut,
             srcChainId,
             nonce,
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.emit(router, "SwapRequestFulfilled");
 
@@ -1020,9 +1064,26 @@ describe("Router", function () {
 
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
+      const preHooks = EMPTY_HOOKS.preHooks;
+      const postHooks = EMPTY_HOOKS.postHooks;
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooks]));
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooks]),
+      );
       const requestId: string = keccak256(
         abiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
           [
             userAddr,
             recipientAddr,
@@ -1032,6 +1093,8 @@ describe("Router", function () {
             srcChainId,
             dstChainId,
             nonce,
+            preHooksHash,
+            postHooksHash,
           ],
         ),
       );
@@ -1050,6 +1113,8 @@ describe("Router", function () {
             amountOut,
             srcChainId,
             nonce,
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.emit(router, "SwapRequestFulfilled");
 
@@ -1078,9 +1143,26 @@ describe("Router", function () {
 
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
+      const preHooks = EMPTY_HOOKS.preHooks;
+      const postHooks = EMPTY_HOOKS.postHooks;
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooks]));
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooks]),
+      );
       const requestId: string = keccak256(
         abiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
           [
             userAddr,
             recipientAddr,
@@ -1090,6 +1172,8 @@ describe("Router", function () {
             srcChainId,
             dstChainId,
             nonce,
+            preHooksHash,
+            postHooksHash,
           ],
         ),
       );
@@ -1106,6 +1190,8 @@ describe("Router", function () {
           amount,
           srcChainId,
           nonce,
+          EMPTY_HOOKS.preHooks,
+          EMPTY_HOOKS.postHooks,
         ),
       ).to.revertedWithCustomError(router, "ZeroAddress()");
 
@@ -1141,6 +1227,8 @@ describe("Router", function () {
             amount,
             srcChainId,
             nonce,
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.emit(router, "SwapRequestFulfilled");
 
@@ -1192,6 +1280,8 @@ describe("Router", function () {
             amount,
             srcChainId,
             nonce,
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       )
         .to.be.revertedWithCustomError(router, "SourceChainIdShouldBeDifferentFromDestination")
@@ -1248,6 +1338,8 @@ describe("Router", function () {
             amount,
             srcChainId,
             nonce,
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.be.revertedWithCustomError(router, "SwapRequestParametersMismatch()");
 
@@ -1295,9 +1387,26 @@ describe("Router", function () {
 
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
+      const preHooks = EMPTY_HOOKS.preHooks;
+      const postHooks = EMPTY_HOOKS.postHooks;
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooks]));
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooks]),
+      );
       const requestId: string = keccak256(
         abiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
           [
             userAddr,
             recipientAddr,
@@ -1307,6 +1416,8 @@ describe("Router", function () {
             srcChainId,
             dstChainId,
             nonce,
+            preHooksHash,
+            postHooksHash,
           ],
         ),
       );
@@ -1322,6 +1433,8 @@ describe("Router", function () {
           amount,
           srcChainId,
           nonce,
+          EMPTY_HOOKS.preHooks,
+          EMPTY_HOOKS.postHooks,
         );
       const receipt = await tx.wait();
 
@@ -1354,6 +1467,8 @@ describe("Router", function () {
             amount,
             sourceChainId,
             nonce,
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
 
@@ -1378,9 +1493,26 @@ describe("Router", function () {
 
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
+      const preHooks = EMPTY_HOOKS.preHooks;
+      const postHooks = EMPTY_HOOKS.postHooks;
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooks]));
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooks]),
+      );
       const requestId: string = keccak256(
         abiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
           [
             userAddr,
             recipientAddr,
@@ -1390,6 +1522,8 @@ describe("Router", function () {
             srcChainId,
             destinationChainId,
             nonce,
+            preHooksHash,
+            postHooksHash,
           ],
         ),
       );
@@ -1405,6 +1539,8 @@ describe("Router", function () {
           amount,
           srcChainId,
           nonce,
+          EMPTY_HOOKS.preHooks,
+          EMPTY_HOOKS.postHooks,
         );
       const receipt = await tx.wait();
 
@@ -1458,9 +1594,26 @@ describe("Router", function () {
 
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
+      const preHooks = EMPTY_HOOKS.preHooks;
+      const postHooks = EMPTY_HOOKS.postHooks;
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooks]));
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooks]),
+      );
       const requestId: string = keccak256(
         abiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
           [
             userAddr,
             recipientAddr,
@@ -1470,6 +1623,8 @@ describe("Router", function () {
             srcChainId,
             destinationChainId,
             nonce,
+            preHooksHash,
+            postHooksHash,
           ],
         ),
       );
@@ -1486,6 +1641,8 @@ describe("Router", function () {
           amount,
           srcChainId,
           nonce,
+          EMPTY_HOOKS.preHooks,
+          EMPTY_HOOKS.postHooks,
         );
 
       expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.true;
@@ -1707,6 +1864,8 @@ describe("Router", function () {
             amount,
             srcChainId,
             nonce,
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.be.revertedWithCustomError(router, "ZeroAmount()");
 
@@ -1760,6 +1919,8 @@ describe("Router", function () {
             amount,
             srcChainId,
             nonce,
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.be.revertedWithCustomError(router, "InvalidTokenOrRecipient()");
 

@@ -11,7 +11,7 @@ import {
   Permit2,
   Permit2__factory,
 } from "../../typechain-types";
-import { extractSingleLog } from "./utils/utils";
+import { extractSingleLog, EMPTY_HOOKS } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
@@ -23,7 +23,7 @@ const DST_CHAIN_ID = 137;
 
 const VERIFICATION_FEE_BPS = 500;
 
-describe("Router", function () {
+describe("Permit2", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
   let solver: SignerWithAddress;
@@ -212,7 +212,13 @@ describe("Router", function () {
           solverFee: solverFee.toString(),
           dstChainId: DST_CHAIN_ID,
           recipient: recipientAddr,
-          additionalData: "0x",
+          additionalData: AbiCoder.defaultAbiCoder().encode(
+            ["bytes32", "bytes32"],
+            [
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.preHooks])),
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.postHooks])),
+            ],
+          ),
         },
       };
 
@@ -242,6 +248,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       await expect(router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params)).to.emit(
@@ -312,7 +320,13 @@ describe("Router", function () {
           solverFee: solverFee.toString(),
           dstChainId: DST_CHAIN_ID,
           recipient: recipientAddr,
-          additionalData: "0x",
+          additionalData: AbiCoder.defaultAbiCoder().encode(
+            ["bytes32", "bytes32"],
+            [
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.preHooks])),
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.postHooks])),
+            ],
+          ),
         },
       };
 
@@ -330,6 +344,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       const tx = await router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params);
@@ -363,6 +379,8 @@ describe("Router", function () {
         nonce: await router.currentSwapRequestNonce(),
         executed: false,
         requestedAt: requestedAt,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       const expectedRequestId = await router.getSwapRequestId(swapParameters);
@@ -436,7 +454,13 @@ describe("Router", function () {
           solverFee: solverFee.toString(),
           dstChainId: DST_CHAIN_ID,
           recipient: recipientAddr,
-          additionalData: "0x",
+          additionalData: AbiCoder.defaultAbiCoder().encode(
+            ["bytes32", "bytes32"],
+            [
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.preHooks])),
+              keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [EMPTY_HOOKS.postHooks])),
+            ],
+          ),
         },
       };
       const signature = await user.signTypedData(permit2Domain, permit2Types, permit2Message);
@@ -452,6 +476,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
       const tx = await router.requestCrossChainSwapPermit2(requestCrossChainSwapPermit2Params);
 
@@ -552,6 +578,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: invalidSignature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       await expect(
@@ -637,6 +665,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       await expect(
@@ -721,6 +751,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       await expect(
@@ -804,6 +836,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       await expect(
@@ -887,6 +921,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       await expect(
@@ -971,6 +1007,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       await expect(
@@ -1058,6 +1096,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       await expect(
@@ -1082,9 +1122,27 @@ describe("Router", function () {
 
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
+      const preHooks = EMPTY_HOOKS.preHooks;
+      const postHooks = EMPTY_HOOKS.postHooks;
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooks]));
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooks]),
+      );
+
       const requestId: string = keccak256(
         abiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
           [
             userAddr,
             recipientAddr,
@@ -1094,6 +1152,8 @@ describe("Router", function () {
             srcChainId,
             dstChainId,
             nonce,
+            preHooksHash,
+            postHooksHash,
           ],
         ),
       );
@@ -1161,6 +1221,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       // Relay tokens using Permit2 and fulfill the swap request
@@ -1188,9 +1250,27 @@ describe("Router", function () {
 
       // Pre-compute valid requestId
       const abiCoder = new AbiCoder();
+      const preHooks = EMPTY_HOOKS.preHooks;
+      const postHooks = EMPTY_HOOKS.postHooks;
+      const preHooksHash = keccak256(AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooks]));
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooks]),
+      );
+
       const requestId: string = keccak256(
         abiCoder.encode(
-          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
           [
             userAddr,
             recipientAddr,
@@ -1200,6 +1280,8 @@ describe("Router", function () {
             srcChainId,
             dstChainId,
             nonce,
+            preHooksHash,
+            postHooksHash,
           ],
         ),
       );
@@ -1267,6 +1349,8 @@ describe("Router", function () {
         permitNonce: permitNonce,
         permitDeadline: permitDeadline,
         signature: signature,
+        preHooks: EMPTY_HOOKS.preHooks,
+        postHooks: EMPTY_HOOKS.postHooks,
       };
 
       // Relay tokens using Permit2 and fulfill the swap request
