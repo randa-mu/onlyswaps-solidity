@@ -852,7 +852,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice Stores a swap request in the contract state and marks it as unfulfilled for solver refunds.
     /// @param requestId The unique identifier for the swap request.
     /// @param params The swap request parameters to store.
-    function storeSwapRequest(bytes32 requestId, SwapRequestParameters memory params) internal {
+    function _storeSwapRequest(bytes32 requestId, SwapRequestParameters memory params) internal {
         swapRequestParameters[requestId] = params;
         unfulfilledSolverRefunds.add(requestId);
     }
@@ -861,7 +861,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param requestId The unique identifier for the swap request.
     /// @param preHooks Array of pre-swap hooks to store.
     /// @param postHooks Array of post-swap hooks to store.
-    function storeHooks(bytes32 requestId, Hook[] memory preHooks, Hook[] memory postHooks) internal {
+    function _storeHooks(bytes32 requestId, Hook[] memory preHooks, Hook[] memory postHooks) internal {
         preSwapHooks[requestId] = preHooks;
         postSwapHooks[requestId] = postHooks;
     }
