@@ -349,7 +349,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         params.executed = true;
 
         uint256 solverRefund = solverFeeRefunds[requestId];
-        _cleanupRequestData(requestId);
+        _removeHooks(requestId);
 
         IERC20(params.tokenIn).safeTransfer(solver, solverRefund);
 
@@ -396,7 +396,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
 
         uint256 totalRefund = solverFeeRefunds[requestId] + params.verificationFee;
 
-        _cleanupRequestData(requestId);
+        _removeHooks(requestId);
 
         IERC20(params.tokenIn).safeTransfer(refundRecipient, totalRefund);
 
@@ -512,6 +512,7 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
             recipient: params.recipient,
             tokenIn: params.tokenIn,
             tokenOut: params.tokenOut,
+            amountIn: solverFeeRefunds[requestId] + params.verificationFee - params.solverFee,
             amountOut: params.amountOut,
             srcChainId: params.srcChainId,
             dstChainId: params.dstChainId,
@@ -1134,13 +1135,12 @@ contract MockRouterV2 is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessC
         });
     }
 
-    /// @notice Removes hooks and refund data associated with a swap request
+    /// @notice Removes hooks associated with a swap request
     ///         after processing is complete.
     /// @param requestId The unique identifier for the swap request.
-    function _cleanupRequestData(bytes32 requestId) internal {
+    function _removeHooks(bytes32 requestId) internal {
         delete preSwapHooks[requestId];
         delete postSwapHooks[requestId];
-        delete solverFeeRefunds[requestId];
     }
 
     /// @notice Builds swap request parameters based on the provided details

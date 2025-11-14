@@ -371,6 +371,7 @@ describe("Permit2", function () {
         recipient: recipientAddr,
         tokenIn: await srcToken.getAddress(),
         tokenOut: await dstToken.getAddress(),
+        amountIn: amountIn.toString(),
         amountOut: amountOut.toString(),
         srcChainId: srcChainId,
         dstChainId: DST_CHAIN_ID,
