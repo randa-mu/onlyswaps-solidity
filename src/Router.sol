@@ -17,6 +17,10 @@ import {ErrorsLib} from "./libraries/ErrorsLib.sol";
 
 import {IRouter} from "./interfaces/IRouter.sol";
 
+import {Permit2Relayer} from "./Permit2Relayer.sol";
+import {IPermit2} from "uniswap-permit2/interfaces/IPermit2.sol";
+import {ISignatureTransfer} from "uniswap-permit2/interfaces/ISignatureTransfer.sol";
+
 /// @title Router Contract for Cross-Chain Token Swaps
 /// @author Randamu
 /// @notice This contract facilitates cross-chain token swaps with fee management and BLS signature verification.
@@ -29,7 +33,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     /// @notice Basis points divisor
-    uint256 public constant BPS_DIVISOR = 10_000; // 100%
+    uint256 public constant BPS_DIVISOR = 10_000; // Basis points divisor (1 BPS = 0.01%)
 
     /// @notice Max total fee in BPS
     uint256 public constant MAX_FEE_BPS = 5_000; // 50%
@@ -79,6 +83,12 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice Unique nonce for each swap request
     uint256 public currentSwapRequestNonce;
 
+    /// @notice Refund amounts for solvers per request ID
+    mapping(bytes32 => uint256) public solverFeeRefunds;
+
+    /// @notice The Permit2Relayer contract
+    Permit2Relayer public permit2Relayer;
+
     /// @notice Ensures that only an account with the ADMIN_ROLE can execute a function.
     modifier onlyAdmin() {
         _checkRole(ADMIN_ROLE);
@@ -120,7 +130,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice Initiates a swap request
     /// @param tokenIn The address of the token deposited on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
-    /// @param amount Amount of tokens to swap
+    /// @param amountIn Amount of tokens to swap
+    /// @param amountOut Expected amount of tokens to be received on the destination chain
     /// @param solverFee The solver fee (in token units) to be paid by the user
     /// @param dstChainId Target chain ID
     /// @param recipient Address to receive swaped tokens on target chain
@@ -128,22 +139,20 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     function requestCrossChainSwap(
         address tokenIn,
         address tokenOut,
-        uint256 amount,
+        uint256 amountIn,
+        uint256 amountOut,
         uint256 solverFee,
         uint256 dstChainId,
         address recipient
     ) external nonReentrant returns (bytes32 requestId) {
-        require(amount > 0, ErrorsLib.ZeroAmount());
+        require(amountIn > 0 && amountOut > 0, ErrorsLib.ZeroAmount());
         require(recipient != address(0), ErrorsLib.ZeroAddress());
         require(allowedDstChainIds[dstChainId], ErrorsLib.DestinationChainIdNotSupported(dstChainId));
         require(isDstTokenMapped(tokenIn, dstChainId, tokenOut), ErrorsLib.TokenNotSupported());
 
-        // Calculate the swap fee amount (for the protocol) to be deducted from the total fee
-        // based on the total fee provided
-        (uint256 verificationFeeAmount, uint256 amountOut) = getVerificationFeeAmount(amount);
-        // Calculate the solver fee by subtracting the swap fee from the total fee
-        // The solver fee is the remaining portion of the fee
-        // The total fee must be greater than the swap fee to ensure the solver is compensated
+        // Calculate the swap fee (for the protocol) to be deducted from the amountIn
+        (uint256 verificationFeeAmount, uint256 amountInAfterFee) = getVerificationFeeAmount(amountIn);
+        // Ensure the solver fee is greater than zero
         require(solverFee > 0, ErrorsLib.FeeTooLow());
 
         // Accumulate the total verification fees balance for the specified token
@@ -154,16 +163,84 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         nonceToRequester[nonce] = msg.sender;
 
         SwapRequestParameters memory params = buildSwapRequestParameters(
-            tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+            msg.sender, tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
         );
 
         requestId = getSwapRequestId(params);
 
         storeSwapRequest(requestId, params);
 
-        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amount + solverFee);
+        // Track the solver refund per request id
+        solverFeeRefunds[requestId] = amountInAfterFee + params.solverFee;
+
+        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn + solverFee);
 
         emit SwapRequested(requestId, getChainId(), dstChainId);
+    }
+
+    /// @notice Initiates a swap request using Permit2 for token transfer approval
+    /// @param params Struct containing all parameters for the swap request
+    /// @return requestId The unique swap request id
+    function requestCrossChainSwapPermit2(RequestCrossChainSwapPermit2Params calldata params)
+        external
+        nonReentrant
+        returns (bytes32 requestId)
+    {
+        require(params.amountIn > 0 && params.amountOut > 0, ErrorsLib.ZeroAmount());
+        require(params.recipient != address(0), ErrorsLib.ZeroAddress());
+        require(allowedDstChainIds[params.dstChainId], ErrorsLib.DestinationChainIdNotSupported(params.dstChainId));
+        require(isDstTokenMapped(params.tokenIn, params.dstChainId, params.tokenOut), ErrorsLib.TokenNotSupported());
+
+        (uint256 verificationFeeAmount, uint256 amountInAfterFee) = getVerificationFeeAmount(params.amountIn);
+        require(params.solverFee > 0, ErrorsLib.FeeTooLow());
+
+        totalVerificationFeeBalance[params.tokenIn] += verificationFeeAmount;
+
+        uint256 nonce = ++currentSwapRequestNonce;
+        nonceToRequester[nonce] = params.requester;
+
+        SwapRequestParameters memory swapParams = buildSwapRequestParameters(
+            params.requester,
+            params.tokenIn,
+            params.tokenOut,
+            params.amountOut,
+            verificationFeeAmount,
+            params.solverFee,
+            params.dstChainId,
+            params.recipient,
+            nonce
+        );
+
+        requestId = getSwapRequestId(swapParams);
+
+        storeSwapRequest(requestId, swapParams);
+
+        // Track the solver refund per request id
+        solverFeeRefunds[requestId] = amountInAfterFee + params.solverFee;
+
+        IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            nonce: params.permitNonce,
+            deadline: params.permitDeadline,
+            permitted: ISignatureTransfer.TokenPermissions({
+                token: params.tokenIn, amount: params.amountIn + params.solverFee
+            })
+        });
+        permit2Relayer.requestCrossChainSwapPermit2(
+            address(this),
+            params.requester,
+            params.tokenIn,
+            params.tokenOut,
+            params.amountIn,
+            params.amountOut,
+            params.solverFee,
+            params.dstChainId,
+            params.recipient,
+            permit,
+            params.signature,
+            hex""
+        );
+
+        emit SwapRequested(requestId, getChainId(), params.dstChainId);
     }
 
     /// @notice Updates the solver fee for an unfulfilled swap request
@@ -178,6 +255,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         IERC20(params.tokenIn).safeTransferFrom(msg.sender, address(this), newFee - params.solverFee);
 
         // Update the fees in the stored params
+        solverFeeRefunds[requestId] = solverFeeRefunds[requestId] - params.solverFee + newFee;
         params.solverFee = newFee;
 
         // Emit event if needed for tracking fee updates
@@ -254,6 +332,71 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         emit SwapRequestFulfilled(requestId, srcChainId, getChainId());
     }
 
+    /// @notice Relays tokens using Permit2 for token transfer approval and stores a receipt
+    /// @param params Struct containing all parameters for relaying tokens
+    function relayTokensPermit2(RelayTokensPermit2Params calldata params) external nonReentrant {
+        require(!swapRequestReceipts[params.requestId].fulfilled, ErrorsLib.AlreadyFulfilled());
+        require(
+            params.tokenIn != address(0) && params.tokenOut != address(0) && params.sender != address(0)
+                && params.recipient != address(0),
+            ErrorsLib.InvalidTokenOrRecipient()
+        );
+        require(params.solverRefundAddress != address(0), ErrorsLib.ZeroAddress());
+        require(params.amountOut > 0, ErrorsLib.ZeroAmount());
+        require(
+            params.srcChainId != getChainId(),
+            ErrorsLib.SourceChainIdShouldBeDifferentFromDestination(params.srcChainId, getChainId())
+        );
+        require(
+            params.requestId
+                == keccak256(
+                    abi.encode(
+                        params.sender,
+                        params.recipient,
+                        params.tokenIn,
+                        params.tokenOut,
+                        params.amountOut,
+                        params.srcChainId,
+                        // the relayTokens function is called on the destination chain, so dstChainId is the current chain ID
+                        getChainId(),
+                        params.nonce
+                    )
+                ),
+            ErrorsLib.SwapRequestParametersMismatch()
+        );
+
+        fulfilledTransfers.add(params.requestId);
+
+        IPermit2.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            nonce: params.permitNonce,
+            deadline: params.permitDeadline,
+            permitted: ISignatureTransfer.TokenPermissions({token: params.tokenOut, amount: params.amountOut})
+        });
+        permit2Relayer.relayTokensPermit2(
+            params.requestId,
+            params.solver,
+            params.recipient,
+            abi.encode(params.solverRefundAddress),
+            permit,
+            params.signature
+        );
+
+        swapRequestReceipts[params.requestId] = SwapRequestReceipt({
+            requestId: params.requestId,
+            srcChainId: params.srcChainId,
+            dstChainId: getChainId(),
+            tokenIn: params.tokenIn,
+            tokenOut: params.tokenOut, // tokenOut is the token being received on the destination chain
+            fulfilled: true, // indicates the transfer was fulfilled, prevents double fulfillment
+            solver: params.solverRefundAddress,
+            recipient: params.recipient,
+            amountOut: params.amountOut,
+            fulfilledAt: block.timestamp
+        });
+
+        emit SwapRequestFulfilled(params.requestId, params.srcChainId, getChainId());
+    }
+
     /// @notice Called with a BLS signature to approve a solver’s fulfillment of a swap request.
     /// @notice The solver is sent the amount transferred to the recipient wallet on the destination chain
     ///         plus the solver fee.
@@ -276,7 +419,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         unfulfilledSolverRefunds.remove(requestId);
         params.executed = true;
 
-        uint256 solverRefund = params.amountOut + params.solverFee;
+        uint256 solverRefund = solverFeeRefunds[requestId];
+        delete solverFeeRefunds[requestId];
 
         IERC20(params.tokenIn).safeTransfer(solver, solverRefund);
 
@@ -287,7 +431,6 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param requestId The unique ID of the swap request to cancel
     function stageSwapRequestCancellation(bytes32 requestId) external nonReentrant {
         SwapRequestParameters storage params = swapRequestParameters[requestId];
-        require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
         require(params.sender == msg.sender, ErrorsLib.UnauthorisedCaller());
         require(!params.executed, ErrorsLib.AlreadyFulfilled());
         require(swapRequestCancellationInitiatedAt[requestId] == 0, ErrorsLib.SwapRequestCancellationAlreadyStaged());
@@ -322,7 +465,9 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
         // Do NOT add to fulfilledTransfers or fulfilledSolverRefunds, since this is a cancellation/refund
 
-        uint256 totalRefund = params.amountOut + params.verificationFee + params.solverFee;
+        uint256 totalRefund = solverFeeRefunds[requestId] + params.verificationFee;
+
+        delete solverFeeRefunds[requestId];
 
         IERC20(params.tokenIn).safeTransfer(refundRecipient, totalRefund);
 
@@ -360,6 +505,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     }
 
     /// @notice Builds swap request parameters based on the provided details
+    /// @param sender The address initiating the swap request
     /// @param tokenIn The address of the input token on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountOut The amount of tokens to be swapped
@@ -370,6 +516,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param nonce A unique nonce for the request
     /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
+        address sender,
         address tokenIn,
         address tokenOut,
         uint256 amountOut,
@@ -380,7 +527,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         uint256 nonce
     ) public view returns (SwapRequestParameters memory swapRequestParams) {
         swapRequestParams = SwapRequestParameters({
-            sender: msg.sender,
+            sender: sender,
             recipient: recipient,
             tokenIn: tokenIn,
             tokenOut: tokenOut,
@@ -672,6 +819,14 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         );
         swapRequestCancellationWindow = newSwapRequestCancellationWindow;
         emit SwapRequestCancellationWindowUpdated(newSwapRequestCancellationWindow);
+    }
+
+    /// @notice Sets the Permit2Relayer contract address
+    /// @param _permit2Relayer The Permit2Relayer contract address
+    function setPermit2Relayer(address _permit2Relayer) external onlyAdmin {
+        require(_permit2Relayer != address(0), ErrorsLib.ZeroAddress());
+        permit2Relayer = Permit2Relayer(_permit2Relayer);
+        emit Permit2RelayerUpdated(_permit2Relayer);
     }
 
     // ---------------------- Scheduled Upgrade Functions ----------------------

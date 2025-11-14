@@ -13,7 +13,8 @@ library DeploymentParamsAvalanche {
             tokenDecimals: DeploymentParamsCore.TOKEN_DECIMALS,
             faucetAmount: DeploymentParamsCore.FAUCET_AMOUNT,
             verificationFeeBps: DeploymentParamsCore.VERIFICATION_FEE_BPS,
-            customCREATE2FactoryContractAddress: DeploymentParamsCore.DEFAULT_CREATE2_DEPLOYER
+            customCREATE2FactoryContractAddress: DeploymentParamsCore.DEFAULT_CREATE2_DEPLOYER,
+            permit2Address: DeploymentParamsCore.DEFAULT_PERMIT2_ADDRESS
         });
     }
 }

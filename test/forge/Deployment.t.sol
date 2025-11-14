@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {BLS} from "bls-solidity/libraries/BLS.sol";
 
 import {Router} from "../../src/Router.sol";
+import {Permit2Relayer} from "../../src/Router.sol";
 import {UUPSProxy} from "../../src/proxy/UUPSProxy.sol";
 import {BLSBN254SignatureScheme} from "src/signature-schemes/BLSBN254SignatureScheme.sol";
 import {ERC20Token} from "../../src/mocks/ERC20Token.sol";
@@ -16,6 +17,10 @@ contract DeploymentTest is Test {
     Router public srcRouter;
     /// @notice Destination chain Router contract
     Router public dstRouter;
+    /// @notice Source Permit2 relayer contract
+    Permit2Relayer public srcPermit2Relayer;
+    /// @notice Destination Permit2 relayer contract
+    Permit2Relayer public dstPermit2Relayer;
     /// @notice Source chain ERC20 token
     ERC20Token public srcToken;
     /// @notice Destination chain ERC20 token
@@ -60,6 +65,7 @@ contract DeploymentTest is Test {
         srcContractUpgradeBLSSigVerifier =
             new BLSBN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]], "upgrade-v1");
         srcToken = new ERC20Token("Source Token", "ST", tokenDecimals);
+        srcPermit2Relayer = new Permit2Relayer(0x000000000022D473030F116dDEE9F6B43aC78BA3); // Permit2 address
         // Deploy upgradable router on src chain
         Router srcRouterImplementation = new Router();
         UUPSProxy srcRouterProxy = new UUPSProxy(address(srcRouterImplementation), "");
@@ -77,6 +83,7 @@ contract DeploymentTest is Test {
         dstContractUpgradeBLSSigVerifier =
             new BLSBN254SignatureScheme([pk.x[1], pk.x[0]], [pk.y[1], pk.y[0]], "upgrade-v1");
         dstToken = new ERC20Token("Destination Token", "DT", tokenDecimals);
+        dstPermit2Relayer = new Permit2Relayer(0x000000000022D473030F116dDEE9F6B43aC78BA3); // Permit2 address
         // Deploy upgradable router on dst chain
         Router dstRouterImplementation = new Router();
         UUPSProxy dstRouterProxy = new UUPSProxy(address(dstRouterImplementation), "");
@@ -89,7 +96,14 @@ contract DeploymentTest is Test {
         );
 
         /// @dev configurations
-        /// Whitelist requests to specific destination chain ids
+        /// @dev Set Permit2 relayer addresses in routers
+        vm.prank(owner);
+        srcRouter.setPermit2Relayer(address(srcPermit2Relayer));
+
+        vm.prank(owner);
+        dstRouter.setPermit2Relayer(address(dstPermit2Relayer));
+
+        /// @devWhitelist requests to specific destination chain ids
         vm.prank(owner);
         srcRouter.permitDestinationChainId(dstChainId);
 

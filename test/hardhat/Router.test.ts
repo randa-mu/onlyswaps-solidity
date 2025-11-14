@@ -7,6 +7,9 @@ import {
   BLSBN254SignatureScheme,
   BLSBN254SignatureScheme__factory,
   UUPSProxy__factory,
+  Permit2Relayer,
+  Permit2Relayer__factory,
+  Permit2__factory,
 } from "../../typechain-types";
 import { extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
@@ -32,6 +35,7 @@ describe("Router", function () {
   let dstToken: ERC20Token;
   let swapBn254SigScheme: BLSBN254SignatureScheme;
   let upgradeBn254SigScheme: BLSBN254SignatureScheme;
+  let permit2Relayer: Permit2Relayer;
 
   let privKeyBytes: Uint8Array;
   let ownerAddr: string, solverAddr: string, solverRefundAddr: string, userAddr: string, recipientAddr: string;
@@ -85,6 +89,11 @@ describe("Router", function () {
       [y.c0, y.c1],
       upgradeType,
     );
+    // Deploy Permit2
+    const permit2 = await new Permit2__factory(owner).deploy();
+    await permit2.waitForDeployment();
+    // Deploy Permit2Relayer
+    permit2Relayer = await new Permit2Relayer__factory(owner).deploy(await permit2.getAddress());
 
     const Router = new ethers.ContractFactory(Router__factory.abi, Router__factory.bytecode, owner);
 
@@ -110,6 +119,7 @@ describe("Router", function () {
     router = routerAttached;
 
     // Router contract configuration
+    await router.connect(owner).setPermit2Relayer(await permit2Relayer.getAddress());
     await router.connect(owner).permitDestinationChainId(DST_CHAIN_ID);
     await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await dstToken.getAddress(), await srcToken.getAddress());
   });
@@ -118,6 +128,11 @@ describe("Router", function () {
     it("should return correct contract version", async () => {
       const version = await router.getVersion();
       expect(version).to.equal("1.1.0");
+    });
+
+    it("should get minimum contract upgrade delay correctly", async () => {
+      const minDelay = await router.getMinimumContractUpgradeDelay();
+      expect(minDelay).to.equal(172800); // 2 days in seconds
     });
 
     it("should revert initialize if _verificationFeeBps is zero or exceeds MAX_FEE_BPS", async () => {
@@ -203,6 +218,20 @@ describe("Router", function () {
       await expect(
         router.connect(user).removeTokenMapping(dstChainId, dstToken, srcToken),
       ).to.be.revertedWithCustomError(router, "AccessControlUnauthorizedAccount");
+    });
+
+    it("should get token mapping correctly", async () => {
+      const dstChainId = DST_CHAIN_ID;
+      const isMapped = await router.isDstTokenMapped(
+        await srcToken.getAddress(),
+        dstChainId,
+        await dstToken.getAddress(),
+      );
+      expect(isMapped).to.be.true;
+
+      expect(await router.getTokenMapping(await srcToken.getAddress(), dstChainId)).to.deep.equal([
+        await dstToken.getAddress(),
+      ]);
     });
 
     it("should revert removeTokenMapping if destination chain is not permitted", async () => {
@@ -315,8 +344,8 @@ describe("Router", function () {
     });
   });
 
-  describe("Token Swap Requests", function () {
-    it("should initiate a swap request and emit message", async () => {
+  describe("Swap Requests", function () {
+    it("should make a swap request and emit message", async () => {
       const amount = parseEther("10");
       const solverFee = parseEther("1");
       const amountToMint = amount + solverFee;
@@ -331,11 +360,99 @@ describe("Router", function () {
             await srcToken.getAddress(),
             await dstToken.getAddress(),
             amount,
+            amount,
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
           ),
       ).to.emit(router, "SwapRequested");
+    });
+
+    it("should make a swap request and emit message with 6 decimals src token and 18 decimals dst token", async () => {
+      // Deploy tokens with different decimals
+      const srcToken6Decimals = await new ERC20Token__factory(owner).deploy("RUSD6", "RUSD6", 6);
+      const dstToken18Decimals = await new ERC20Token__factory(owner).deploy("RUSD18", "RUSD18", 18);
+      // Set up token mapping
+      await router
+        .connect(owner)
+        .setTokenMapping(DST_CHAIN_ID, await dstToken18Decimals.getAddress(), await srcToken6Decimals.getAddress());
+      const amountIn = BigInt(10_000_000); // 10 RUSD6 with 6 decimals
+      const amountOut = BigInt(10_000_000_000_000_000_000); // 10 RUSD18 with 18 decimals
+      const solverFee = BigInt(1_000_000); // 1 RUSD6 with 6 decimals
+      await srcToken6Decimals.mint(userAddr, amountIn + solverFee);
+      await srcToken6Decimals.connect(user).approve(router.getAddress(), amountIn + solverFee);
+      // Make swap request
+      const tx = await router
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken6Decimals.getAddress(),
+          await dstToken18Decimals.getAddress(),
+          amountIn,
+          amountOut,
+          solverFee,
+          DST_CHAIN_ID,
+          recipientAddr,
+        );
+
+      let receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error("transaction has not been mined");
+      }
+
+      const routerInterface = Router__factory.createInterface();
+      const [requestId] = extractSingleLog(
+        routerInterface,
+        receipt,
+        await router.getAddress(),
+        routerInterface.getEvent("SwapRequested"),
+      );
+
+      // check request parameters
+      const swapRequestParams = await router.getSwapRequestParameters(requestId);
+      expect(swapRequestParams.amountOut).to.equal(amountOut);
+    });
+
+    it("should make a swap request and emit message with 18 decimals src token and 6 decimals dst token", async () => {
+      // Deploy tokens with different decimals
+      const srcToken18Decimals = await new ERC20Token__factory(owner).deploy("RUSD18", "RUSD18", 18);
+      const dstToken6Decimals = await new ERC20Token__factory(owner).deploy("RUSD6", "RUSD6", 6);
+
+      // Set up token mapping
+      await router
+        .connect(owner)
+        .setTokenMapping(DST_CHAIN_ID, await dstToken6Decimals.getAddress(), await srcToken18Decimals.getAddress());
+      const amountIn = BigInt(10_000_000_000_000_000_000); // 10 RUSD18 with 18 decimals
+      const amountOut = BigInt(10_000_000); // 10 RUSD6 with 6 decimals
+      const solverFee = BigInt(1_000_000_000_000_000); // 0.001 RUSD18 with 18 decimals
+      await srcToken18Decimals.mint(userAddr, amountIn + solverFee);
+      await srcToken18Decimals.connect(user).approve(router.getAddress(), amountIn + solverFee);
+      // Make swap request
+      const tx = await router
+
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken18Decimals.getAddress(),
+          await dstToken6Decimals.getAddress(),
+          amountIn,
+          amountOut,
+          solverFee,
+          DST_CHAIN_ID,
+          recipientAddr,
+        );
+      let receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error("transaction has not been mined");
+      }
+      const routerInterface = Router__factory.createInterface();
+      const [requestId] = extractSingleLog(
+        routerInterface,
+        receipt,
+        await router.getAddress(),
+        routerInterface.getEvent("SwapRequested"),
+      );
+      // check request parameters
+      const swapRequestParams = await router.getSwapRequestParameters(requestId);
+      expect(swapRequestParams.amountOut).to.equal(amountOut);
     });
 
     it("should revert if fee is too low", async () => {
@@ -352,6 +469,7 @@ describe("Router", function () {
           .requestCrossChainSwap(
             await srcToken.getAddress(),
             await dstToken.getAddress(),
+            amount,
             amount,
             solverFee,
             DST_CHAIN_ID,
@@ -373,6 +491,7 @@ describe("Router", function () {
         .requestCrossChainSwap(
           await srcToken.getAddress(),
           await dstToken.getAddress(),
+          amount,
           amount,
           solverFee,
           DST_CHAIN_ID,
@@ -420,7 +539,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Verification Fee Withdrawals, Rebalancing and Relay", function () {
+  describe("Verification Fee Withdrawals, Solver Rebalancing and Relay Tokens", function () {
     it("should block non-owner from withdrawing fees and revert with AccessControlUnauthorizedAccount for caller address and ADMIN_ROLE", async () => {
       await expect(router.connect(user).withdrawVerificationFee(await srcToken.getAddress(), user.address)).to.be
         .reverted;
@@ -439,6 +558,7 @@ describe("Router", function () {
         .requestCrossChainSwap(
           await srcToken.getAddress(),
           await dstToken.getAddress(),
+          amount,
           amount,
           solverFee,
           DST_CHAIN_ID,
@@ -490,6 +610,7 @@ describe("Router", function () {
         .requestCrossChainSwap(
           await srcToken.getAddress(),
           await dstToken.getAddress(),
+          amount,
           amount,
           solverFee,
           DST_CHAIN_ID,
@@ -558,6 +679,168 @@ describe("Router", function () {
       await expect(
         router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes),
       ).to.be.revertedWithCustomError(router, "AlreadyFulfilled()");
+    });
+
+    it("should rebalance solver and transfer correct amount in the src token decimals when src token is 6 decimals and dst token is 8 decimals", async () => {
+      // Deploy tokens with different decimals
+      const srcToken6Decimals = await new ERC20Token__factory(owner).deploy("RUSD6", "RUSD6", 6);
+      const dstToken8Decimals = await new ERC20Token__factory(owner).deploy("RUSD8", "RUSD8", 8);
+      // Set up token mapping
+      await router
+        .connect(owner)
+        .setTokenMapping(DST_CHAIN_ID, await dstToken8Decimals.getAddress(), await srcToken6Decimals.getAddress());
+      // Create token swap request on source chain
+      const amountIn = BigInt(10_000_000); // 10 RUSD6 with 6 decimals
+      const solverFee = BigInt(1_000_000); // 1 RUSD6 with 6 decimals
+      const amountOut = BigInt(1_000_000_000); // 10 RUSD8 with 8 decimals
+      const amountToMint = amountIn + solverFee;
+      await srcToken6Decimals.mint(userAddr, amountToMint);
+      await srcToken6Decimals.connect(user).approve(router.getAddress(), amountToMint);
+      const tx = await router
+
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken6Decimals.getAddress(),
+          await dstToken8Decimals.getAddress(),
+          amountIn,
+          amountOut,
+          solverFee,
+          DST_CHAIN_ID,
+          recipient.address,
+        );
+      let receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error("transaction has not been mined");
+      }
+      const routerInterface = Router__factory.createInterface();
+      const [requestId] = extractSingleLog(
+        routerInterface,
+        receipt,
+        await router.getAddress(),
+        routerInterface.getEvent("SwapRequested"),
+      );
+      // Message signing
+      const swapRequestParams = await router.getSwapRequestParameters(requestId);
+      const [, messageAsG1Bytes] = await router.swapRequestParametersToBytes(requestId, solver.address);
+      // Remove "0x" prefix if present
+      const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+      // Unmarshall messageAsG1Bytes to a G1 point first
+      const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+      // Sign message
+      const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+
+      // Serialize signature (x, y) for EVM
+      const sigPointToAffine = sigPoint.toAffine();
+      const sigBytes = AbiCoder.defaultAbiCoder().encode(
+        ["uint256", "uint256"],
+        [sigPointToAffine.x, sigPointToAffine.y],
+      );
+
+      // ensure that the router has enough liquidity to pay solver
+      expect(await srcToken6Decimals.balanceOf(await router.getAddress())).to.be.greaterThanOrEqual(
+        await router.solverFeeRefunds(requestId),
+      );
+
+      expect(await srcToken6Decimals.balanceOf(await router.getAddress())).to.be.greaterThanOrEqual(
+        amountIn + swapRequestParams.solverFee,
+      );
+
+      const before = await srcToken6Decimals.balanceOf(solverAddr);
+
+      expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(0);
+      expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(1);
+
+      // Rebalance Solver
+      await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
+      const after = await srcToken6Decimals.balanceOf(solverAddr);
+      expect(after - before).to.equal(amountIn + swapRequestParams.solverFee - swapRequestParams.verificationFee);
+      expect(await srcToken6Decimals.balanceOf(await router.getAddress())).to.be.equal(
+        swapRequestParams.verificationFee,
+      );
+
+      expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(1);
+      expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(0);
+    });
+
+    it("should rebalance solver and transfer correct amount in the src token decimals when src token is 18 decimals and dst token is 8 decimals", async () => {
+      // Deploy tokens with different decimals
+      const srcToken18Decimals = await new ERC20Token__factory(owner).deploy("RUSD18", "RUSD18", 18);
+      const dstToken8Decimals = await new ERC20Token__factory(owner).deploy("RUSD8", "RUSD8", 8);
+      // Set up token mapping
+      await router
+        .connect(owner)
+        .setTokenMapping(DST_CHAIN_ID, await dstToken8Decimals.getAddress(), await srcToken18Decimals.getAddress());
+      // Create token swap request on source chain
+      const amountIn = BigInt(10_000_000_000_000_000_000); // 10 RUSD18 with 18 decimals
+      const solverFee = BigInt(1_000_000_000_000_000); // 0.001 RUSD18 with 18 decimals
+      const amountOut = BigInt(1_000_000_000); // 10 RUSD8 with 8 decimals
+      const amountToMint = amountIn + solverFee;
+      await srcToken18Decimals.mint(userAddr, amountToMint);
+      await srcToken18Decimals.connect(user).approve(router.getAddress(), amountToMint);
+      const tx = await router
+
+        .connect(user)
+        .requestCrossChainSwap(
+          await srcToken18Decimals.getAddress(),
+          await dstToken8Decimals.getAddress(),
+          amountIn,
+          amountOut,
+          solverFee,
+          DST_CHAIN_ID,
+          recipient.address,
+        );
+      let receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error("transaction has not been mined");
+      }
+      const routerInterface = Router__factory.createInterface();
+      const [requestId] = extractSingleLog(
+        routerInterface,
+        receipt,
+        await router.getAddress(),
+        routerInterface.getEvent("SwapRequested"),
+      );
+      // Message signing
+      const swapRequestParams = await router.getSwapRequestParameters(requestId);
+      const [, messageAsG1Bytes] = await router.swapRequestParametersToBytes(requestId, solver.address);
+      // Remove "0x" prefix if present
+      const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
+      // Unmarshall messageAsG1Bytes to a G1 point first
+      const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
+      // Sign message
+      const sigPoint = bn254.signShortSignature(M, privKeyBytes);
+
+      // Serialize signature (x, y) for EVM
+      const sigPointToAffine = sigPoint.toAffine();
+      const sigBytes = AbiCoder.defaultAbiCoder().encode(
+        ["uint256", "uint256"],
+        [sigPointToAffine.x, sigPointToAffine.y],
+      );
+
+      // ensure that the router has enough liquidity to pay solver
+      expect(await srcToken18Decimals.balanceOf(await router.getAddress())).to.be.greaterThanOrEqual(
+        await router.solverFeeRefunds(requestId),
+      );
+
+      expect(await srcToken18Decimals.balanceOf(await router.getAddress())).to.be.greaterThanOrEqual(
+        amountIn + swapRequestParams.solverFee,
+      );
+
+      const before = await srcToken18Decimals.balanceOf(solverAddr);
+
+      expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(0);
+      expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(1);
+
+      // Rebalance Solver
+      await router.connect(owner).rebalanceSolver(solver.address, requestId, sigBytes);
+      const after = await srcToken18Decimals.balanceOf(solverAddr);
+      expect(after - before).to.equal(amountIn + swapRequestParams.solverFee - swapRequestParams.verificationFee);
+      expect(await srcToken18Decimals.balanceOf(await router.getAddress())).to.be.equal(
+        swapRequestParams.verificationFee,
+      );
+
+      expect((await router.getFulfilledSolverRefunds()).length).to.be.equal(1);
+      expect((await router.getUnfulfilledSolverRefunds()).length).to.be.equal(0);
     });
 
     it("should relay tokens and store a receipt", async () => {
@@ -642,6 +925,148 @@ describe("Router", function () {
           ),
       ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
 
+      expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+    });
+
+    it("should relay tokens and store a receipt with 6 decimals src token and 18 decimals dst token", async () => {
+      // Deploy tokens with different decimals
+      const srcToken6Decimals = await new ERC20Token__factory(owner).deploy("RUSD6", "RUSD6", 6);
+      const dstToken18Decimals = await new ERC20Token__factory(owner).deploy("RUSD18", "RUSD18", 18);
+
+      const amountOut = BigInt(10_000_000_000_000_000_000); // 10 RUSD18 with 18 decimals
+      const srcChainId = 1;
+      const dstChainId = await router.getChainId();
+      const nonce = 1;
+
+      // Check recipient balance before transfer
+      expect(await dstToken18Decimals.balanceOf(recipientAddr)).to.equal(0);
+
+      // Mint tokens for user
+      await dstToken18Decimals.mint(solverAddr, amountOut);
+
+      // Approve Router to spend user's tokens
+      await dstToken18Decimals.connect(solver).approve(await router.getAddress(), amountOut);
+
+      // Pre-compute valid requestId
+      const abiCoder = new AbiCoder();
+      const requestId: string = keccak256(
+        abiCoder.encode(
+          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            userAddr,
+            recipientAddr,
+            await srcToken6Decimals.getAddress(),
+            await dstToken18Decimals.getAddress(),
+            amountOut,
+            srcChainId,
+            dstChainId,
+            nonce,
+          ],
+        ),
+      );
+
+      // Relay tokens
+      await expect(
+        router
+          .connect(solver)
+          .relayTokens(
+            solverRefundAddr,
+            requestId,
+            userAddr,
+            recipientAddr,
+            await srcToken6Decimals.getAddress(),
+            await dstToken18Decimals.getAddress(),
+            amountOut,
+            srcChainId,
+            nonce,
+          ),
+      ).to.emit(router, "SwapRequestFulfilled");
+
+      // Check recipient balance after transfer
+      expect(await dstToken18Decimals.balanceOf(recipientAddr)).to.equal(amountOut);
+
+      // Check receipt
+      const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
+      const [, , , , , fulfilled, solverFromReceipt, , amountOutReceived] = swapRequestReceipt;
+
+      expect(fulfilled).to.be.true;
+      expect(amountOut).to.equal(amountOutReceived);
+      // solver address in the receipt should match the solver refund address specified in call to relayTokens
+      expect(solverFromReceipt).to.equal(solverRefundAddr);
+      expect(solverAddr).to.not.equal(solverRefundAddr);
+
+      expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
+      expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
+    });
+
+    it("should relay tokens and store a receipt with 18 decimals src token and 6 decimals dst token", async () => {
+      // Deploy tokens with different decimals
+      const srcToken18Decimals = await new ERC20Token__factory(owner).deploy("RUSD18", "RUSD18", 18);
+      const dstToken6Decimals = await new ERC20Token__factory(owner).deploy("RUSD6", "RUSD6", 6);
+
+      const amountOut = BigInt(10_000_000); // 10 RUSD6 with 6 decimals
+      const srcChainId = 1;
+      const dstChainId = await router.getChainId();
+      const nonce = 1;
+
+      // Check recipient balance before transfer
+      expect(await dstToken6Decimals.balanceOf(recipientAddr)).to.equal(0);
+
+      // Mint tokens for user
+      await dstToken6Decimals.mint(solverAddr, amountOut);
+
+      // Approve Router to spend user's tokens
+      await dstToken6Decimals.connect(solver).approve(await router.getAddress(), amountOut);
+
+      // Pre-compute valid requestId
+      const abiCoder = new AbiCoder();
+      const requestId: string = keccak256(
+        abiCoder.encode(
+          ["address", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
+          [
+            userAddr,
+            recipientAddr,
+            await srcToken18Decimals.getAddress(),
+            await dstToken6Decimals.getAddress(),
+            amountOut,
+            srcChainId,
+            dstChainId,
+            nonce,
+          ],
+        ),
+      );
+
+      // Relay tokens
+      await expect(
+        router
+          .connect(solver)
+          .relayTokens(
+            solverRefundAddr,
+            requestId,
+            userAddr,
+            recipientAddr,
+            await srcToken18Decimals.getAddress(),
+            await dstToken6Decimals.getAddress(),
+            amountOut,
+            srcChainId,
+            nonce,
+          ),
+      ).to.emit(router, "SwapRequestFulfilled");
+
+      // Check recipient balance after transfer
+      expect(await dstToken6Decimals.balanceOf(recipientAddr)).to.equal(amountOut);
+
+      // Check receipt
+      const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
+      const [, , , , , fulfilled, solverFromReceipt, , amountOutReceived] = swapRequestReceipt;
+
+      expect(fulfilled).to.be.true;
+      expect(amountOut).to.equal(amountOutReceived);
+      // solver address in the receipt should match the solver refund address specified in call to relayTokens
+      expect(solverFromReceipt).to.equal(solverRefundAddr);
+      expect(solverAddr).to.not.equal(solverRefundAddr);
+
+      expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
       expect((await router.getFulfilledTransfers()).length).to.be.equal(1);
     });
 
@@ -1083,6 +1508,7 @@ describe("Router", function () {
             await srcToken.getAddress(),
             await dstToken.getAddress(),
             amount,
+            amount,
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
@@ -1106,6 +1532,7 @@ describe("Router", function () {
             await srcToken.getAddress(),
             await dstToken.getAddress(),
             amount,
+            amount,
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
@@ -1125,6 +1552,7 @@ describe("Router", function () {
           .requestCrossChainSwap(
             await srcToken.getAddress(),
             await dstToken.getAddress(),
+            amount,
             amount,
             solverFee,
             newChainId,
@@ -1153,6 +1581,7 @@ describe("Router", function () {
             await srcToken.getAddress(),
             await dstToken.getAddress(),
             amount,
+            amount,
             solverFee,
             newChainId,
             recipientAddr,
@@ -1173,6 +1602,7 @@ describe("Router", function () {
         .requestCrossChainSwap(
           await srcToken.getAddress(),
           await dstToken.getAddress(),
+          amount,
           amount,
           solverFee,
           DST_CHAIN_ID,
@@ -1352,6 +1782,7 @@ describe("Router", function () {
             await srcToken.getAddress(),
             await dstToken.getAddress(),
             amount,
+            amount,
             solverFee,
             DST_CHAIN_ID,
             recipientAddr,
@@ -1372,6 +1803,7 @@ describe("Router", function () {
         .requestCrossChainSwap(
           await srcToken.getAddress(),
           await dstToken.getAddress(),
+          amount,
           amount,
           solverFee,
           DST_CHAIN_ID,
@@ -1401,7 +1833,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Router - BLS Validator Management", () => {
+  describe("BLS Validator Management", () => {
     it("should revert if setSwapRequestBlsValidator is called with zero address", async () => {
       const invalidAddress = ZeroAddress;
       const currentNonce = Number(await router.currentNonce()) + 1;
@@ -1515,7 +1947,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Router - Minimum Contract Upgrade Delay Management", () => {
+  describe("Minimum Contract Upgrade Delay Management", () => {
     it("should update minimumContractUpgradeDelay and emit event if delay is greater than 2 days", async () => {
       const newDelay = 3 * 24 * 60 * 60; // 3 days in seconds
 
@@ -1598,7 +2030,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Router - ScheduledUpgradeable", () => {
+  describe("ScheduledUpgradeable", () => {
     it("should initialize ScheduledUpgradeable with valid parameters", async () => {
       const validValidator = await upgradeBn254SigScheme.getAddress();
 
@@ -1693,7 +2125,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Router - Admin Functions", () => {
+  describe("Admin Functions", () => {
     it("should revert blockDestinationChainId if called by non-admin", async () => {
       const chainId = 555;
       await router.connect(owner).permitDestinationChainId(chainId);
@@ -1747,7 +2179,7 @@ describe("Router", function () {
     });
   });
 
-  describe("Router - BN254SignatureScheme", () => {
+  describe("BN254SignatureScheme", () => {
     it("should return the correct public key bytes from BN254SignatureScheme", async () => {
       // Get marshaled public key bytes from the contract
       const pubKeyBytesFromContract = await swapBn254SigScheme.getPublicKeyBytes();
@@ -1790,6 +2222,7 @@ describe("Router", function () {
         .requestCrossChainSwap(
           await srcToken.getAddress(),
           await dstToken.getAddress(),
+          amount,
           amount,
           fee,
           DST_CHAIN_ID,
@@ -1901,6 +2334,7 @@ describe("Router", function () {
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,
+          amount,
           fee,
           DST_CHAIN_ID,
           recipientAddr,
@@ -1913,7 +2347,7 @@ describe("Router", function () {
       const beforeBalance = await srcToken.balanceOf(recipientAddr);
 
       const params = await router.getSwapRequestParameters(requestId);
-      const totalRefund = params.amountOut + params.verificationFee + params.solverFee;
+      const totalRefund = amount + params.solverFee;
 
       await expect(router.connect(user).cancelSwapRequestAndRefund(requestId, recipientAddr))
         .to.emit(router, "SwapRequestRefundClaimed")

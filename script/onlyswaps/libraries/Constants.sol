@@ -2,7 +2,7 @@
 pragma solidity ^0.8;
 
 library Constants {
-    bytes32 constant SALT = bytes32(uint256(2));
+    bytes32 constant SALT = bytes32(uint256(16));
 
     string constant SIGNATURE_SCHEME_ID = "BN254";
 
@@ -11,6 +11,8 @@ library Constants {
     string constant KEY_RUSD = "rusdFaucet";
     string constant KEY_BN254_SWAP_REQUEST_SIGNATURE_SCHEME = "bn254SwapRequestSignatureSchemeAddress";
     string constant KEY_BN254_CONTRACT_UPGRADE_SIGNATURE_SCHEME = "bn254ContractUpgradeSignatureSchemeAddress";
+    string constant KEY_PERMIT2_RELAYER = "permit2RelayerAddress";
+    string constant KEY_PERMIT2 = "permit2Address";
     string constant KEY_ROUTER_PROXY = "routerProxyAddress";
     string constant KEY_ROUTER_IMPLEMENTATION = "routerImplementationAddress";
 }

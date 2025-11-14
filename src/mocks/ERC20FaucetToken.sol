@@ -18,6 +18,12 @@ contract ERC20FaucetToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
 
     event FaucetAmountSet(uint256 faucetAmount);
 
+    /// @notice Constructor to initialize the ERC20 faucet token.
+    // @param name Token name.
+    // @param symbol Token symbol.
+    // @param decimals_ Token decimals.
+    // @param faucetAmount_ Amount users can mint from the faucet (in whole tokens, not wei).
+    // @param _owner Owner of the contract.
     constructor(string memory name, string memory symbol, uint8 decimals_, uint256 faucetAmount_, address _owner)
         ERC20(name, symbol)
         ERC20Permit(name)

@@ -38,11 +38,9 @@ contract DeployBN254SwapRequestSignatureScheme is JsonUtils, EnvReader {
                 Factory(deploymentParameters.customCREATE2FactoryContractAddress).deploy(Constants.SALT, code);
             bn254SignatureScheme = BLSBN254SignatureScheme(contractAddress);
         } else {
-            bn254SignatureScheme = new BLSBN254SignatureScheme{salt: Constants.SALT}(
-                deploymentParameters.blsSwapRequestPublicKey.x,
-                deploymentParameters.blsSwapRequestPublicKey.y,
-                "swap-v1"
-            );
+            bn254SignatureScheme = new BLSBN254SignatureScheme{
+                salt: Constants.SALT
+            }(deploymentParameters.blsSwapRequestPublicKey.x, deploymentParameters.blsSwapRequestPublicKey.y, "swap-v1");
         }
 
         console.log("Bn254SwapRequestSignatureScheme contract deployed at: ", address(bn254SignatureScheme));

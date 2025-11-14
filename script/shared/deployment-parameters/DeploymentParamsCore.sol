@@ -12,6 +12,7 @@ struct DeploymentParameters {
     uint256 faucetAmount;
     uint256 verificationFeeBps;
     address customCREATE2FactoryContractAddress;
+    address permit2Address;
 }
 
 library DeploymentParamsCore {
@@ -21,17 +22,21 @@ library DeploymentParamsCore {
     /// @dev The symbol of the testnet RUSD token.
     string constant TOKEN_SYMBOL = "RUSD";
 
-    /// @dev The number of decimals the token uses - e.g. 8, means to divide the token amount by 100,000,000 to get its user representation.
-    uint8 constant TOKEN_DECIMALS = 18;
+    /// @dev The number of decimals the token uses.
+    uint8 constant TOKEN_DECIMALS = 6;
 
     /// @dev The amount of tokens to be minted to each address that requests tokens from the faucet.
-    uint256 constant FAUCET_AMOUNT = 1000 ether;
+    /// This is expressed as an integer without decimals (e.g., 1000 represents 1000 * 10^decimals tokens).
+    uint256 constant FAUCET_AMOUNT = 1000 * 10 ** TOKEN_DECIMALS;
 
     /// @dev The maximum basis points (BPS) for verification fees (i.e., 100% = 10,000 BPS).
     uint256 constant VERIFICATION_FEE_BPS = 500;
 
     /// @dev The default CREATE2 deployer address used by the `CREATE2Factory` contract.
     address constant DEFAULT_CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+
+    /// @dev The default Permit2 contract address.
+    address constant DEFAULT_PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     /// @notice Returns the BLS public key used for validating swap requests.
     function getBLSSwapRequestPublicKey() internal pure returns (BLS.PointG2 memory) {

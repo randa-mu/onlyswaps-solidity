@@ -43,6 +43,38 @@ interface IRouter {
         uint256 fulfilledAt; // Timestamp when the request was fulfilled
     }
 
+    /// @notice Struct to hold parameters for a swap request using Permit2
+    struct RequestCrossChainSwapPermit2Params {
+        address requester;
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint256 amountOut;
+        uint256 solverFee;
+        uint256 dstChainId;
+        address recipient;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+    }
+
+    /// @notice Struct to hold parameters for relaying tokens using Permit2
+    struct RelayTokensPermit2Params {
+        address solver;
+        address solverRefundAddress;
+        bytes32 requestId;
+        address sender;
+        address recipient;
+        address tokenIn;
+        address tokenOut;
+        uint256 amountOut;
+        uint256 srcChainId;
+        uint256 nonce;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+    }
+
     // -------- Events --------
 
     /// @notice Emitted when a new swap request is created
@@ -118,12 +150,17 @@ interface IRouter {
     /// @param newSwapRequestCancellationWindow The new cancellation window in seconds
     event SwapRequestCancellationWindowUpdated(uint256 newSwapRequestCancellationWindow);
 
+    /// @notice Emitted when the Permit2Relayer address is updated
+    /// @param newPermit2Relayer The new Permit2Relayer contract address
+    event Permit2RelayerUpdated(address indexed newPermit2Relayer);
+
     // -------- Core Transfer Logic --------
 
     /// @notice Initiates a swap request
     /// @param tokenIn The address of the token deposited on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
-    /// @param amount Amount of tokens to swap
+    /// @param amountIn Amount of tokens to swap
+    /// @param amountOut Minimum amount of tokens to be received by the recipient on the destination chain
     /// @param fee Total fee amount (in token units) to be paid by the user
     /// @param dstChainId Target chain ID
     /// @param recipient Address to receive swaped tokens on target chain
@@ -131,7 +168,8 @@ interface IRouter {
     function requestCrossChainSwap(
         address tokenIn,
         address tokenOut,
-        uint256 amount,
+        uint256 amountIn,
+        uint256 amountOut,
         uint256 fee,
         uint256 dstChainId,
         address recipient
@@ -297,6 +335,7 @@ interface IRouter {
     function isDstTokenMapped(address srcToken, uint256 dstChainId, address dstToken) external view returns (bool);
 
     /// @notice Builds swap request parameters based on the provided details
+    /// @param sender The address initiating the swap on the source chain
     /// @param tokenIn The address of the input token on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amount The amount of tokens to be swapped
@@ -307,6 +346,7 @@ interface IRouter {
     /// @param nonce A unique nonce for the request
     /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
     function buildSwapRequestParameters(
+        address sender,
         address tokenIn,
         address tokenOut,
         uint256 amount,
@@ -389,4 +429,15 @@ interface IRouter {
     /// @param newSwapRequestCancellationWindow The new cancellation window in seconds
     /// @param signature The BLS signature authorising the update
     function setCancellationWindow(uint256 newSwapRequestCancellationWindow, bytes calldata signature) external;
+
+    /// @notice Initiates a swap request using Permit2 for token transfer approval
+    /// @param params Struct containing all parameters for the swap request
+    /// @return requestId The unique swap request id
+    function requestCrossChainSwapPermit2(RequestCrossChainSwapPermit2Params calldata params)
+        external
+        returns (bytes32 requestId);
+
+    /// @notice Relays tokens using Permit2 for token transfer approval and stores a receipt
+    /// @param params Struct containing all parameters for relaying tokens
+    function relayTokensPermit2(RelayTokensPermit2Params calldata params) external;
 }
