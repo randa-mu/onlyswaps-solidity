@@ -6,6 +6,8 @@ import {console} from "forge-std/console.sol";
 import {JsonUtils} from "../../shared/JsonUtils.sol";
 import {EnvReader} from "../../shared/EnvReader.sol";
 
+import {Constants} from "../libraries/Constants.sol";
+
 import {Router} from "src/Router.sol";
 import {ERC20} from "src/mocks/ERC20Token.sol";
 
@@ -37,6 +39,16 @@ contract ConfigureRouterScript is JsonUtils, EnvReader {
 
         vm.broadcast();
         routerSrc.setTokenMapping(dstChainId, address(erc20Dst), address(erc20Src));
+
+        // read permit2 relayer address from json and set it in router
+        address permit2RelayerAddress = _readAddressFromJsonInput(
+            string.concat(Constants.DEPLOYMENT_CONFIG_DIR, vm.toString(block.chainid), ".json"),
+            Constants.KEY_PERMIT2_RELAYER
+        );
+        _requireNonZero(permit2RelayerAddress, "PERMIT2_RELAYER_ADDRESS");
+
+        vm.broadcast();
+        routerSrc.setPermit2Relayer(permit2RelayerAddress);
 
         console.log("Router configured on chain id:", block.chainid);
     }

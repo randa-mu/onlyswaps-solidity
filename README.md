@@ -48,12 +48,12 @@ This project supports both Foundry and Hardhat development environments.
 
 2. **Install only swaps as a dependency**:
     ```bash
-    forge soldeer install onlyswaps-solidity~0.5.0 --url https://github.com/randa-mu/onlyswaps-solidity/archive/refs/tags/v0.5.0.zip
+    forge soldeer install onlyswaps-solidity~0.6.0 --url https://github.com/randa-mu/onlyswaps-solidity/archive/refs/tags/v0.6.0.zip
     ```
 
 3. **Update your remappings.txt file**
     ```bash
-    onlyswaps-solidity/=dependencies/onlyswaps-solidity-0.5.0/src/
+    onlyswaps-solidity/=dependencies/onlyswaps-solidity-0.6.0/src/
     ```
 
 4. **Import the contracts in your Solidity files**:
