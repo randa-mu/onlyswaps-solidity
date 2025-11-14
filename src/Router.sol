@@ -152,54 +152,38 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         uint256 amountOut,
         uint256 solverFee,
         uint256 dstChainId,
-        address recipient,
-        Hook[] calldata preHooks,
-        Hook[] calldata postHooks
+        address recipient
     ) external nonReentrant returns (bytes32 requestId) {
-        _validateSwapRequestParameters(amountIn, amountOut, recipient, dstChainId, tokenIn, tokenOut, solverFee);
-
-        // Calculate the swap fee (for the protocol) to be deducted from the amountIn
-        (uint256 verificationFeeAmount, uint256 amountInAfterFee) = getVerificationFeeAmount(amountIn);
-
-        // Accumulate the total verification fees balance for the specified token
-        totalVerificationFeeBalance[tokenIn] += verificationFeeAmount;
-
-        // Generate unique nonce and map it to sender
-        uint256 nonce = ++currentSwapRequestNonce;
-        nonceToRequester[nonce] = msg.sender;
-
-        SwapRequestParameters memory params = buildSwapRequestParameters(
-            msg.sender, tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+        requestId = _requestCrossChainSwapWithHooks(
+            tokenIn, tokenOut, amountIn, amountOut, solverFee, dstChainId, recipient, new Hook[](0), new Hook[](0)
         );
+    }
 
-        requestId = keccak256(
-            abi.encode(
-                params.sender,
-                params.recipient,
-                params.tokenIn,
-                params.tokenOut,
-                params.amountOut,
-                getChainId(), // the srcChainId is always the current chain ID
-                params.dstChainId,
-                params.nonce,
-                preHooks,
-                postHooks
-            )
+    /// @notice Initiates a swap request with pre and post hooks
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
+    /// @param amountIn Amount of tokens to swap
+    /// @param amountOut Expected amount of tokens to be received on the destination chain
+    /// @param solverFee The solver fee (in token units) to be paid by the user
+    /// @param dstChainId Target chain ID
+    /// @param recipient Address to receive swaped tokens on target chain
+    /// @param preHooks Array of hooks to execute before the swap
+    /// @param postHooks Array of hooks to execute after the swap
+    /// @return requestId The unique swap request id
+    function requestCrossChainSwapWithHooks(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint256 solverFee,
+        uint256 dstChainId,
+        address recipient,
+        Hook[] memory preHooks,
+        Hook[] memory postHooks
+    ) external nonReentrant returns (bytes32 requestId) {
+        requestId = _requestCrossChainSwapWithHooks(
+            tokenIn, tokenOut, amountIn, amountOut, solverFee, dstChainId, recipient, preHooks, postHooks
         );
-
-        storeSwapRequest(requestId, params);
-        // Store hooks associated with this request
-        storeHooks(requestId, preHooks, postHooks);
-
-        // Track the solver refund per request id
-        solverFeeRefunds[requestId] = amountInAfterFee + params.solverFee;
-
-        /// @dev Execute pre-swap hooks
-        _executeHooks(preHooks);
-
-        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn + solverFee);
-
-        emit SwapRequested(requestId, getChainId(), dstChainId);
     }
 
     /// @notice Initiates a swap request using Permit2 for token transfer approval
@@ -451,44 +435,6 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         messageAsG1Bytes = swapRequestBlsValidator.hashToBytes(message);
     }
 
-    /// @notice Builds swap request parameters based on the provided details
-    /// @param sender The address initiating the swap request
-    /// @param tokenIn The address of the input token on the source chain
-    /// @param tokenOut The address of the token sent to the recipient on the destination chain
-    /// @param amountOut The amount of tokens to be swapped
-    /// @param verificationFeeAmount The verification fee amount
-    /// @param solverFeeAmount The solver fee amount
-    /// @param dstChainId The destination chain ID
-    /// @param recipient The address that will receive the tokens
-    /// @param nonce A unique nonce for the request
-    /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
-    function buildSwapRequestParameters(
-        address sender,
-        address tokenIn,
-        address tokenOut,
-        uint256 amountOut,
-        uint256 verificationFeeAmount,
-        uint256 solverFeeAmount,
-        uint256 dstChainId,
-        address recipient,
-        uint256 nonce
-    ) public view returns (SwapRequestParameters memory swapRequestParams) {
-        swapRequestParams = SwapRequestParameters({
-            sender: sender,
-            recipient: recipient,
-            tokenIn: tokenIn,
-            tokenOut: tokenOut,
-            amountOut: amountOut,
-            srcChainId: getChainId(),
-            dstChainId: dstChainId,
-            verificationFee: verificationFeeAmount,
-            solverFee: solverFeeAmount,
-            nonce: nonce,
-            executed: false,
-            requestedAt: block.timestamp
-        });
-    }
-
     /// @notice Calculates the verification fee amount based on the amount to swap
     /// @param amountToSwap The amount to swap
     /// @return The calculated verification fee amount
@@ -528,7 +474,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice Retrieves the current version of the contract
     /// @return The current version of the contract
     function getVersion() public pure returns (string memory) {
-        return "1.1.1";
+        return "1.2.0";
     }
 
     /// @notice Retrieves the current verification fee in basis points
@@ -849,6 +795,74 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
     // ---------------------- Internal Functions ----------------------
 
+    /// @notice Internal function to handle swap requests with hooks
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
+    /// @param amountIn Amount of tokens to swap
+    /// @param amountOut Expected amount of tokens to be received on the destination chain
+    /// @param solverFee The solver fee (in token units) to be paid by the user
+    /// @param dstChainId Target chain ID
+    /// @param recipient Address to receive swaped tokens on target chain
+    /// @param preHooks Array of hooks to execute before the swap
+    /// @param postHooks Array of hooks to execute after the swap
+    /// @return requestId The unique swap request id
+    function _requestCrossChainSwapWithHooks(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint256 solverFee,
+        uint256 dstChainId,
+        address recipient,
+        Hook[] memory preHooks,
+        Hook[] memory postHooks
+    ) internal returns (bytes32 requestId) {
+        _validateSwapRequestParameters(amountIn, amountOut, recipient, dstChainId, tokenIn, tokenOut, solverFee);
+
+        // Calculate the swap fee (for the protocol) to be deducted from the amountIn
+        (uint256 verificationFeeAmount, uint256 amountInAfterFee) = getVerificationFeeAmount(amountIn);
+
+        // Accumulate the total verification fees balance for the specified token
+        totalVerificationFeeBalance[tokenIn] += verificationFeeAmount;
+
+        // Generate unique nonce and map it to sender
+        uint256 nonce = ++currentSwapRequestNonce;
+        nonceToRequester[nonce] = msg.sender;
+
+        SwapRequestParameters memory params = _buildSwapRequestParameters(
+            msg.sender, tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
+        );
+
+        requestId = keccak256(
+            abi.encode(
+                params.sender,
+                params.recipient,
+                params.tokenIn,
+                params.tokenOut,
+                params.amountOut,
+                getChainId(), // the srcChainId is always the current chain ID
+                params.dstChainId,
+                params.nonce,
+                preHooks,
+                postHooks
+            )
+        );
+
+        _storeSwapRequest(requestId, params);
+        // Store hooks associated with this request
+        _storeHooks(requestId, preHooks, postHooks);
+
+        // Track the solver refund per request id
+        solverFeeRefunds[requestId] = amountInAfterFee + params.solverFee;
+
+        /// @dev Execute pre-swap hooks
+        _executeHooks(preHooks);
+
+        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn + solverFee);
+
+        emit SwapRequested(requestId, getChainId(), dstChainId);
+    }
+    
     /// @notice Stores a swap request in the contract state and marks it as unfulfilled for solver refunds.
     /// @param requestId The unique identifier for the swap request.
     /// @param params The swap request parameters to store.
@@ -929,7 +943,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         uint256 amountInAfterFee,
         uint256 nonce
     ) internal returns (bytes32 requestId) {
-        SwapRequestParameters memory swapParams = buildSwapRequestParameters(
+        SwapRequestParameters memory swapParams = _buildSwapRequestParameters(
             params.requester,
             params.tokenIn,
             params.tokenOut,
@@ -957,8 +971,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             )
         );
 
-        storeSwapRequest(requestId, swapParams);
-        storeHooks(requestId, params.preHooks, params.postHooks);
+        _storeSwapRequest(requestId, swapParams);
+        _storeHooks(requestId, params.preHooks, params.postHooks);
 
         solverFeeRefunds[requestId] = amountInAfterFee + swapParams.solverFee;
     }
@@ -1127,5 +1141,43 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         delete preSwapHooks[requestId];
         delete postSwapHooks[requestId];
         delete solverFeeRefunds[requestId];
+    }
+
+    /// @notice Builds swap request parameters based on the provided details
+    /// @param sender The address initiating the swap request
+    /// @param tokenIn The address of the input token on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
+    /// @param amountOut The amount of tokens to be swapped
+    /// @param verificationFeeAmount The verification fee amount
+    /// @param solverFeeAmount The solver fee amount
+    /// @param dstChainId The destination chain ID
+    /// @param recipient The address that will receive the tokens
+    /// @param nonce A unique nonce for the request
+    /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
+    function _buildSwapRequestParameters(
+        address sender,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut,
+        uint256 verificationFeeAmount,
+        uint256 solverFeeAmount,
+        uint256 dstChainId,
+        address recipient,
+        uint256 nonce
+    ) internal view returns (SwapRequestParameters memory swapRequestParams) {
+        swapRequestParams = SwapRequestParameters({
+            sender: sender,
+            recipient: recipient,
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            amountOut: amountOut,
+            srcChainId: getChainId(),
+            dstChainId: dstChainId,
+            verificationFee: verificationFeeAmount,
+            solverFee: solverFeeAmount,
+            nonce: nonce,
+            executed: false,
+            requestedAt: block.timestamp
+        });
     }
 }

@@ -31,8 +31,3 @@ export const EMPTY_HOOKS = {
   preHooks: [],
   postHooks: [],
 };
-
-// preSwapHooks: [{ target: "0x0000000000000000000000000000000000000000", callData: "0x", gasLimit: 0 }],
-//   postSwapHooks: [{ target: "0x0000000000000000000000000000000000000000", callData: "0x", gasLimit: 0 }],
-//   preRelayHooks: [{ target: "0x0000000000000000000000000000000000000000", callData: "0x", gasLimit: 0 }],
-//   postRelayHooks: [{ target: "0x0000000000000000000000000000000000000000", callData: "0x", gasLimit: 0 }],

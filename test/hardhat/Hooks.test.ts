@@ -21,7 +21,7 @@ import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { AbiCoder, parseEther, keccak256, toUtf8Bytes, ZeroAddress, MaxUint256 } from "ethers";
+import { AbiCoder, parseEther, keccak256, ZeroAddress, MaxUint256 } from "ethers";
 import { ethers } from "hardhat";
 
 const DST_CHAIN_ID = 137;
@@ -50,24 +50,6 @@ describe("Hooks", function () {
 
   const swapType = "swap-v1";
   const upgradeType = "upgrade-v1";
-
-  async function generateSignatureForBlsValidatorUpdate(
-    router: Router,
-    action: string,
-    validatorAddress: string,
-    currentNonce: number,
-  ): Promise<string> {
-    const [, messageAsG1Bytes] = await router.blsValidatorUpdateParamsToBytes(action, validatorAddress, currentNonce);
-    // Remove "0x" prefix if present
-    const messageHex = messageAsG1Bytes.startsWith("0x") ? messageAsG1Bytes.slice(2) : messageAsG1Bytes;
-    // Unmarshall messageAsG1Bytes to a G1 point first
-    const M = bn254.G1.ProjectivePoint.fromHex(messageHex);
-    // Sign message
-    const sigPoint = bn254.signShortSignature(M, privKeyBytes);
-    // Serialize signature (x, y) for EVM
-    const sigPointToAffine = sigPoint.toAffine();
-    return AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [sigPointToAffine.x, sigPointToAffine.y]);
-  }
 
   beforeEach(async () => {
     [owner, user, solver, solverRefundWallet, recipient] = await ethers.getSigners();
@@ -944,7 +926,7 @@ describe("Hooks", function () {
 
       const tx = await router
         .connect(user)
-        .requestCrossChainSwap(
+        .requestCrossChainSwapWithHooks(
           await srcToken.getAddress(),
           await dstToken.getAddress(),
           amount,

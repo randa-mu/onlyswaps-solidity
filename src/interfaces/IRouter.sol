@@ -187,7 +187,26 @@ interface IRouter {
 
     // -------- Core Transfer Logic --------
 
-    /// @notice Initiates a swap request
+    /// @notice Initiates a swap request on the source chain without pre and post swap hooks
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
+    /// @param amountIn Amount of tokens to swap
+    /// @param amountOut Minimum amount of tokens to be received by the recipient on the destination chain
+    /// @param fee Total fee amount (in token units) to be paid by the user
+    /// @param dstChainId Target chain ID
+    /// @param recipient Address to receive swaped tokens on target chain
+    /// @return requestId The unique swap request id
+    function requestCrossChainSwap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint256 fee,
+        uint256 dstChainId,
+        address recipient
+    ) external returns (bytes32 requestId);
+
+    /// @notice Initiates a swap request on the source chain with pre and post swap hooks
     /// @param tokenIn The address of the token deposited on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
     /// @param amountIn Amount of tokens to swap
@@ -198,7 +217,7 @@ interface IRouter {
     /// @param preHooks Pre-swap hooks to execute
     /// @param postHooks Post-swap hooks to execute
     /// @return requestId The unique swap request id
-    function requestCrossChainSwap(
+    function requestCrossChainSwapWithHooks(
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
@@ -372,29 +391,6 @@ interface IRouter {
     /// @param dstToken The address of the destination token
     /// @return True if the destination token is mapped, false otherwise
     function isDstTokenMapped(address srcToken, uint256 dstChainId, address dstToken) external view returns (bool);
-
-    /// @notice Builds swap request parameters based on the provided details
-    /// @param sender The address initiating the swap on the source chain
-    /// @param tokenIn The address of the input token on the source chain
-    /// @param tokenOut The address of the token sent to the recipient on the destination chain
-    /// @param amount The amount of tokens to be swapped
-    /// @param verificationFeeAmount The verification fee amount
-    /// @param solverFeeAmount The solver fee amount
-    /// @param dstChainId The destination chain ID
-    /// @param recipient The address that will receive the tokens
-    /// @param nonce A unique nonce for the request
-    /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
-    function buildSwapRequestParameters(
-        address sender,
-        address tokenIn,
-        address tokenOut,
-        uint256 amount,
-        uint256 verificationFeeAmount,
-        uint256 solverFeeAmount,
-        uint256 dstChainId,
-        address recipient,
-        uint256 nonce
-    ) external view returns (SwapRequestParameters memory swapRequestParams);
 
     /// @notice Converts swap request parameters to a message as bytes and BLS format for signing
     /// @param requestId The unique request ID
