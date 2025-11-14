@@ -337,7 +337,7 @@ describe("Router Upgrade", function () {
           swapAmount,
           solverFee,
           DST_CHAIN_ID,
-          await recipient.getAddress()
+          await recipient.getAddress(),
         );
 
       // Verify the swap request nonce incremented
@@ -357,7 +357,7 @@ describe("Router Upgrade", function () {
           swapAmount,
           solverFee,
           DST_CHAIN_ID,
-          await recipient.getAddress()
+          await recipient.getAddress(),
         );
 
       const finalcurrentSwapRequestNonce = await upgradedRouter.currentSwapRequestNonce();

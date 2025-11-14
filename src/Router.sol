@@ -862,7 +862,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
 
         emit SwapRequested(requestId, getChainId(), dstChainId);
     }
-    
+
     /// @notice Stores a swap request in the contract state and marks it as unfulfilled for solver refunds.
     /// @param requestId The unique identifier for the swap request.
     /// @param params The swap request parameters to store.

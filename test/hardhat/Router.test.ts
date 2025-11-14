@@ -363,7 +363,7 @@ describe("Router", function () {
             amount,
             solverFee,
             DST_CHAIN_ID,
-            recipientAddr
+            recipientAddr,
           ),
       ).to.emit(router, "SwapRequested");
     });
@@ -391,7 +391,7 @@ describe("Router", function () {
           amountOut,
           solverFee,
           DST_CHAIN_ID,
-          recipientAddr
+          recipientAddr,
         );
 
       let receipt = await tx.wait();
@@ -437,7 +437,7 @@ describe("Router", function () {
           amountOut,
           solverFee,
           DST_CHAIN_ID,
-          recipientAddr
+          recipientAddr,
         );
       let receipt = await tx.wait();
       if (!receipt) {
@@ -473,7 +473,7 @@ describe("Router", function () {
             amount,
             solverFee,
             DST_CHAIN_ID,
-            recipientAddr
+            recipientAddr,
           ),
       ).to.be.revertedWithCustomError(router, "FeeTooLow");
     });
@@ -495,7 +495,7 @@ describe("Router", function () {
           amount,
           solverFee,
           DST_CHAIN_ID,
-          recipient.address
+          recipient.address,
         );
 
       let receipt = await tx.wait();
@@ -562,7 +562,7 @@ describe("Router", function () {
           amount,
           solverFee,
           DST_CHAIN_ID,
-          recipient.address
+          recipient.address,
         );
 
       let receipt = await tx.wait();
@@ -614,7 +614,7 @@ describe("Router", function () {
           amount,
           solverFee,
           DST_CHAIN_ID,
-          recipient.address
+          recipient.address,
         );
 
       let receipt = await tx.wait();
@@ -706,7 +706,7 @@ describe("Router", function () {
           amountOut,
           solverFee,
           DST_CHAIN_ID,
-          recipient.address
+          recipient.address,
         );
       let receipt = await tx.wait();
       if (!receipt) {
@@ -787,7 +787,7 @@ describe("Router", function () {
           amountOut,
           solverFee,
           DST_CHAIN_ID,
-          recipient.address
+          recipient.address,
         );
       let receipt = await tx.wait();
       if (!receipt) {
@@ -909,8 +909,8 @@ describe("Router", function () {
             amount,
             srcChainId,
             nonce,
-            EMPTY_HOOKS.preHooks, 
-            EMPTY_HOOKS.postHooks
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.emit(router, "SwapRequestFulfilled");
 
@@ -944,7 +944,7 @@ describe("Router", function () {
             srcChainId,
             nonce,
             EMPTY_HOOKS.preHooks,
-            EMPTY_HOOKS.postHooks
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
 
@@ -1021,8 +1021,8 @@ describe("Router", function () {
             amountOut,
             srcChainId,
             nonce,
-            EMPTY_HOOKS.preHooks, 
-            EMPTY_HOOKS.postHooks
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.emit(router, "SwapRequestFulfilled");
 
@@ -1113,8 +1113,8 @@ describe("Router", function () {
             amountOut,
             srcChainId,
             nonce,
-            EMPTY_HOOKS.preHooks, 
-            EMPTY_HOOKS.postHooks
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.emit(router, "SwapRequestFulfilled");
 
@@ -1191,7 +1191,7 @@ describe("Router", function () {
           srcChainId,
           nonce,
           EMPTY_HOOKS.preHooks,
-          EMPTY_HOOKS.postHooks
+          EMPTY_HOOKS.postHooks,
         ),
       ).to.revertedWithCustomError(router, "ZeroAddress()");
 
@@ -1228,7 +1228,7 @@ describe("Router", function () {
             srcChainId,
             nonce,
             EMPTY_HOOKS.preHooks,
-            EMPTY_HOOKS.postHooks
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.emit(router, "SwapRequestFulfilled");
 
@@ -1281,7 +1281,7 @@ describe("Router", function () {
             srcChainId,
             nonce,
             EMPTY_HOOKS.preHooks,
-            EMPTY_HOOKS.postHooks
+            EMPTY_HOOKS.postHooks,
           ),
       )
         .to.be.revertedWithCustomError(router, "SourceChainIdShouldBeDifferentFromDestination")
@@ -1339,7 +1339,7 @@ describe("Router", function () {
             srcChainId,
             nonce,
             EMPTY_HOOKS.preHooks,
-          EMPTY_HOOKS.postHooks
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.be.revertedWithCustomError(router, "SwapRequestParametersMismatch()");
 
@@ -1434,7 +1434,7 @@ describe("Router", function () {
           srcChainId,
           nonce,
           EMPTY_HOOKS.preHooks,
-          EMPTY_HOOKS.postHooks
+          EMPTY_HOOKS.postHooks,
         );
       const receipt = await tx.wait();
 
@@ -1467,8 +1467,8 @@ describe("Router", function () {
             amount,
             sourceChainId,
             nonce,
-          EMPTY_HOOKS.preHooks,
-          EMPTY_HOOKS.postHooks
+            EMPTY_HOOKS.preHooks,
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.revertedWithCustomError(router, "AlreadyFulfilled()");
 
@@ -1540,7 +1540,7 @@ describe("Router", function () {
           srcChainId,
           nonce,
           EMPTY_HOOKS.preHooks,
-          EMPTY_HOOKS.postHooks
+          EMPTY_HOOKS.postHooks,
         );
       const receipt = await tx.wait();
 
@@ -1642,7 +1642,7 @@ describe("Router", function () {
           srcChainId,
           nonce,
           EMPTY_HOOKS.preHooks,
-          EMPTY_HOOKS.postHooks
+          EMPTY_HOOKS.postHooks,
         );
 
       expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.true;
@@ -1668,7 +1668,7 @@ describe("Router", function () {
             amount,
             solverFee,
             DST_CHAIN_ID,
-            recipientAddr
+            recipientAddr,
           ),
       ).to.be.revertedWithCustomError(router, "ZeroAmount()");
     });
@@ -1692,7 +1692,7 @@ describe("Router", function () {
             amount,
             solverFee,
             DST_CHAIN_ID,
-            recipientAddr
+            recipientAddr,
           ),
       ).to.be.revertedWithCustomError(router, "ZeroAddress()");
     });
@@ -1713,7 +1713,7 @@ describe("Router", function () {
             amount,
             solverFee,
             newChainId,
-            recipientAddr
+            recipientAddr,
           ),
       )
         .to.be.revertedWithCustomError(router, "DestinationChainIdNotSupported")
@@ -1741,7 +1741,7 @@ describe("Router", function () {
             amount,
             solverFee,
             newChainId,
-            recipientAddr
+            recipientAddr,
           ),
       ).to.be.revertedWithCustomError(router, "TokenNotSupported()");
     });
@@ -1763,7 +1763,7 @@ describe("Router", function () {
           amount,
           solverFee,
           DST_CHAIN_ID,
-          recipient.address
+          recipient.address,
         );
 
       let receipt = await tx.wait();
@@ -1865,7 +1865,7 @@ describe("Router", function () {
             srcChainId,
             nonce,
             EMPTY_HOOKS.preHooks,
-            EMPTY_HOOKS.postHooks
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.be.revertedWithCustomError(router, "ZeroAmount()");
 
@@ -1920,7 +1920,7 @@ describe("Router", function () {
             srcChainId,
             nonce,
             EMPTY_HOOKS.preHooks,
-            EMPTY_HOOKS.postHooks
+            EMPTY_HOOKS.postHooks,
           ),
       ).to.be.revertedWithCustomError(router, "InvalidTokenOrRecipient()");
 
@@ -1946,7 +1946,7 @@ describe("Router", function () {
             amount,
             solverFee,
             DST_CHAIN_ID,
-            recipientAddr
+            recipientAddr,
           ),
       ).to.be.reverted;
     });
@@ -1968,7 +1968,7 @@ describe("Router", function () {
           amount,
           solverFee,
           DST_CHAIN_ID,
-          recipient.address
+          recipient.address,
         );
 
       let receipt = await tx.wait();
@@ -2387,7 +2387,7 @@ describe("Router", function () {
           amount,
           fee,
           DST_CHAIN_ID,
-          recipientAddr
+          recipientAddr,
         );
       const receipt = await tx.wait();
       const routerInterface = Router__factory.createInterface();
@@ -2498,7 +2498,7 @@ describe("Router", function () {
           amount,
           fee,
           DST_CHAIN_ID,
-          recipientAddr
+          recipientAddr,
         );
 
       await router.connect(user).stageSwapRequestCancellation(requestId);
