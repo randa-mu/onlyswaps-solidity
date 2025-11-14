@@ -30,7 +30,7 @@ library DeploymentParamsCore {
     uint256 constant FAUCET_AMOUNT = 1000 * 10 ** TOKEN_DECIMALS;
 
     /// @dev The maximum basis points (BPS) for verification fees (i.e., 100% = 10,000 BPS).
-    uint256 constant VERIFICATION_FEE_BPS = 500;
+    uint256 constant VERIFICATION_FEE_BPS = 25; // 0.25%
 
     /// @dev The default CREATE2 deployer address used by the `CREATE2Factory` contract.
     address constant DEFAULT_CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
