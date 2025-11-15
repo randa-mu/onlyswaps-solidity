@@ -271,6 +271,7 @@ describe("Hooks", function () {
         recipientFromParams,
         tokenInFromParams,
         tokenOutFromParams,
+        amountInFromParams,
         amountOutFromParams,
         srcChainIdFromParams,
         dstChainIdFromParams,
@@ -288,6 +289,7 @@ describe("Hooks", function () {
       expect(recipientFromParams).to.equal(await hookExecutor.getAddress());
       expect(tokenInFromParams).to.equal(await srcToken.getAddress());
       expect(tokenOutFromParams).to.equal(await dstToken.getAddress());
+      expect(amountInFromParams).to.equal(amountIn);
       expect(amountOutFromParams).to.equal(amountOut);
       expect(srcChainIdFromParams).to.equal(srcChainId);
       expect(dstChainIdFromParams).to.equal(DST_CHAIN_ID);
