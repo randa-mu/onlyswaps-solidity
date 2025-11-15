@@ -1056,6 +1056,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         address tokenOut,
         uint256 amountOut,
         uint256 srcChainId,
+        uint256 dstChainId,
         uint256 nonce,
         Hook[] calldata preHooks,
         Hook[] calldata postHooks
@@ -1068,7 +1069,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
                 tokenOut,
                 amountOut,
                 srcChainId,
-                getChainId(),
+                dstChainId,
                 nonce,
                 keccak256(abi.encode(preHooks)),
                 keccak256(abi.encode(postHooks))
