@@ -455,19 +455,17 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @return The generated request ID
     function getSwapRequestId(SwapRequestParametersWithHooks memory p) public view returns (bytes32) {
         /// @dev The executed parameter is not used in the request ID hash as it is mutable
-        return keccak256(
-            abi.encode(
-                p.sender,
-                p.recipient,
-                p.tokenIn,
-                p.tokenOut,
-                p.amountOut,
-                getChainId(), // the srcChainId is always the current chain ID
-                p.dstChainId,
-                p.nonce,
-                keccak256(abi.encode(p.preHooks)),
-                keccak256(abi.encode(p.postHooks))
-            )
+        return _createRequestId(
+            p.sender,
+            p.recipient,
+            p.tokenIn,
+            p.tokenOut,
+            p.amountOut,
+            getChainId(), // the srcChainId is always the current chain ID
+            p.dstChainId,
+            p.nonce,
+            p.preHooks,
+            p.postHooks
         );
     }
 
@@ -834,19 +832,17 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             msg.sender, tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
         );
 
-        requestId = keccak256(
-            abi.encode(
-                params.sender,
-                params.recipient,
-                params.tokenIn,
-                params.tokenOut,
-                params.amountOut,
-                getChainId(), // the srcChainId is always the current chain ID
-                params.dstChainId,
-                params.nonce,
-                preHooks,
-                postHooks
-            )
+        requestId = _createRequestId(
+            params.sender,
+            params.recipient,
+            params.tokenIn,
+            params.tokenOut,
+            params.amountOut,
+            getChainId(), // the srcChainId is always the current chain ID
+            params.dstChainId,
+            params.nonce,
+            preHooks,
+            postHooks
         );
 
         _storeSwapRequest(requestId, params);
@@ -957,19 +953,17 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         );
 
         // Generate request ID using direct encoding instead of creating full struct
-        requestId = keccak256(
-            abi.encode(
-                swapParams.sender,
-                swapParams.recipient,
-                swapParams.tokenIn,
-                swapParams.tokenOut,
-                swapParams.amountOut,
-                getChainId(),
-                swapParams.dstChainId,
-                swapParams.nonce,
-                keccak256(abi.encode(params.preHooks)),
-                keccak256(abi.encode(params.postHooks))
-            )
+        requestId = _createRequestId(
+            swapParams.sender,
+            swapParams.recipient,
+            swapParams.tokenIn,
+            swapParams.tokenOut,
+            swapParams.amountOut,
+            getChainId(),
+            swapParams.dstChainId,
+            swapParams.nonce,
+            params.preHooks,
+            params.postHooks
         );
 
         _storeSwapRequest(requestId, swapParams);
@@ -1046,6 +1040,45 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         );
     }
 
+    /// @notice Creates a requestId for a given set of swap parameters
+    /// @param sender The address initiating the swap request.
+    /// @param recipient The address receiving the swapped tokens.
+    /// @param tokenIn The address of the input token on the source chain.
+    /// @param tokenOut The address of the output token on the destination chain.
+    /// @param amountOut The amount of tokens to be swapped.
+    /// @param srcChainId The source chain ID from which the request originated.
+    /// @param dstChainId The destination chain ID where the request is being fulfilled.
+    /// @param nonce The unique nonce for the swap request.
+    /// @param preHooks Array of pre-swap hooks associated with the swap request.
+    /// @param postHooks Array of post-swap hooks associated with the swap request.
+    function _createRequestId(
+        address sender,
+        address recipient,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut,
+        uint256 srcChainId,
+        uint256 dstChainId,
+        uint256 nonce,
+        Hook[] memory preHooks,
+        Hook[] memory postHooks
+    ) internal view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                sender,
+                recipient,
+                tokenIn,
+                tokenOut,
+                amountOut,
+                srcChainId,
+                dstChainId,
+                nonce,
+                keccak256(abi.encode(preHooks)),
+                keccak256(abi.encode(postHooks))
+            )
+        );
+    }
+
     /// @notice Validates the request ID matches the parameters
     /// @param requestId The unique identifier for the swap request.
     /// @param sender The address initiating the swap request.
@@ -1069,19 +1102,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         Hook[] calldata preHooks,
         Hook[] calldata postHooks
     ) internal view {
-        bytes32 expectedRequestId = keccak256(
-            abi.encode(
-                sender,
-                recipient,
-                tokenIn,
-                tokenOut,
-                amountOut,
-                srcChainId,
-                getChainId(),
-                nonce,
-                keccak256(abi.encode(preHooks)),
-                keccak256(abi.encode(postHooks))
-            )
+        bytes32 expectedRequestId = _createRequestId(
+            sender, recipient, tokenIn, tokenOut, amountOut, srcChainId, getChainId(), nonce, preHooks, postHooks
         );
         require(requestId == expectedRequestId, ErrorsLib.SwapRequestParametersMismatch());
     }
