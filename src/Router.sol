@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {
-    AccessControlEnumerableUpgradeable
-} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
+import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -190,9 +188,9 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param params Struct containing all parameters for the swap request
     /// @return requestId The unique swap request id
     function requestCrossChainSwapPermit2(RequestCrossChainSwapPermit2Params calldata params)
-        external
-        nonReentrant
-        returns (bytes32 requestId)
+    external
+    nonReentrant
+    returns (bytes32 requestId)
     {
         _validateSwapRequestParameters(
             params.amountIn,
@@ -411,9 +409,9 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @return message The encoded message bytes
     /// @return messageAsG1Bytes The message hashed to BLS G1 bytes
     function swapRequestParametersToBytes(bytes32 requestId, address solver)
-        public
-        view
-        returns (bytes memory message, bytes memory messageAsG1Bytes)
+    public
+    view
+    returns (bytes memory message, bytes memory messageAsG1Bytes)
     {
         require(solver != address(0), ErrorsLib.ZeroAddress());
         SwapRequestParametersWithHooks memory params = getSwapRequestParameters(requestId);
@@ -455,19 +453,17 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @return The generated request ID
     function getSwapRequestId(SwapRequestParametersWithHooks memory p) public view returns (bytes32) {
         /// @dev The executed parameter is not used in the request ID hash as it is mutable
-        return keccak256(
-            abi.encode(
-                p.sender,
-                p.recipient,
-                p.tokenIn,
-                p.tokenOut,
-                p.amountOut,
-                getChainId(), // the srcChainId is always the current chain ID
-                p.dstChainId,
-                p.nonce,
-                keccak256(abi.encode(p.preHooks)),
-                keccak256(abi.encode(p.postHooks))
-            )
+        return _createRequestId(
+            p.sender,
+            p.recipient,
+            p.tokenIn,
+            p.tokenOut,
+            p.amountOut,
+            getChainId(), // the srcChainId is always the current chain ID
+            p.dstChainId,
+            p.nonce,
+            p.preHooks,
+            p.postHooks
         );
     }
 
@@ -499,9 +495,9 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param requestId The unique ID of the swap request
     /// @return swapRequestParamsWithHooks The swap request parameters with associated hooks
     function getSwapRequestParameters(bytes32 requestId)
-        public
-        view
-        returns (SwapRequestParametersWithHooks memory swapRequestParamsWithHooks)
+    public
+    view
+    returns (SwapRequestParametersWithHooks memory swapRequestParamsWithHooks)
     {
         SwapRequestParameters memory params = swapRequestParameters[requestId];
         Hook[] memory preHooks = preSwapHooks[requestId];
@@ -586,20 +582,20 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @return amountOut The amount of tokens transferred to the recipient
     /// @return fulfilledAt The timestamp when the transfer was fulfilled
     function getSwapRequestReceipt(bytes32 _requestId)
-        external
-        view
-        returns (
-            bytes32 requestId,
-            uint256 srcChainId,
-            uint256 dstChainId,
-            address tokenIn,
-            address tokenOut,
-            bool fulfilled,
-            address solver,
-            address recipient,
-            uint256 amountOut,
-            uint256 fulfilledAt
-        )
+    external
+    view
+    returns (
+        bytes32 requestId,
+        uint256 srcChainId,
+        uint256 dstChainId,
+        address tokenIn,
+        address tokenOut,
+        bool fulfilled,
+        address solver,
+        address recipient,
+        uint256 amountOut,
+        uint256 fulfilledAt
+    )
     {
         SwapRequestReceipt storage receipt = swapRequestReceipts[_requestId];
         requestId = receipt.requestId;
@@ -638,8 +634,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param _minimumContractUpgradeDelay The new minimum delay in seconds
     /// @param signature BLS signature from the admin threshold validating the update
     function setMinimumContractUpgradeDelay(uint256 _minimumContractUpgradeDelay, bytes calldata signature)
-        public
-        override (IRouter, ScheduledUpgradeable)
+    public
+    override (IRouter, ScheduledUpgradeable)
     {
         super.setMinimumContractUpgradeDelay(_minimumContractUpgradeDelay, signature);
     }
@@ -665,8 +661,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @param _contractUpgradeBlsValidator The new contract upgrade BLS validator contract address
     /// @param signature The BLS signature authorising the update
     function setContractUpgradeBlsValidator(address _contractUpgradeBlsValidator, bytes calldata signature)
-        public
-        override (IRouter, ScheduledUpgradeable)
+    public
+    override (IRouter, ScheduledUpgradeable)
     {
         super.setContractUpgradeBlsValidator(_contractUpgradeBlsValidator, signature);
     }
@@ -726,7 +722,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         string memory action = "change-cancellation-window";
         uint256 nonce = ++currentNonce;
         (, bytes memory messageAsG1Bytes) =
-            minimumContractUpgradeDelayParamsToBytes(action, newSwapRequestCancellationWindow, nonce);
+                        minimumContractUpgradeDelayParamsToBytes(action, newSwapRequestCancellationWindow, nonce);
 
         require(
             contractUpgradeBlsValidator.verifySignature(messageAsG1Bytes, signature),
@@ -759,7 +755,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     ) public override (IRouter, ScheduledUpgradeable) {
         require(
             keccak256(abi.encodePacked(IRouter(newImplementation).getVersion()))
-                != keccak256(abi.encodePacked(getVersion())),
+            != keccak256(abi.encodePacked(getVersion())),
             ErrorsLib.SameVersionUpgradeNotAllowed()
         );
         super.scheduleUpgrade(newImplementation, upgradeCalldata, upgradeTime, signature);
@@ -834,19 +830,17 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             msg.sender, tokenIn, tokenOut, amountOut, verificationFeeAmount, solverFee, dstChainId, recipient, nonce
         );
 
-        requestId = keccak256(
-            abi.encode(
-                params.sender,
-                params.recipient,
-                params.tokenIn,
-                params.tokenOut,
-                params.amountOut,
-                getChainId(), // the srcChainId is always the current chain ID
-                params.dstChainId,
-                params.nonce,
-                preHooks,
-                postHooks
-            )
+        requestId = _createRequestId(
+            params.sender,
+            params.recipient,
+            params.tokenIn,
+            params.tokenOut,
+            params.amountOut,
+            getChainId(), // the srcChainId is always the current chain ID
+            params.dstChainId,
+            params.nonce,
+            preHooks,
+            postHooks
         );
 
         _storeSwapRequest(requestId, params);
@@ -917,8 +911,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
     /// @notice Processes the permit2 swap request
     /// @param params The parameters of the permit2 swap request to process.
     function _processPermit2SwapRequest(RequestCrossChainSwapPermit2Params calldata params)
-        internal
-        returns (bytes32 requestId)
+    internal
+    returns (bytes32 requestId)
     {
         (uint256 verificationFeeAmount, uint256 amountInAfterFee) = getVerificationFeeAmount(params.amountIn);
 
@@ -957,19 +951,17 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         );
 
         // Generate request ID using direct encoding instead of creating full struct
-        requestId = keccak256(
-            abi.encode(
-                swapParams.sender,
-                swapParams.recipient,
-                swapParams.tokenIn,
-                swapParams.tokenOut,
-                swapParams.amountOut,
-                getChainId(),
-                swapParams.dstChainId,
-                swapParams.nonce,
-                keccak256(abi.encode(params.preHooks)),
-                keccak256(abi.encode(params.postHooks))
-            )
+        requestId = _createRequestId(
+            swapParams.sender,
+            swapParams.recipient,
+            swapParams.tokenIn,
+            swapParams.tokenOut,
+            swapParams.amountOut,
+            getChainId(),
+            swapParams.dstChainId,
+            swapParams.nonce,
+            keccak256(abi.encode(params.preHooks)),
+            keccak256(abi.encode(params.postHooks))
         );
 
         _storeSwapRequest(requestId, swapParams);
@@ -992,8 +984,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             nonce: params.permitNonce,
             deadline: params.permitDeadline,
             permitted: ISignatureTransfer.TokenPermissions({
-                token: params.tokenIn, amount: params.amountIn + params.solverFee
-            })
+            token: params.tokenIn, amount: params.amountIn + params.solverFee
+        })
         });
 
         permit2Relayer.requestCrossChainSwapPermit2(
@@ -1046,6 +1038,44 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         );
     }
 
+    /// @notice Creates a requestId for a given set of swap parameters
+    /// @param requestId The unique identifier for the swap request.
+    /// @param sender The address initiating the swap request.
+    /// @param recipient The address receiving the swapped tokens.
+    /// @param tokenIn The address of the input token on the source chain.
+    /// @param tokenOut The address of the output token on the destination chain.
+    /// @param amountOut The amount of tokens to be swapped.
+    /// @param srcChainId The source chain ID from which the request originated.
+    /// @param nonce The unique nonce for the swap request.
+    /// @param preHooks Array of pre-swap hooks associated with the swap request.
+    /// @param postHooks Array of post-swap hooks associated with the swap request.
+    function _createRequestId(
+        address sender,
+        address recipient,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut,
+        uint256 srcChainId,
+        uint256 nonce,
+        Hook[] calldata preHooks,
+        Hook[] calldata postHooks
+    ) internal view {
+        return keccak256(
+            abi.encode(
+                sender,
+                recipient,
+                tokenIn,
+                tokenOut,
+                amountOut,
+                srcChainId,
+                getChainId(),
+                nonce,
+                keccak256(abi.encode(preHooks)),
+                keccak256(abi.encode(postHooks))
+            )
+        );
+    }
+
     /// @notice Validates the request ID matches the parameters
     /// @param requestId The unique identifier for the swap request.
     /// @param sender The address initiating the swap request.
@@ -1069,19 +1099,17 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         Hook[] calldata preHooks,
         Hook[] calldata postHooks
     ) internal view {
-        bytes32 expectedRequestId = keccak256(
-            abi.encode(
-                sender,
-                recipient,
-                tokenIn,
-                tokenOut,
-                amountOut,
-                srcChainId,
-                getChainId(),
-                nonce,
-                keccak256(abi.encode(preHooks)),
-                keccak256(abi.encode(postHooks))
-            )
+        bytes32 expectedRequestId = _createRequestId(
+            sender,
+            recipient,
+            tokenIn,
+            tokenOut,
+            amountOut,
+            srcChainId,
+            getChainId(),
+            nonce,
+            preHooks,
+            postHooks
         );
         require(requestId == expectedRequestId, ErrorsLib.SwapRequestParametersMismatch());
     }
