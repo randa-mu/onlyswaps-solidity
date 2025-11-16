@@ -430,8 +430,8 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             params.srcChainId,
             params.dstChainId,
             params.nonce,
-            params.preHooks,
-            params.postHooks
+            keccak256(abi.encode(params.preHooks)),
+            keccak256(abi.encode(params.postHooks))
         );
         messageAsG1Bytes = swapRequestBlsValidator.hashToBytes(message);
     }
