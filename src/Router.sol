@@ -425,6 +425,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
             params.recipient,
             params.tokenIn,
             params.tokenOut,
+            params.amountIn,
             params.amountOut,
             params.srcChainId,
             params.dstChainId,
@@ -1062,7 +1063,7 @@ contract Router is ReentrancyGuard, IRouter, ScheduledUpgradeable, AccessControl
         uint256 nonce,
         Hook[] memory preHooks,
         Hook[] memory postHooks
-    ) internal view returns (bytes32) {
+    ) internal pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 sender,
