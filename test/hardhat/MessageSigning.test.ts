@@ -10,12 +10,12 @@ import {
   Permit2Relayer__factory,
   Permit2__factory,
 } from "../../typechain-types";
-import { extractSingleLog, EMPTY_HOOKS } from "./utils/utils";
+import { extractSingleLog } from "./utils/utils";
 import { bn254 } from "@kevincharm/noble-bn254-drand";
 import { randomBytes } from "@noble/hashes/utils";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { AbiCoder, parseEther, keccak256, toUtf8Bytes, ZeroAddress } from "ethers";
+import { AbiCoder, parseEther, keccak256, toUtf8Bytes } from "ethers";
 import { ethers } from "hardhat";
 
 const DST_CHAIN_ID = 137;
@@ -26,7 +26,6 @@ describe("Message Signing", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
   let solver: SignerWithAddress;
-  let solverRefundWallet: SignerWithAddress;
   let recipient: SignerWithAddress;
 
   let router: Router;
@@ -37,19 +36,17 @@ describe("Message Signing", function () {
   let permit2Relayer: Permit2Relayer;
 
   let privKeyBytes: Uint8Array;
-  let ownerAddr: string, solverAddr: string, solverRefundAddr: string, userAddr: string, recipientAddr: string;
+  let ownerAddr: string, solverAddr: string, userAddr: string;
 
   const swapType = "swap-v1";
   const upgradeType = "upgrade-v1";
 
   beforeEach(async () => {
-    [owner, user, solver, solverRefundWallet, recipient] = await ethers.getSigners();
+    [owner, user, solver, recipient] = await ethers.getSigners();
 
     ownerAddr = await owner.getAddress();
     userAddr = await user.getAddress();
-    recipientAddr = await recipient.getAddress();
     solverAddr = await solver.getAddress();
-    solverRefundAddr = await solverRefundWallet.getAddress();
 
     // Create random private key and public key
     privKeyBytes = Uint8Array.from(randomBytes(32));
