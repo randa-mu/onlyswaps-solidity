@@ -33,4 +33,6 @@ library ErrorsLib {
     error UpgradeDelayTooShort();
     error UpgradeTimeMustRespectDelay(uint256 earliestTime);
     error SameVersionUpgradeNotAllowed();
+    error GasForCallExactCheckAlreadySet();
+    error HookExecutorNotSet();
 }

@@ -4,13 +4,13 @@ import { expect } from "chai";
 import { parseEther } from "ethers";
 import { ethers } from "hardhat";
 
-describe("ERC20FaucetToken - setFaucetAmount", function () {
+describe("ERC20FaucetToken", function () {
   let token: ERC20FaucetToken;
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;
 
-  const initialFaucetAmount = parseEther("10");
-  const newFaucetAmount = parseEther("20");
+  const initialFaucetAmount = 10;
+  const newFaucetAmount = 20;
 
   beforeEach(async function () {
     [owner, addr1] = await ethers.getSigners();
@@ -45,7 +45,7 @@ describe("ERC20FaucetToken - setFaucetAmount", function () {
     expect(firstMintBalance).to.equal(initialFaucetAmount);
 
     // Set new faucet amount
-    await token.connect(owner).setFaucetAmount(newFaucetAmount);
+    await token.connect(owner).setFaucetAmount(newFaucetAmount.toString());
 
     // Increase time beyond FAUCET_INTERVAL (24 hours)
     await ethers.provider.send("evm_increaseTime", [24 * 60 * 60 + 1]); // add 1 second for safety

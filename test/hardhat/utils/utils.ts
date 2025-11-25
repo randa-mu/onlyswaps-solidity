@@ -1,3 +1,4 @@
+import { HookExecutor__factory } from "../../../typechain-types";
 import { Interface, EventFragment, TransactionReceipt, Result } from "ethers";
 
 // Returns the first instance of an event log from a transaction receipt that matches the address provided
@@ -25,3 +26,8 @@ export function extractLogs<T extends Interface, E extends EventFragment>(
     .filter((log) => log.address.toLowerCase() === contractAddress.toLowerCase())
     .map((log) => iface.decodeEventLog(event, log.data, log.topics));
 }
+
+export const EMPTY_HOOKS = {
+  preHooks: [],
+  postHooks: [],
+};

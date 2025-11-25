@@ -1,7 +1,10 @@
 {
-  "bn254ContractUpgradeSignatureSchemeAddress": "0xebbEEA030Ca7D9814d9222901d7E4CB010f7a39C",
-  "bn254SwapRequestSignatureSchemeAddress": "0x38Ac12B85b7FD5725273AE468a71D80162c7Ff02",
-  "routerImplementationAddress": "0x57c692125127d0b70Bc9aFB7B653ceb36bCe0AAC",
-  "routerProxyAddress": "0x3dD1a497846d060Dce130B67b22E1F9DeE18c051",
-  "rusdFaucet": "0x908e1D85604E0e9e703d52D18f3f3f604Fe7Bb1b"
+  "bn254ContractUpgradeSignatureSchemeAddress": "0xf4fE6334D06C648FE60B5B8dBcA3568042A1cCa4",
+  "bn254SwapRequestSignatureSchemeAddress": "0x0f4Dbe6c96144680e899FD9d099F1598d1063336",
+  "hookExecutorAddress": "0x223730B5575Ec327F6EDEB3a4a63ce1D57E8Cca1",
+  "permit2Address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+  "permit2RelayerAddress": "0x94e0185aCFb16D6ba1A9747EC2E08F5e7bE614cA",
+  "routerImplementationAddress": "0xCb8Ee4B06071a75235DeAf0a715Efb85bdff7f9b",
+  "routerProxyAddress": "0xE16716C8210D8C9e8B8C756e70558d049f8EAcA1",
+  "rusdFaucet": "0x0af5608A8cdAf46959e3f6Cf9Cd6fFFFb277Ff87"
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./DeploymentParamsCore.sol";
+import {DeploymentParamsCore, DeploymentParameters} from "./DeploymentParamsCore.sol";
 
 library DeploymentParamsAnvil {
     function getDeploymentParams() internal pure returns (DeploymentParameters memory) {
@@ -13,7 +13,8 @@ library DeploymentParamsAnvil {
             tokenDecimals: DeploymentParamsCore.TOKEN_DECIMALS,
             faucetAmount: DeploymentParamsCore.FAUCET_AMOUNT,
             verificationFeeBps: DeploymentParamsCore.VERIFICATION_FEE_BPS,
-            customCREATE2FactoryContractAddress: DeploymentParamsCore.DEFAULT_CREATE2_DEPLOYER
+            customCREATE2FactoryContractAddress: DeploymentParamsCore.DEFAULT_CREATE2_DEPLOYER,
+            permit2Address: address(0)
         });
     }
 }

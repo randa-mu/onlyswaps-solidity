@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {BLS} from "bls-solidity/libraries/BLS.sol";
+import {Hook} from "./IHookExecutor.sol";
 
 /// @title IRouter
 /// @author Randamu
@@ -43,6 +43,60 @@ interface IRouter {
         address recipient; // Recipient of the tokens on the destination chain
         uint256 amountOut; // Amount delivered to the recipient (after fees)
         uint256 fulfilledAt; // Timestamp when the request was fulfilled
+    }
+
+    /// @notice Struct to hold parameters for a swap request using Permit2
+    struct RequestCrossChainSwapPermit2Params {
+        address requester;
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint256 amountOut;
+        uint256 solverFee;
+        uint256 dstChainId;
+        address recipient;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+        Hook[] preHooks;
+        Hook[] postHooks;
+    }
+
+    /// @notice Struct to hold parameters for relaying tokens using Permit2
+    struct RelayTokensPermit2Params {
+        address solver;
+        address solverRefundAddress;
+        bytes32 requestId;
+        address sender;
+        address recipient;
+        address tokenIn;
+        address tokenOut;
+        uint256 amountOut;
+        uint256 srcChainId;
+        uint256 nonce;
+        uint256 permitNonce;
+        uint256 permitDeadline;
+        bytes signature;
+        Hook[] preHooks;
+        Hook[] postHooks;
+    }
+
+    struct SwapRequestParametersWithHooks {
+        address sender; // Address initiating the swap on the source chain
+        address recipient; // Address to receive tokens on the destination chain
+        address tokenIn; // Token address on the source chain
+        address tokenOut; // Token address on the destination chain
+        uint256 amountIn; // Amount of tokens to swap
+        uint256 amountOut; // Amount to be received by the recipient on the destination chain
+        uint256 srcChainId; // Source chain ID where the request originated
+        uint256 dstChainId; // Destination chain ID where tokens will be delivered
+        uint256 verificationFee; // Total swap fee deducted from the amount
+        uint256 solverFee; // Portion of verificationFee paid to the solver
+        uint256 nonce; // Unique nonce to prevent replay attacks
+        bool executed; // Whether the transfer has been executed
+        uint256 requestedAt; // Timestamp when the request was created
+        Hook[] preHooks; // Pre-swap hooks to be executed before the swap
+        Hook[] postHooks; // Post-swap hooks to be executed after the swap
     }
 
     // -------- Events --------
@@ -120,12 +174,25 @@ interface IRouter {
     /// @param newSwapRequestCancellationWindow The new cancellation window in seconds
     event SwapRequestCancellationWindowUpdated(uint256 newSwapRequestCancellationWindow);
 
+    /// @notice Emitted when the Permit2Relayer address is updated
+    /// @param newPermit2Relayer The new Permit2Relayer contract address
+    event Permit2RelayerUpdated(address indexed newPermit2Relayer);
+
+    /// @notice Emitted when the hook executor contract address is updated.
+    /// @param newHookExecutor The address of the new hook executor contract.
+    event HookExecutorUpdated(address newHookExecutor);
+
+    /// @notice Emitted when the gas limit for callExactCheck is updated.
+    /// @param newGasForCallExactCheck The new gas limit for callExactCheck.
+    event GasForCallExactCheckSet(uint32 newGasForCallExactCheck);
+
     // -------- Core Transfer Logic --------
 
-    /// @notice Initiates a swap request
+    /// @notice Initiates a swap request on the source chain without pre and post swap hooks
     /// @param tokenIn The address of the token deposited on the source chain
     /// @param tokenOut The address of the token sent to the recipient on the destination chain
-    /// @param amount Amount of tokens to swap
+    /// @param amountIn Amount of tokens to swap
+    /// @param amountOut Minimum amount of tokens to be received by the recipient on the destination chain
     /// @param fee Total fee amount (in token units) to be paid by the user
     /// @param dstChainId Target chain ID
     /// @param recipient Address to receive swaped tokens on target chain
@@ -133,10 +200,34 @@ interface IRouter {
     function requestCrossChainSwap(
         address tokenIn,
         address tokenOut,
-        uint256 amount,
+        uint256 amountIn,
+        uint256 amountOut,
         uint256 fee,
         uint256 dstChainId,
         address recipient
+    ) external returns (bytes32 requestId);
+
+    /// @notice Initiates a swap request on the source chain with pre and post swap hooks
+    /// @param tokenIn The address of the token deposited on the source chain
+    /// @param tokenOut The address of the token sent to the recipient on the destination chain
+    /// @param amountIn Amount of tokens to swap
+    /// @param amountOut Minimum amount of tokens to be received by the recipient on the destination chain
+    /// @param fee Total fee amount (in token units) to be paid by the user
+    /// @param dstChainId Target chain ID
+    /// @param recipient Address to receive swaped tokens on target chain
+    /// @param preHooks Pre-swap hooks to execute
+    /// @param postHooks Post-swap hooks to execute
+    /// @return requestId The unique swap request id
+    function requestCrossChainSwapWithHooks(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint256 fee,
+        uint256 dstChainId,
+        address recipient,
+        Hook[] calldata preHooks,
+        Hook[] calldata postHooks
     ) external returns (bytes32 requestId);
 
     /// @notice Updates the solver fee for an unfulfilled swap request
@@ -162,6 +253,8 @@ interface IRouter {
     /// @param amountOut The amount transferred to the recipient on the destination chain
     /// @param srcChainId The ID of the source chain where the request originated
     /// @param nonce The nonce used for the swap request on the source chain for replay protection
+    /// @param preHooks Pre-swap hooks to execute
+    /// @param postHooks Post-swap hooks to execute
     function relayTokens(
         address solverRefundAddress,
         bytes32 requestId,
@@ -171,7 +264,9 @@ interface IRouter {
         address tokenOut,
         uint256 amountOut,
         uint256 srcChainId,
-        uint256 nonce
+        uint256 nonce,
+        Hook[] calldata preHooks,
+        Hook[] calldata postHooks
     ) external;
 
     /// @notice Stages a swap request for cancellation after the cancellation window
@@ -204,7 +299,7 @@ interface IRouter {
     /// @notice Generates a unique request ID based on the provided swap request parameters
     /// @param p The swap request parameters
     /// @return The generated request ID
-    function getSwapRequestId(SwapRequestParameters memory p) external view returns (bytes32);
+    function getSwapRequestId(SwapRequestParametersWithHooks memory p) external view returns (bytes32);
 
     /// @notice Retrieves the address of the swap request BLS validator
     /// @return The address of the swap request BLS validator
@@ -232,11 +327,11 @@ interface IRouter {
 
     /// @notice Retrieves the swap request parameters for a given request ID
     /// @param requestId The unique ID of the swap request
-    /// @return swapRequestParams The swap request parameters associated with the request ID
+    /// @return swapRequestParamsWithHooks The swap request parameters with hooks associated with the request ID
     function getSwapRequestParameters(bytes32 requestId)
         external
         view
-        returns (SwapRequestParameters memory swapRequestParams);
+        returns (SwapRequestParametersWithHooks memory swapRequestParamsWithHooks);
 
     /// @notice Returns an array of swap request IDs where the tokens have been
     ///         transferred to the recipient address on the destination chain
@@ -297,27 +392,6 @@ interface IRouter {
     /// @param dstToken The address of the destination token
     /// @return True if the destination token is mapped, false otherwise
     function isDstTokenMapped(address srcToken, uint256 dstChainId, address dstToken) external view returns (bool);
-
-    /// @notice Builds swap request parameters based on the provided details
-    /// @param tokenIn The address of the input token on the source chain
-    /// @param tokenOut The address of the token sent to the recipient on the destination chain
-    /// @param amount The amount of tokens to be swapped
-    /// @param verificationFeeAmount The verification fee amount
-    /// @param solverFeeAmount The solver fee amount
-    /// @param dstChainId The destination chain ID
-    /// @param recipient The address that will receive the tokens
-    /// @param nonce A unique nonce for the request
-    /// @return swapRequestParams A SwapRequestParameters struct containing the transfer parameters.
-    function buildSwapRequestParameters(
-        address tokenIn,
-        address tokenOut,
-        uint256 amount,
-        uint256 verificationFeeAmount,
-        uint256 solverFeeAmount,
-        uint256 dstChainId,
-        address recipient,
-        uint256 nonce
-    ) external view returns (SwapRequestParameters memory swapRequestParams);
 
     /// @notice Converts swap request parameters to a message as bytes and BLS format for signing
     /// @param requestId The unique request ID
@@ -391,4 +465,15 @@ interface IRouter {
     /// @param newSwapRequestCancellationWindow The new cancellation window in seconds
     /// @param signature The BLS signature authorising the update
     function setCancellationWindow(uint256 newSwapRequestCancellationWindow, bytes calldata signature) external;
+
+    /// @notice Initiates a swap request using Permit2 for token transfer approval
+    /// @param params Struct containing all parameters for the swap request
+    /// @return requestId The unique swap request id
+    function requestCrossChainSwapPermit2(RequestCrossChainSwapPermit2Params calldata params)
+        external
+        returns (bytes32 requestId);
+
+    /// @notice Relays tokens using Permit2 for token transfer approval and stores a receipt
+    /// @param params Struct containing all parameters for relaying tokens
+    function relayTokensPermit2(RelayTokensPermit2Params calldata params) external;
 }

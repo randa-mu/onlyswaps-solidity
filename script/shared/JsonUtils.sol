@@ -35,6 +35,9 @@ contract JsonUtils is Script {
         result.routerProxyAddress = _readAddressFromJsonInput(filePath, "routerProxyAddress");
         result.routerImplementationAddress = _readAddressFromJsonInput(filePath, "routerImplementationAddress");
         result.rusdFaucet = _readAddressFromJsonInput(filePath, "rusdFaucet");
+        result.permit2RelayerAddress = _readAddressFromJsonInput(filePath, "permit2RelayerAddress");
+        result.permit2Address = _readAddressFromJsonInput(filePath, "permit2Address");
+        result.hookExecutorAddress = _readAddressFromJsonInput(filePath, "hookExecutorAddress");
     }
 
     function _writeOnlySwapsStructToJson(string memory filePath, OnlySwapsDeploymentAddresses memory data) internal {
@@ -48,6 +51,9 @@ contract JsonUtils is Script {
         json = vm.serializeAddress("root", "routerProxyAddress", data.routerProxyAddress);
         json = vm.serializeAddress("root", "routerImplementationAddress", data.routerImplementationAddress);
         json = vm.serializeAddress("root", "rusdFaucet", data.rusdFaucet);
+        json = vm.serializeAddress("root", "permit2RelayerAddress", data.permit2RelayerAddress);
+        json = vm.serializeAddress("root", "permit2Address", data.permit2Address);
+        json = vm.serializeAddress("root", "hookExecutorAddress", data.hookExecutorAddress);
 
         vm.writeJson(json, _constructJsonFilePath(filePath));
     }
@@ -103,6 +109,12 @@ contract JsonUtils is Script {
             data.bn254SwapRequestSignatureSchemeAddress = value;
         } else if (hashedKey == keccak256(bytes(Constants.KEY_BN254_CONTRACT_UPGRADE_SIGNATURE_SCHEME))) {
             data.bn254ContractUpgradeSignatureSchemeAddress = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_PERMIT2_RELAYER))) {
+            data.permit2RelayerAddress = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_PERMIT2))) {
+            data.permit2Address = value;
+        } else if (hashedKey == keccak256(bytes(Constants.KEY_HOOK_EXECUTOR))) {
+            data.hookExecutorAddress = value;
         } else {
             revert("Unsupported key in _storeOnlySwapsAddressInJson");
         }

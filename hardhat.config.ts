@@ -8,12 +8,16 @@ const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.30",
     settings: {
+      viaIR: true,
       optimizer: {
         enabled: true,
-        runs: 2000,
+        runs: 10,
       }
     }
   },
+  gasReporter: {
+    enabled: false,
+  },  
 };
 
 export default config;
