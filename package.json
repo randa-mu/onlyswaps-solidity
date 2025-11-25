@@ -1,6 +1,6 @@
 {
   "name": "onlyswaps-solidity",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "",
   "keywords": [
     "solver",
@@ -26,6 +26,18 @@
   "author": "randamu",
   "type": "commonjs",
   "main": "index.js",
+  "files": [
+    "/src/**/*.sol",
+    "!/src/test/**/*",
+    "/artifacts/src/**/*.json",
+    "!/artifacts/src/**/*.dbg.json",
+    "!/artifacts/build-info/**",
+    "/typechain-types/**/*",
+    "/dependencies/**",
+    "/remappings.txt",
+    "/index.js",
+    "/README.md"
+  ],
   "directories": {
     "lib": "lib",
     "test": "test"
