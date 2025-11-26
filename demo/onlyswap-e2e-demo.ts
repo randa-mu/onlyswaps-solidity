@@ -106,7 +106,9 @@ async function main() {
       formattedSwapRequestParams.tokenOut,
       parseEther(formattedSwapRequestParams.amountOut.toString()),
       SRC_CHAIN_ID,
-      formattedSwapRequestParams.nonce
+      formattedSwapRequestParams.nonce,
+      [], // empty pre hooks array
+      [] // empty post hooks array
     );
 
     const recipientBalanceAfter = await ERC20Dst.balanceOf(recipientAddr);

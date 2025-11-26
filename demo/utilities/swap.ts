@@ -21,6 +21,7 @@ export async function executeSwap(
     await ERC20Src.getAddress(),
     await ERC20Dst.getAddress(),
     amount,
+    amount,
     fee,
     DST_CHAIN_ID,
     recipient
