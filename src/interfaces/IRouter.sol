@@ -131,23 +131,23 @@ interface IRouter {
 
     /// @notice Emitted when the destination chain id is permitted
     /// @param chainId The permitted chain id
-    event DestinationChainIdPermitted(uint256 chainId);
+    event DestinationChainIdPermitted(uint256 indexed chainId);
 
     /// @notice Emitted when the destination chain id is blocked
     /// @param chainId The blocked chain id
-    event DestinationChainIdBlocked(uint256 chainId);
+    event DestinationChainIdBlocked(uint256 indexed chainId);
 
     /// @notice Emitted when a pair of source and destination chain tokens are mapped
     /// @param dstChainId The destination chain id
     /// @param dstToken The destination token address
     /// @param srcToken The source token address
-    event TokenMappingAdded(uint256 dstChainId, address dstToken, address srcToken);
+    event TokenMappingAdded(uint256 indexed dstChainId, address indexed dstToken, address indexed srcToken);
 
     /// @notice Emitted when a pair of source and destination chain tokens are unmapped
     /// @param dstChainId The destination chain id
     /// @param dstToken The destination token address
     /// @param srcToken The source token address
-    event TokenMappingRemoved(uint256 dstChainId, address dstToken, address srcToken);
+    event TokenMappingRemoved(uint256 indexed dstChainId, address indexed dstToken, address indexed srcToken);
 
     /// @notice Emitted when swap fees have been withdrawn to a recipient address
     /// @param token The token address of the withdrawn fees
@@ -180,7 +180,7 @@ interface IRouter {
 
     /// @notice Emitted when the hook executor contract address is updated.
     /// @param newHookExecutor The address of the new hook executor contract.
-    event HookExecutorUpdated(address newHookExecutor);
+    event HookExecutorUpdated(address indexed newHookExecutor);
 
     /// @notice Emitted when the gas limit for callExactCheck is updated.
     /// @param newGasForCallExactCheck The new gas limit for callExactCheck.
