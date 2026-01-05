@@ -28,7 +28,7 @@ const DST_CHAIN_ID = 137;
 
 const VERIFICATION_FEE_BPS = 500;
 
-describe("Hooks", function () {
+describe("HookExecutor Integration", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
   let solver: SignerWithAddress;
@@ -124,8 +124,8 @@ describe("Hooks", function () {
     await mockAaveV3.waitForDeployment();
   });
 
-  describe("Create cross-chain swap request on source chain with permit and hooks embedded in (additional) witness data", function () {
-    it("should make a swap request with valid Aave V3 post hooks and permit additional data", async () => {
+  describe("requestCrossChainSwapPermit2 - with hooks", function () {
+    it("should make a swap request with valid Aave V3 post hooks and permit2 additional data", async () => {
       const amountIn = parseEther("10");
       const amountOut = parseEther("10");
       const solverFee = parseEther("1");
@@ -311,7 +311,7 @@ describe("Hooks", function () {
     });
   });
 
-  describe("Post-Hook execution in relayTokens", function () {
+  describe("relayTokens - post-hook execution", function () {
     it("should relay tokens with Aave V3 post hooks and store a receipt", async () => {
       const amount = parseEther("10");
       const srcChainId = 1;
@@ -894,7 +894,7 @@ describe("Hooks", function () {
     });
   });
 
-  describe("Rebalance solver", function () {
+  describe("rebalanceSolver - hook cleanup after fulfillment", function () {
     it("should rebalance solver and verify hooks are deleted after request fulfilled", async () => {
       // Create token swap request on source chain with hooks
       const amount = parseEther("10");
