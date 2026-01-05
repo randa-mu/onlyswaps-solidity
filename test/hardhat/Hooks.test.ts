@@ -1041,7 +1041,7 @@ describe("HookExecutor Integration", function () {
             "bytes32",
           ],
           [
-            userAddr,
+            userAddr, // swap requester
             await hookExecutor.getAddress(), // recipient is hook executor for hooks execution
             await srcToken.getAddress(),
             await usdfcToken.getAddress(),
@@ -1059,7 +1059,7 @@ describe("HookExecutor Integration", function () {
       const relayTx = await router.connect(solver).relayTokens(
         solverRefundAddr,
         requestId,
-        userAddr,
+        userAddr, // swap requester
         await hookExecutor.getAddress(), // recipient is hook executor
         await srcToken.getAddress(),
         await usdfcToken.getAddress(),
