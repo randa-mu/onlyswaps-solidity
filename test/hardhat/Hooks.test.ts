@@ -14,6 +14,8 @@ import {
   HookExecutor__factory,
   MockAaveV3,
   MockAaveV3__factory,
+  MockFilecoinPay,
+  MockFilecoinPay__factory,
   Permit2,
 } from "../../typechain-types";
 import { EMPTY_HOOKS, extractSingleLog } from "./utils/utils";
@@ -28,37 +30,41 @@ const DST_CHAIN_ID = 137;
 
 const VERIFICATION_FEE_BPS = 500;
 
-describe("Hooks", function () {
+describe("HookExecutor Integration", function () {
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
   let solver: SignerWithAddress;
   let solverRefundWallet: SignerWithAddress;
   let recipient: SignerWithAddress;
+  let operator: SignerWithAddress;
 
   let router: Router;
   let srcToken: ERC20Token;
   let dstToken: ERC20Token;
+  let usdfcToken: ERC20Token;
   let swapBn254SigScheme: BLSBN254SignatureScheme;
   let upgradeBn254SigScheme: BLSBN254SignatureScheme;
   let permit2: Permit2;
   let permit2Relayer: Permit2Relayer;
   let hookExecutor: HookExecutor;
   let mockAaveV3: MockAaveV3;
+  let mockFilecoinPay: MockFilecoinPay;
 
   let privKeyBytes: Uint8Array;
-  let ownerAddr: string, solverAddr: string, solverRefundAddr: string, userAddr: string, recipientAddr: string;
+  let ownerAddr: string, solverAddr: string, solverRefundAddr: string, userAddr: string, recipientAddr: string, operatorAddr: string;
 
   const swapType = "swap-v1";
   const upgradeType = "upgrade-v1";
 
   beforeEach(async () => {
-    [owner, user, solver, solverRefundWallet, recipient] = await ethers.getSigners();
+    [owner, user, solver, solverRefundWallet, recipient, operator] = await ethers.getSigners();
 
     ownerAddr = await owner.getAddress();
     userAddr = await user.getAddress();
     recipientAddr = await recipient.getAddress();
     solverAddr = await solver.getAddress();
     solverRefundAddr = await solverRefundWallet.getAddress();
+    operatorAddr = await operator.getAddress();
 
     // Create random private key and public key
     privKeyBytes = Uint8Array.from(randomBytes(32));
@@ -122,10 +128,18 @@ describe("Hooks", function () {
     // Deploy mock AaveV3 lending pool contract
     mockAaveV3 = await new MockAaveV3__factory(owner).deploy();
     await mockAaveV3.waitForDeployment();
+
+    // Deploy mock USDFC token for FilecoinPay tests
+    usdfcToken = await new ERC20Token__factory(owner).deploy("USDFC", "USDFC", 6);
+    await usdfcToken.waitForDeployment();
+
+    // Deploy mock FilecoinPay contract
+    mockFilecoinPay = await new MockFilecoinPay__factory(owner).deploy();
+    await mockFilecoinPay.waitForDeployment();
   });
 
-  describe("Create cross-chain swap request on source chain with permit and hooks embedded in (additional) witness data", function () {
-    it("should make a swap request with valid Aave V3 post hooks and permit additional data", async () => {
+  describe("requestCrossChainSwapPermit2 - with hooks", function () {
+    it("should make a swap request with valid Aave V3 post hooks and permit2 additional data", async () => {
       const amountIn = parseEther("10");
       const amountOut = parseEther("10");
       const solverFee = parseEther("1");
@@ -311,7 +325,7 @@ describe("Hooks", function () {
     });
   });
 
-  describe("Post-Hook execution in relayTokens", function () {
+  describe("relayTokens - post-hook execution", function () {
     it("should relay tokens with Aave V3 post hooks and store a receipt", async () => {
       const amount = parseEther("10");
       const srcChainId = 1;
@@ -892,9 +906,206 @@ describe("Hooks", function () {
       // Reset hook executor for subsequent tests
       await router.connect(owner).setHookExecutor(await hookExecutor.getAddress());
     });
+
+    /**
+     * FilecoinPay Integration Test
+     * Reference: https://github.com/nijoe1/foc-cross-chain-onboarding/blob/main/tasks/onBoarder/onboardUser.ts
+     *
+     * This test demonstrates the V2 onboarding flow where postHooks call FilecoinPay functions directly:
+     * 1. approve() - Allow FilecoinPay to spend USDFC from our hook executor contract
+     * 2. deposit() - Deposit USDFC to user's FilecoinPay balance
+     * 3. setOperatorApprovalWithSignature() - Approve operator with EIP-712 signature
+     */
+    it("should relay tokens with FilecoinPay post hooks (approve, deposit, setOperatorApprovalWithSignature)", async () => {
+      const amount = parseEther("10");
+      const srcChainId = 1;
+      const dstChainId = 31337;
+      const nonce = 7; // Unique nonce for this test
+
+      // Mint USDFC tokens for solver
+      await usdfcToken.mint(solverAddr, amount);
+      await usdfcToken.connect(solver).approve(await router.getAddress(), amount);
+
+      // Set token mapping for USDFC
+      await router.connect(owner).setTokenMapping(DST_CHAIN_ID, await usdfcToken.getAddress(), await srcToken.getAddress());
+
+      // FilecoinPay operator approval parameters
+      const rateAllowance = MaxUint256;
+      const lockupAllowance = MaxUint256;
+      const maxLockupPeriod = MaxUint256;
+      const deadline = MaxUint256;
+
+      // Get current nonce for recipient from FilecoinPay
+      // The signature must be created with the nonce BEFORE it's incremented by the contract
+      const currentNonce = await mockFilecoinPay.approvalNonces(recipientAddr);
+
+      // Create EIP-712 signature for operator approval
+      // The recipient signs to approve the operator on their behalf
+      const filecoinPayDomain = {
+        name: "FilecoinPay",
+        version: "0.0.1",
+        chainId: dstChainId, // Should be Filecoin Chain ID in production where FilecoinPay is deployed
+        verifyingContract: await mockFilecoinPay.getAddress(),
+      };
+
+      const operatorApprovalTypes = {
+        OperatorApproval: [
+          { name: "token", type: "address" },
+          { name: "operator", type: "address" },
+          { name: "approved", type: "bool" },
+          { name: "rateAllowance", type: "uint256" },
+          { name: "lockupAllowance", type: "uint256" },
+          { name: "maxLockupPeriod", type: "uint256" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      };
+
+      const operatorApprovalMessage = {
+        token: await usdfcToken.getAddress(),
+        operator: operatorAddr,
+        approved: true,
+        rateAllowance: rateAllowance,
+        lockupAllowance: lockupAllowance,
+        maxLockupPeriod: maxLockupPeriod,
+        nonce: currentNonce,
+        deadline: deadline,
+      };
+
+      // Recipient signs the operator approval
+      const signature = await recipient.signTypedData(filecoinPayDomain, operatorApprovalTypes, operatorApprovalMessage);
+      const { v, r, s } = ethers.Signature.from(signature);
+
+      // Create post hooks for FilecoinPay integration:
+      // Hook 1: Approve FilecoinPay to spend USDFC from hook executor
+      // Hook 2: Deposit USDFC to recipient's FilecoinPay balance
+      // Hook 3: Set operator approval with signature
+      const postHooks = [
+        {
+          target: await usdfcToken.getAddress(),
+          callData: usdfcToken.interface.encodeFunctionData("approve", [await mockFilecoinPay.getAddress(), amount]),
+          gasLimit: 100000,
+        },
+        {
+          target: await mockFilecoinPay.getAddress(),
+          callData: mockFilecoinPay.interface.encodeFunctionData("deposit", [
+            await usdfcToken.getAddress(),
+            recipientAddr, // to - the user's address on Filecoin who will be credited
+            amount,
+          ]),
+          gasLimit: 200000,
+        },
+        {
+          target: await mockFilecoinPay.getAddress(),
+          callData: mockFilecoinPay.interface.encodeFunctionData("setOperatorApprovalWithSignature", [
+            await usdfcToken.getAddress(), // token
+            recipientAddr, // client - the user being credited
+            operatorAddr, // operator - storage service operator
+            true, // approved
+            rateAllowance,
+            lockupAllowance,
+            maxLockupPeriod,
+            deadline,
+            v,
+            r,
+            s,
+          ]),
+          gasLimit: 300000,
+        },
+      ];
+
+      // Convert hooks to arrays for encoding
+      const postHooksForEncoding = postHooks.map((hook) => [hook.target, hook.callData, hook.gasLimit]);
+      const preHooksForEncoding = EMPTY_HOOKS.preHooks;
+
+      // Pre-compute valid requestId
+      const abiCoder = new AbiCoder();
+      const preHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [preHooksForEncoding]),
+      );
+      const postHooksHash = keccak256(
+        AbiCoder.defaultAbiCoder().encode(["tuple(address,bytes,uint256)[]"], [postHooksForEncoding]),
+      );
+      const requestId: string = keccak256(
+        abiCoder.encode(
+          [
+            "address",
+            "address",
+            "address",
+            "address",
+            "uint256",
+            "uint256",
+            "uint256",
+            "uint256",
+            "bytes32",
+            "bytes32",
+          ],
+          [
+            userAddr, // swap requester
+            await hookExecutor.getAddress(), // recipient is hook executor for hooks execution
+            await srcToken.getAddress(),
+            await usdfcToken.getAddress(),
+            amount,
+            srcChainId,
+            dstChainId,
+            nonce,
+            preHooksHash,
+            postHooksHash,
+          ],
+        ),
+      );
+
+      // Relay tokens with FilecoinPay post hooks
+      const relayTx = await router.connect(solver).relayTokens(
+        solverRefundAddr,
+        requestId,
+        userAddr, // swap requester
+        await hookExecutor.getAddress(), // recipient is hook executor
+        await srcToken.getAddress(),
+        await usdfcToken.getAddress(),
+        amount,
+        srcChainId,
+        nonce,
+        EMPTY_HOOKS.preHooks,
+        postHooks,
+      );
+
+      // Verify events emitted
+      await expect(relayTx).to.emit(router, "SwapRequestFulfilled");
+      await expect(relayTx).to.emit(usdfcToken, "Approval"); // Token approval to FilecoinPay
+
+      // Verify FilecoinPay received the tokens
+      expect(await usdfcToken.balanceOf(await mockFilecoinPay.getAddress())).to.equal(amount);
+
+      // Verify recipient's FilecoinPay account was credited
+      const [funds, , , ] = await mockFilecoinPay.accounts(await usdfcToken.getAddress(), recipientAddr);
+      expect(funds).to.equal(amount);
+
+      // Verify operator approval was set
+      const [isApproved, storedRateAllowance, storedLockupAllowance, , , storedMaxLockupPeriod] =
+        await mockFilecoinPay.operatorApprovals(await usdfcToken.getAddress(), recipientAddr, operatorAddr);
+      expect(isApproved).to.be.true;
+      expect(storedRateAllowance).to.equal(rateAllowance);
+      expect(storedLockupAllowance).to.equal(lockupAllowance);
+      expect(storedMaxLockupPeriod).to.equal(maxLockupPeriod);
+
+      // Verify nonce was incremented
+      const newNonce = await mockFilecoinPay.approvalNonces(recipientAddr);
+      expect(newNonce).to.equal(currentNonce + 1n);
+
+      // Verify swap request receipt
+      const swapRequestReceipt = await router.getSwapRequestReceipt(requestId);
+      const [, , , , , fulfilled, solverFromReceipt, , amountOut] = swapRequestReceipt;
+
+      expect(fulfilled).to.be.true;
+      expect(amountOut).to.equal(amount);
+      expect(solverFromReceipt).to.equal(solverRefundAddr);
+
+      expect((await router.getFulfilledTransfers()).includes(requestId)).to.be.equal(true);
+    });
   });
 
-  describe("Rebalance solver", function () {
+  describe("rebalanceSolver - hook cleanup after fulfillment", function () {
     it("should rebalance solver and verify hooks are deleted after request fulfilled", async () => {
       // Create token swap request on source chain with hooks
       const amount = parseEther("10");
